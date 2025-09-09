@@ -1,11 +1,31 @@
 * text=auto eol=lf
 
+# Archivos de texto (normalizados a LF)
+*.php text
 *.blade.php diff=html
 *.css diff=css
+*.js text
+*.json text
+*.md text
+*.yml text
+*.yaml text
 *.html diff=html
-*.md diff=markdown
-*.php diff=php
 
+# Archivos binarios
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+
+# Archivos que no se exportan en releases
 /.github export-ignore
 CHANGELOG.md export-ignore
 .styleci.yml export-ignore
+
+
