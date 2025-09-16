@@ -2,10 +2,16 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Resources\PermissionResource;
+use App\Filament\Resources\RoleResource;
+use App\Filament\Resources\UserResource;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\NavigationBuilder;
+use Filament\Navigation\NavigationGroup;
+use Filament\Navigation\NavigationItem;
 use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
@@ -16,6 +22,7 @@ use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class AdminPanelProvider extends PanelProvider
@@ -27,22 +34,50 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->login(\App\Filament\Admin\Pages\Auth\AdminLogin::class) // 👈 usar login custom
-            ->brandName('Kinesiosoft • Admin') // 👈 nombre distinto
+            ->login(\App\Filament\Admin\Pages\Auth\AdminLogin::class)
+            ->brandName('Kinesiosoft • Admin')
             ->favicon(asset('favicon-administrador.ico'))
             ->colors([
-                'primary' => Color::Emerald, // 👈 color distinto al de Paciente
+                'primary' => Color::Emerald,
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
+            ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->pages([
                 Pages\Dashboard::class,
             ])
-            ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
                 Widgets\AccountWidget::class,
-                Widgets\FilamentInfoWidget::class,
+                // Widgets\FilamentInfoWidget::class, // si no lo querés, dejalo comentado
             ])
+
+            // 👇 Menú agrupado "Usuarios" con 3 subitems
+            ->navigation(function (NavigationBuilder $builder): NavigationBuilder {
+                $isAdmin = (bool) (Auth::user() && method_exists(Auth::user(), 'hasRole') && Auth::user()->hasRole('Administrador'));
+
+                return $builder->groups([
+                    NavigationGroup::make('Usuarios')->items([
+                        NavigationItem::make('Usuarios')
+                            ->icon('heroicon-o-user')
+                            ->url(UserResource::getUrl('index'))   // 👈 link al index del resource
+                            ->sort(1)
+                            ->visible(fn() => $isAdmin),
+
+                        NavigationItem::make('Roles')
+                            ->icon('heroicon-o-lock-closed')
+                            ->url(RoleResource::getUrl('index'))
+                            ->sort(2)
+                            ->visible(fn() => $isAdmin),
+
+                        NavigationItem::make('Permisos')
+                            ->icon('heroicon-o-key')
+                            ->url(PermissionResource::getUrl('index'))
+                            ->sort(3)
+                            ->visible(fn() => $isAdmin),
+                    ]),
+                ]);
+            })
+
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
@@ -53,8 +88,6 @@ class AdminPanelProvider extends PanelProvider
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
-
-                // ⬇️ SOLO admins pueden acceder al panel
                 \App\Http\Middleware\RedirectNonAdminsFromAdminPanel::class,
             ])
             ->authMiddleware([

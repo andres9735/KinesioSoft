@@ -42,15 +42,19 @@ class EditUser extends EditRecord
      */
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        /** @var User $record */
-        $record = $this->record;
+        // Limpieza por roles (seguridad backend)
+        $data = \App\Filament\Resources\UserResource::sanitizeProfileData($data);
 
-        if ($this->isAdmin() && Auth::id() === $record->id) {
-            unset($data['email'], $data['roles']);
+        // Si manejás password en el form, hashea sólo si se envía algo
+        if (!empty($data['password'])) {
+            $data['password'] = bcrypt($data['password']);
+        } else {
+            unset($data['password']);
         }
 
         return $data;
     }
+
 
     /**
      * Adónde volver después de guardar

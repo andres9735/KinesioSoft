@@ -24,12 +24,17 @@ class CreateUser extends CreateRecord
      */
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        if (! $this->isAdmin()) {
-            unset($data['roles']);
+        // Limpieza por roles (seguridad backend)
+        $data = \App\Filament\Resources\UserResource::sanitizeProfileData($data);
+
+        // Si manejás password en el form, hashea si está presente
+        if (!empty($data['password'])) {
+            $data['password'] = bcrypt($data['password']);
         }
 
         return $data;
     }
+
 
     /**
      * Si no se enviaron roles, intento setear "Paciente" como default (si existe).

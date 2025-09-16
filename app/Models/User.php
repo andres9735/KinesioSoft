@@ -21,7 +21,17 @@ class User extends Authenticatable
 {
     use HasFactory, Notifiable, HasRoles;
 
-    protected $fillable = ['name', 'email', 'password'];
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+        'phone',
+        'dni',
+        'address',
+        'specialty',
+        'is_active',
+        'last_login_at',
+    ];
 
     protected $hidden = ['password', 'remember_token'];
 
@@ -29,7 +39,9 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'password' => 'hashed',
+            'password'          => 'hashed',
+            'last_login_at'     => 'datetime',
+            'is_active'         => 'boolean',
         ];
     }
 
