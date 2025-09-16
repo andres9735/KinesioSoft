@@ -1,7 +1,10 @@
+# ============================================
 # Laravel / PHP
+# ============================================
 /vendor/
 /node_modules/
 /bootstrap/cache/*.php
+
 /storage/*.key
 /storage/app/*
 !/storage/app/.gitignore
@@ -18,23 +21,31 @@
 /storage/logs/*
 !/storage/logs/.gitignore
 
+# ============================================
 # Builds frontend
+# ============================================
 /public/build/
 /public/hot
 /public/mix-manifest.json
 
+# ============================================
 # Archivos sensibles
+# ============================================
 .env
 .env.*
 !.env.example
 /auth.json
 
+# ============================================
 # Tests y cache
+# ============================================
 .phpunit.result.cache
 .phpunit.cache
 coverage/
 
+# ============================================
 # Editores / SO
+# ============================================
 /.idea/
 /.vscode/
 /.fleet/
@@ -44,3 +55,13 @@ coverage/
 Thumbs.db
 Homestead.json
 Homestead.yaml
+
+# ============================================
+# Backups y dumps locales
+# ============================================
+/backups/
+/*.sql
+*.sql.zip
+.env_*
+uploads_*.zip
+
