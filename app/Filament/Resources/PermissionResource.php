@@ -8,7 +8,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
-use Spatie\Permission\Models\Permission;
+use App\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
 
 class PermissionResource extends Resource

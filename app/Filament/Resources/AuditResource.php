@@ -189,36 +189,72 @@ class AuditResource extends Resource
                             Forms\Components\Fieldset::make('Objeto')
                                 ->schema([
                                     Forms\Components\TextInput::make('modelo')
-                                        ->label('Modelo')->disabled()
-                                        ->default(class_basename($record->auditable_type)),
+                                        ->label('Modelo')
+                                        ->disabled()
+                                        ->dehydrated(false)
+                                        ->afterStateHydrated(function ($component) use ($record) {
+                                            $component->state(class_basename($record->auditable_type));
+                                        }),
+
                                     Forms\Components\TextInput::make('id')
-                                        ->label('ID')->disabled()
-                                        ->default($record->auditable_id),
+                                        ->label('ID')
+                                        ->disabled()
+                                        ->dehydrated(false)
+                                        ->afterStateHydrated(function ($component) use ($record) {
+                                            $component->state($record->auditable_id);
+                                        }),
+
                                     Forms\Components\TextInput::make('evento')
-                                        ->label('Evento')->disabled()
-                                        ->default($record->event),
+                                        ->label('Evento')
+                                        ->disabled()
+                                        ->dehydrated(false)
+                                        ->afterStateHydrated(function ($component) use ($record) {
+                                            $map = [
+                                                'created' => 'Creación',
+                                                'updated' => 'Actualización',
+                                                'deleted' => 'Eliminación',
+                                            ];
+                                            $component->state($map[$record->event] ?? $record->event);
+                                        }),
+
                                     Forms\Components\TextInput::make('usuario')
-                                        ->label('Usuario')->disabled()
-                                        ->default($record->user?->name ?? '—'),
+                                        ->label('Usuario')
+                                        ->disabled()
+                                        ->dehydrated(false)
+                                        ->afterStateHydrated(function ($component) use ($record) {
+                                            $component->state($record->user?->name ?? '—');
+                                        }),
+
                                     Forms\Components\TextInput::make('fecha')
-                                        ->label('Fecha')->disabled()
-                                        ->default($record->created_at?->format('d/m/Y H:i')),
+                                        ->label('Fecha')
+                                        ->disabled()
+                                        ->dehydrated(false)
+                                        ->afterStateHydrated(function ($component) use ($record) {
+                                            $component->state(optional($record->created_at)->format('d/m/Y H:i'));
+                                        }),
                                 ])->columns(5),
 
                             Forms\Components\Textarea::make('old')
                                 ->label('Valores anteriores')
                                 ->rows(10)
                                 ->disabled()
-                                ->default(json_encode($record->old_values ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)),
+                                ->dehydrated(false)
+                                ->afterStateHydrated(function ($component) use ($record) {
+                                    $component->state(json_encode($record->old_values ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+                                }),
 
                             Forms\Components\Textarea::make('new')
                                 ->label('Valores nuevos')
                                 ->rows(10)
                                 ->disabled()
-                                ->default(json_encode($record->new_values ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)),
+                                ->dehydrated(false)
+                                ->afterStateHydrated(function ($component) use ($record) {
+                                    $component->state(json_encode($record->new_values ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+                                }),
                         ];
                     }),
             ])
+
             ->bulkActions([])
             ->defaultSort('created_at', 'desc');
     }

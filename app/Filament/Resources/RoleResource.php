@@ -10,8 +10,8 @@ use Filament\Tables\Table;
 use Filament\Notifications\Notification;
 use Filament\Forms\Components\Actions\Action;
 use Illuminate\Support\Facades\Auth;
-use Spatie\Permission\Models\Role;
-use Spatie\Permission\Models\Permission;
+use App\Models\Role;
+use App\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
 
 class RoleResource extends Resource
