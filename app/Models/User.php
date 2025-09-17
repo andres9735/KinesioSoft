@@ -7,19 +7,18 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Spatie\Permission\Traits\HasRoles;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
 
-/**
- * @property-read \Illuminate\Database\Eloquent\Collection<\Spatie\Permission\Models\Role> $roles
- * @method bool hasRole(string|array $roles, string|null $guard = null)
- * @method bool hasAnyRole(string|array $roles)
- * @method bool hasAllRoles(string|array $roles)
- */
+// 👇 Auditing
+use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
+use OwenIt\Auditing\Auditable;
 
-
-class User extends Authenticatable
+class User extends Authenticatable implements AuditableContract
 {
     use HasFactory, Notifiable, HasRoles;
+    use Auditable; // 👈 habilita auditoría para User
+
+    /** (opcional) No auditar estos campos en los diffs */
+    protected array $auditExclude = ['password', 'remember_token'];
 
     protected $fillable = [
         'name',

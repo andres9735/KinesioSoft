@@ -5,6 +5,7 @@ namespace App\Providers\Filament;
 use App\Filament\Resources\PermissionResource;
 use App\Filament\Resources\RoleResource;
 use App\Filament\Resources\UserResource;
+use App\Filament\Resources\AuditResource;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -59,7 +60,7 @@ class AdminPanelProvider extends PanelProvider
                     NavigationGroup::make('Usuarios')->items([
                         NavigationItem::make('Usuarios')
                             ->icon('heroicon-o-user')
-                            ->url(UserResource::getUrl('index'))   // 👈 link al index del resource
+                            ->url(UserResource::getUrl('index'))
                             ->sort(1)
                             ->visible(fn() => $isAdmin),
 
@@ -73,6 +74,13 @@ class AdminPanelProvider extends PanelProvider
                             ->icon('heroicon-o-key')
                             ->url(PermissionResource::getUrl('index'))
                             ->sort(3)
+                            ->visible(fn() => $isAdmin),
+
+                        // 👇 NUEVO: Auditoría
+                        NavigationItem::make('Auditoría')
+                            ->icon('heroicon-o-clipboard-document-list')
+                            ->url(AuditResource::getUrl('index'))
+                            ->sort(4)
                             ->visible(fn() => $isAdmin),
                     ]),
                 ]);

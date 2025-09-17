@@ -1,4 +1,3 @@
-
 param(
   # Qué incluir (ambos true por defecto)
   [switch]$IncludeDB = $true,
@@ -51,8 +50,8 @@ if ([string]::IsNullOrWhiteSpace($Tag)) {
   $STAMP = $Tag
 }
 
-Write-Host "📦 Carpeta de backups: $backups"
-Write-Host "🏷️  Sello de backup:   $STAMP"
+Write-Host "Carpeta de backups: $backups"
+Write-Host "Sello de backup:   $STAMP"
 Write-Host ""
 
 # ---------- Backup de .env + uploads ----------
@@ -62,9 +61,9 @@ if ($IncludeFiles) {
   if (Test-Path $envSrc) {
     $envDst = Join-Path $backups (".env_{0}" -f $STAMP)
     Copy-Item $envSrc $envDst -Force
-    Write-Host "✅ .env guardado en: $envDst"
+    Write-Host ".env guardado en: $envDst"
   } else {
-    Write-Host "⚠️  No se encontró .env (omitido)."
+    Write-Host "No se encontró .env (omitido)."
   }
 
   # uploads
@@ -72,9 +71,9 @@ if ($IncludeFiles) {
   if (Test-Path $uploadsSrc) {
     $uploadsZip = Join-Path $backups ("uploads_{0}.zip" -f $STAMP)
     Compress-Archive -Path (Join-Path $uploadsSrc "*") -DestinationPath $uploadsZip -Force
-    Write-Host "✅ Uploads comprimidos en: $uploadsZip"
+    Write-Host "Uploads comprimidos en: $uploadsZip"
   } else {
-    Write-Host "⚠️  No se encontró storage\app\public (omitido)."
+    Write-Host "No se encontró storage\app\public (omitido)."
   }
   Write-Host ""
 }
@@ -83,13 +82,16 @@ if ($IncludeFiles) {
 if ($IncludeDB) {
   $mysqldump = Resolve-MysqldumpExe $MysqldumpPath
   if (-not $mysqldump) {
-    Write-Host "❌ No se encontró 'mysqldump'. Indicá -MysqldumpPath o agregalo al PATH."
+    Write-Host "ERROR: No se encontró 'mysqldump'. Indicá -MysqldumpPath o agregalo al PATH."
   } else {
     $sqlName = "{0}_{1}.sql" -f $DbName, $STAMP
     $sqlPath = Join-Path $backups $sqlName
 
     $pwdArg = ""
     if ($DbPass -ne "") { $pwdArg = "-p$DbPass" } # sin espacio
+
+    $ver = & "$mysqldump" --version
+    $isMaria = ($ver -match "MariaDB")
 
     $args = @(
       "-h", $DbHost,
@@ -103,24 +105,32 @@ if ($IncludeDB) {
       "--routines",
       "--events",
       "--add-drop-table",
-      "--default-character-set=utf8mb4",
-      "--set-gtid-purged=OFF"
+      "--default-character-set=utf8mb4"
     )
 
-    Write-Host "🔄 Generando dump de BD '$DbName'..."
+    if ($isMaria) {
+      $args += "--no-tablespaces"
+    } else {
+      $args += "--set-gtid-purged=OFF"
+    }
+
+    # Limpia argumentos vacíos (por si $pwdArg == "")
+    $args = $args | Where-Object { $_ -ne "" }
+
+    Write-Host "Generando dump de BD '$DbName'..."
     & "$mysqldump" @args
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path $sqlPath)) {
-      Write-Host "❌ Falló mysqldump (código $LASTEXITCODE). Verificá credenciales o permisos."
+      Write-Host "ERROR: Falló mysqldump (código $LASTEXITCODE). Verificá credenciales o permisos."
     } else {
-      Write-Host "✅ Dump creado: $sqlPath"
+      Write-Host "Dump creado: $sqlPath"
       if ($Zip) {
         $zipPath = [IO.Path]::ChangeExtension($sqlPath, ".zip")
         Compress-Archive -Path $sqlPath -DestinationPath $zipPath -Force
         if (Test-Path $zipPath) {
           Remove-Item $sqlPath -Force
-          Write-Host "🗜️  Comprimido: $zipPath"
+          Write-Host "Comprimido: $zipPath"
         } else {
-          Write-Host "⚠️  No se pudo comprimir; se deja el .sql."
+          Write-Host "No se pudo comprimir; se deja el .sql."
         }
       }
     }
@@ -128,6 +138,6 @@ if ($IncludeDB) {
 }
 
 Write-Host ""
-Write-Host "🎉 Full backup finalizado."
-Write-Host "📁 Archivos en $backups:"
+Write-Host "Full backup finalizado."
+Write-Host ("Archivos en {0}:" -f $backups)
 Get-ChildItem $backups | Sort-Object LastWriteTime -Descending | Select-Object LastWriteTime, Name | Format-Table -AutoSize
