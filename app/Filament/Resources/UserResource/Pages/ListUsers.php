@@ -2,18 +2,25 @@
 
 namespace App\Filament\Resources\UserResource\Pages;
 
-use App\Filament\Resources\UserResource;
 use App\Models\User;
 use Filament\Actions;
 use Filament\Forms;
 use Filament\Notifications\Notification;
+use App\Filament\Resources\UserResource;
 use Filament\Resources\Pages\ListRecords;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 
 class ListUsers extends ListRecords
 {
     protected static string $resource = UserResource::class;
+
+    protected function getTableQuery(): Builder
+    {
+        return static::getResource()::getEloquentQuery()
+            ->with('roles'); // eager-load
+    }
 
     protected function getHeaderActions(): array
     {
