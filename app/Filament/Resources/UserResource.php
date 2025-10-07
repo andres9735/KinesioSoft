@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Resources\Concerns\ChecksAdmin;
 use App\Filament\Resources\UserResource\Pages;
 use App\Models\User;
 use Filament\Forms;
@@ -17,10 +18,12 @@ use Spatie\Permission\Models\Role as SpatieRole;
 
 class UserResource extends Resource
 {
+    use ChecksAdmin;
+
     protected static ?string $model = User::class;
 
     protected static ?string $navigationIcon   = 'heroicon-o-user';
-    protected static ?string $navigationGroup  = 'Usuarios y Acceso';
+    protected static ?string $navigationGroup  = 'Usuarios';
     protected static ?string $navigationLabel  = 'Usuarios';
     protected static ?string $modelLabel       = 'usuario';
     protected static ?string $pluralModelLabel = 'usuarios';
@@ -30,7 +33,6 @@ class UserResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            // ✅ Solo columnas necesarias para la tabla (reduce payload Livewire)
             ->select([
                 'id',
                 'name',
@@ -44,56 +46,26 @@ class UserResource extends Resource
                 'created_at',
                 'updated_at',
             ])
-            // ✅ Evita N+1: pre-carga roles con solo lo que se usa
             ->with(['roles:id,name'])
-            // ✅ Si vas a mostrar conteos/badges, ya viene precalculado
             ->withCount('roles');
     }
 
-    /** @return bool */
-    protected static function isAdmin(): bool
-    {
-        /** @var \App\Models\User|null $u */
-        $u = Auth::user();
-        return $u?->hasRole('Administrador') ?? false;
-    }
-
-    public static function shouldRegisterNavigation(): bool
-    {
-        return self::isAdmin();
-    }
-    public static function canViewAny(): bool
-    {
-        return self::isAdmin();
-    }
-    public static function canCreate(): bool
-    {
-        return self::isAdmin();
-    }
-    public static function canEdit($record): bool
-    {
-        return self::isAdmin();
-    }
-
+    /** ---------- Reglas especiales ---------- */
     public static function canDelete($record): bool
     {
         if ($record instanceof User && $record->hasRole('Administrador')) {
             return false;
         }
-        return self::isAdmin();
-    }
-
-    public static function canDeleteAny(): bool
-    {
-        return self::isAdmin();
+        // usa la verificación centralizada del trait
+        return static::isAdmin();
     }
 
     public static function getGloballySearchableAttributes(): array
     {
-        // ✅ Dejá solo indexadas (añadí índices en BD para name/email)
         return ['name', 'email'];
     }
 
+    /** ---------- Form ---------- */
     public static function form(Form $form): Form
     {
         return $form->schema([
@@ -192,10 +164,10 @@ class UserResource extends Resource
         ]);
     }
 
+    /** ---------- Table ---------- */
     public static function table(Table $table): Table
     {
         return $table
-            // (Opcional extra) filtros globales: si querés aún más control, podés usar ->modifyQueryUsing aquí.
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->label('Nombre')
@@ -211,7 +183,6 @@ class UserResource extends Resource
                     ->label('Teléfono')
                     ->toggleable(isToggledHiddenByDefault: true),
 
-                // ✅ Renderiza roles desde la relación ya eager-loaded (sin N+1)
                 Tables\Columns\TextColumn::make('roles_list')
                     ->label('Roles')
                     ->state(fn(User $record) => $record->roles->pluck('name')->join(', '))
@@ -265,9 +236,7 @@ class UserResource extends Resource
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ])
-            // ✅ Orden por columna indexada
             ->defaultSort('created_at', 'desc')
-            // ✅ Paginación razonable (reduce payload Livewire)
             ->paginated([10, 25, 50])
             ->defaultPaginationPageOption(25);
     }
@@ -285,6 +254,8 @@ class UserResource extends Resource
             'edit'   => Pages\EditUser::route('/{record}/edit'),
         ];
     }
+
+    /** ---------- Helpers internos ---------- */
 
     protected static function hasAnyRoleSelected(Get $get, ?User $record, array $roles): bool
     {

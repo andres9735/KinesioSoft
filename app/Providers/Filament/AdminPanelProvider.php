@@ -2,28 +2,21 @@
 
 namespace App\Providers\Filament;
 
-use App\Filament\Resources\PermissionResource;
-use App\Filament\Resources\RoleResource;
-use App\Filament\Resources\UserResource;
-use App\Filament\Resources\AuditResource;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Filament\Navigation\NavigationBuilder;
-use Filament\Navigation\NavigationGroup;
-use Filament\Navigation\NavigationItem;
 use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\Widgets;
+use Filament\Navigation\NavigationGroup;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class AdminPanelProvider extends PanelProvider
@@ -35,6 +28,7 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
+            ->authGuard('web')
             ->login(\App\Filament\Admin\Pages\Auth\AdminLogin::class)
             ->brandName('Kinesiosoft • Admin')
             ->favicon(asset('favicon-administrador.ico'))
@@ -49,42 +43,17 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->widgets([
                 Widgets\AccountWidget::class,
-                // Widgets\FilamentInfoWidget::class, // si no lo querés, dejalo comentado
             ])
 
-            // 👇 Menú agrupado "Usuarios" con 3 subitems
-            ->navigation(function (NavigationBuilder $builder): NavigationBuilder {
-                $isAdmin = (bool) (Auth::user() && method_exists(Auth::user(), 'hasRole') && Auth::user()->hasRole('Administrador'));
+            // 👉 Todos los grupos arrancan colapsados
+            // ✅ Declaramos grupos (sin iconos en el grupo, todos colapsados)
+            ->navigationGroups([
+                NavigationGroup::make('Usuarios')->collapsed(true),
 
-                return $builder->groups([
-                    NavigationGroup::make('Usuarios')->items([
-                        NavigationItem::make('Usuarios')
-                            ->icon('heroicon-o-user')
-                            ->url(UserResource::getUrl('index'))
-                            ->sort(1)
-                            ->visible(fn() => $isAdmin),
+                NavigationGroup::make('Auditoría')->collapsed(true),
 
-                        NavigationItem::make('Roles')
-                            ->icon('heroicon-o-lock-closed')
-                            ->url(RoleResource::getUrl('index'))
-                            ->sort(2)
-                            ->visible(fn() => $isAdmin),
-
-                        NavigationItem::make('Permisos')
-                            ->icon('heroicon-o-key')
-                            ->url(PermissionResource::getUrl('index'))
-                            ->sort(3)
-                            ->visible(fn() => $isAdmin),
-
-                        // 👇 NUEVO: Auditoría
-                        NavigationItem::make('Auditoría')
-                            ->icon('heroicon-o-clipboard-document-list')
-                            ->url(AuditResource::getUrl('index'))
-                            ->sort(4)
-                            ->visible(fn() => $isAdmin),
-                    ]),
-                ]);
-            })
+                NavigationGroup::make('Catálogos clínicos')->collapsed(true),
+            ])
 
             ->middleware([
                 EncryptCookies::class,

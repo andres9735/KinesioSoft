@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Resources\Concerns\ChecksAdmin;
 use App\Models\Permission;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -9,63 +10,29 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rules\Unique;
 use Spatie\Permission\PermissionRegistrar;
 
 class PermissionResource extends Resource
 {
+    use ChecksAdmin;
+
     protected static ?string $model = Permission::class;
 
     protected static ?string $navigationIcon  = 'heroicon-o-key';
-    protected static ?string $navigationGroup = 'Usuarios y Acceso';
+    protected static ?string $navigationGroup = 'Usuarios';
     protected static ?string $navigationLabel = 'Permisos';
     protected static ?string $modelLabel       = 'permiso';
     protected static ?string $pluralModelLabel = 'permisos';
     protected static ?int    $navigationSort   = 3;
 
-    /** ---------- PERF: query base del resource ---------- */
+    /** ---------- Query base optimizada ---------- */
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            // ✅ Solo columnas necesarias
             ->select(['id', 'name', 'guard_name', 'created_at'])
-            // ✅ Pre-carga para listar roles sin N+1
             ->with(['roles:id,name'])
-            // ✅ Para badge/ordenar por cantidad
             ->withCount('roles');
-    }
-
-    /** ---------- Seguridad: solo Admin ---------- */
-    protected static function userIsAdmin(): bool
-    {
-        /** @var \App\Models\User|null $u */
-        $u = Auth::user();
-        return $u && method_exists($u, 'hasRole') ? $u->hasRole('Administrador') : false;
-    }
-
-    public static function shouldRegisterNavigation(): bool
-    {
-        return self::userIsAdmin();
-    }
-    public static function canViewAny(): bool
-    {
-        return self::userIsAdmin();
-    }
-    public static function canCreate(): bool
-    {
-        return self::userIsAdmin();
-    }
-    public static function canEdit($record): bool
-    {
-        return self::userIsAdmin();
-    }
-    public static function canDelete($record): bool
-    {
-        return self::userIsAdmin();
-    }
-    public static function canDeleteAny(): bool
-    {
-        return self::userIsAdmin();
     }
 
     /** ---------- Form ---------- */
@@ -76,14 +43,18 @@ class PermissionResource extends Resource
                 Forms\Components\TextInput::make('name')
                     ->label('Nombre del permiso')
                     ->required()
-                    ->unique(ignoreRecord: true),
+                    ->maxLength(255)
+                    ->unique(
+                        ignoreRecord: true,
+                        modifyRuleUsing: fn(Unique $rule) => $rule->where('guard_name', 'web')
+                    ),
 
                 Forms\Components\Hidden::make('guard_name')->default('web'),
             ])->columns(2),
         ]);
     }
 
-    /** ---------- Table ---------- */
+    /** ---------- Tabla ---------- */
     public static function table(Table $table): Table
     {
         return $table
@@ -97,14 +68,12 @@ class PermissionResource extends Resource
                     ->label('Guard')
                     ->toggleable(isToggledHiddenByDefault: true),
 
-                // ✅ Usa withCount (rápido) y permite ordenar por cantidad
                 Tables\Columns\TextColumn::make('roles_count')
                     ->counts('roles')
                     ->label('Usado por roles')
                     ->badge()
                     ->sortable(),
 
-                // ✅ Lista de roles (precargados) – sin sortable para evitar joins caros
                 Tables\Columns\TextColumn::make('roles_list')
                     ->label('Lista de roles')
                     ->state(fn(Permission $record) => $record->roles->pluck('name')->join(', '))
@@ -135,15 +104,35 @@ class PermissionResource extends Resource
 
                 Tables\Actions\DeleteAction::make()
                     ->requiresConfirmation()
+                    ->before(function (Permission $record, Tables\Actions\DeleteAction $action) {
+                        // Bloquea la eliminación si el permiso está usado por algún rol
+                        if ($record->roles()->exists()) {
+                            $action->failure();
+                            \Filament\Notifications\Notification::make()
+                                ->title('No se puede eliminar: el permiso está asignado a roles.')
+                                ->danger()
+                                ->send();
+                        }
+                    })
                     ->after(fn() => app(PermissionRegistrar::class)->forgetCachedPermissions()),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()
+                        ->before(function (Tables\Actions\DeleteBulkAction $action, $records) {
+                            // Si alguno de los permisos está asignado, abortamos
+                            $inUse = $records->first(fn($perm) => $perm->roles()->exists());
+                            if ($inUse) {
+                                $action->failure();
+                                \Filament\Notifications\Notification::make()
+                                    ->title('Hay permisos asignados a roles. No se pueden eliminar en bloque.')
+                                    ->danger()
+                                    ->send();
+                            }
+                        })
                         ->after(fn() => app(PermissionRegistrar::class)->forgetCachedPermissions()),
                 ]),
             ])
-            // ✅ Índice + paginación razonable
             ->defaultSort('created_at', 'desc')
             ->paginated([10, 25, 50])
             ->defaultPaginationPageOption(25);

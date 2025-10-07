@@ -2,78 +2,52 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Resources\Concerns\ChecksAdmin;
+use App\Models\Permission;
+use App\Models\Role;
 use Filament\Forms;
+use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Filament\Notifications\Notification;
-use Filament\Forms\Components\Actions\Action;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Auth;
-use App\Models\Role;
-use App\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
 
 class RoleResource extends Resource
 {
+    use ChecksAdmin;
+
     protected static ?string $model = Role::class;
 
     protected static ?string $navigationIcon  = 'heroicon-o-lock-closed';
-    protected static ?string $navigationGroup = 'Usuarios y Acceso';
+    protected static ?string $navigationGroup = 'Usuarios';
     protected static ?string $navigationLabel = 'Roles';
     protected static ?string $modelLabel       = 'rol';
     protected static ?string $pluralModelLabel = 'roles';
     protected static ?int    $navigationSort   = 2;
 
-    /** ---------- PERF: query base del resource ---------- */
+    /** ---------- Query base optimizada ---------- */
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            // ✅ Solo columnas necesarias
             ->select(['id', 'name', 'guard_name', 'created_at'])
-            // ✅ Pre-carga para evitar N+1 y habilitar lista sin consultas extra
             ->with(['permissions:id,name'])
-            // ✅ Para badge y ordenar por cantidad sin subconsultas por fila
             ->withCount('permissions');
     }
 
-    protected static function userIsAdmin(): bool
-    {
-        /** @var \App\Models\User|null $u */
-        $u = Auth::user();
-        return $u && method_exists($u, 'hasRole') ? $u->hasRole('Administrador') : false;
-    }
-
-    public static function shouldRegisterNavigation(): bool
-    {
-        return self::userIsAdmin();
-    }
-    public static function canViewAny(): bool
-    {
-        return self::userIsAdmin();
-    }
-    public static function canCreate(): bool
-    {
-        return self::userIsAdmin();
-    }
-    public static function canEdit($record): bool
-    {
-        return self::userIsAdmin();
-    }
-
+    /** ---------- Reglas adicionales ---------- */
     public static function canDelete($record): bool
     {
         if ($record instanceof Role && $record->name === 'Administrador') {
-            return false;
+            return false; // Nunca eliminar el rol Administrador
         }
-        return self::userIsAdmin();
-    }
-    public static function canDeleteAny(): bool
-    {
-        return self::userIsAdmin();
+
+        return static::isAdmin();
     }
 
+    /** ---------- Formulario ---------- */
     public static function form(Form $form): Form
     {
         return $form->schema([
@@ -94,8 +68,7 @@ class RoleResource extends Resource
                     ->multiple()
                     ->preload()
                     ->searchable()
-                    ->visible(fn(): bool => self::userIsAdmin())
-                    // Crear permisos al vuelo
+                    ->visible(fn(): bool => static::isAdmin())
                     ->createOptionForm([
                         Forms\Components\TextInput::make('name')
                             ->label('Nombre del permiso')
@@ -109,7 +82,6 @@ class RoleResource extends Resource
                             'guard_name' => 'web',
                         ]);
 
-                        // Flush cache de spatie
                         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
                         return $permission->getKey();
@@ -123,6 +95,7 @@ class RoleResource extends Resource
         ]);
     }
 
+    /** ---------- Tabla ---------- */
     public static function table(Table $table): Table
     {
         return $table
@@ -136,14 +109,12 @@ class RoleResource extends Resource
                     ->label('Guard')
                     ->toggleable(isToggledHiddenByDefault: true),
 
-                // ✅ Usa withCount (rápido) y permite ordenar por cantidad
                 Tables\Columns\TextColumn::make('permissions_count')
                     ->label('Permisos')
                     ->counts('permissions')
                     ->badge()
                     ->sortable(),
 
-                // ✅ Lista legible de permisos precargados (sin sortable)
                 Tables\Columns\TextColumn::make('permissions_list')
                     ->label('Lista de permisos')
                     ->state(fn(Role $record) => $record->permissions->pluck('name')->join(', '))
@@ -173,7 +144,10 @@ class RoleResource extends Resource
                     ->requiresConfirmation()
                     ->after(function () {
                         app(PermissionRegistrar::class)->forgetCachedPermissions();
-                        Notification::make()->title('Rol eliminado')->success()->send();
+                        Notification::make()
+                            ->title('Rol eliminado')
+                            ->success()
+                            ->send();
                     }),
             ])
             ->bulkActions([
@@ -192,7 +166,6 @@ class RoleResource extends Resource
                         ->after(fn() => app(PermissionRegistrar::class)->forgetCachedPermissions()),
                 ]),
             ])
-            // ✅ Orden por columna indexada y paginación razonable
             ->defaultSort('created_at', 'desc')
             ->paginated([10, 25, 50])
             ->defaultPaginationPageOption(25);

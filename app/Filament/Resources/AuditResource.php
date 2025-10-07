@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Resources\Concerns\ChecksAdmin;
 use App\Filament\Resources\AuditResource\Pages;
 use App\Models\User;
 use Filament\Forms;
@@ -9,36 +10,22 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Auth;
 use OwenIt\Auditing\Models\Audit;
 
 class AuditResource extends Resource
 {
+    use ChecksAdmin;
+
     protected static ?string $model = Audit::class;
 
-    protected static ?string $navigationIcon   = 'heroicon-o-clipboard-document-list';
-    protected static ?string $navigationGroup  = 'Usuarios y Acceso';
+    protected static ?string $navigationIcon = 'heroicon-o-shield-check';
+    protected static ?string $navigationGroup  = 'Auditoría';
     protected static ?string $navigationLabel  = 'Auditoría';
     protected static ?string $modelLabel       = 'auditoría';
     protected static ?string $pluralModelLabel = 'auditorías';
     protected static ?int    $navigationSort   = 4;
 
-    /** ---------- ACCESO (solo Admin) ---------- */
-    protected static function isAdmin(): bool
-    {
-        /** @var User|null $u */
-        $u = Auth::user();
-        return $u instanceof User && $u->hasRole('Administrador');
-    }
-
-    public static function shouldRegisterNavigation(): bool
-    {
-        return self::isAdmin();
-    }
-    public static function canViewAny(): bool
-    {
-        return self::isAdmin();
-    }
+    /** ---------- Solo lectura (override al trait) ---------- */
     public static function canCreate(): bool
     {
         return false;
@@ -60,7 +47,7 @@ class AuditResource extends Resource
         return [];
     }
 
-    /** ---------- PERF: query base ---------- */
+    /** ---------- Query base optimizada ---------- */
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
@@ -86,19 +73,16 @@ class AuditResource extends Resource
     {
         return $table
             ->columns([
-                // Cuándo ocurrió (indexado)
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Fecha')
                     ->dateTime('d/m/Y H:i')
                     ->sortable(),
 
-                // Quién lo hizo (no searchable/sortable para evitar join)
                 Tables\Columns\TextColumn::make('user_name')
                     ->label('Usuario')
                     ->state(fn(Audit $r) => $r->user?->name ?? '—')
                     ->placeholder('—'),
 
-                // Evento
                 Tables\Columns\TextColumn::make('event')
                     ->label('Evento')
                     ->badge()
@@ -115,7 +99,6 @@ class AuditResource extends Resource
                     })
                     ->sortable(),
 
-                // Modelo afectado
                 Tables\Columns\TextColumn::make('auditable_type')
                     ->label('Modelo')
                     ->formatStateUsing(fn(?string $state): string => $state ? class_basename($state) : '—')
@@ -126,7 +109,6 @@ class AuditResource extends Resource
                     ->label('ID')
                     ->sortable(),
 
-                // Resumen de cambios (cuenta de claves)
                 Tables\Columns\TextColumn::make('changes_count')
                     ->label('Cambios')
                     ->state(function (Audit $r) {
@@ -160,7 +142,6 @@ class AuditResource extends Resource
                         'deleted' => 'Eliminación',
                     ]),
 
-                // Filtro por modelo (usa índice auditable_type)
                 Tables\Filters\SelectFilter::make('auditable_type')
                     ->label('Modelo')
                     ->options(
@@ -173,7 +154,6 @@ class AuditResource extends Resource
                             ->toArray()
                     ),
 
-                // Rango de fechas (usa índice created_at)
                 Tables\Filters\Filter::make('fecha')
                     ->form([
                         Forms\Components\DatePicker::make('desde')->label('Desde'),
@@ -188,9 +168,9 @@ class AuditResource extends Resource
                         }
                     }),
 
-                // Filtro por usuario (sin join: user_id + user_type)
                 Tables\Filters\SelectFilter::make('user_id')
                     ->label('Usuario')
+                    ->searchable()
                     ->options(
                         fn() => User::query()
                             ->orderBy('name')
