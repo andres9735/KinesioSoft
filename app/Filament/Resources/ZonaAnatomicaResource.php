@@ -90,7 +90,7 @@ class ZonaAnatomicaResource extends Resource
                     ->searchable(),
 
                 Tables\Columns\IconColumn::make('requiere_lateralidad')
-                    ->label('Lat.')
+                    ->label('Requiere lateralidad')
                     ->boolean(),
 
                 Tables\Columns\IconColumn::make('activo')
