@@ -27,6 +27,7 @@ class PatologiaResource extends Resource
     protected static ?string $navigationLabel = 'Patologías';
     protected static ?string $pluralModelLabel = 'Patologías';
     protected static ?string $modelLabel = 'Patología';
+    protected static ?int $navigationSort = 3;
 
     public static function form(Form $form): Form
     {

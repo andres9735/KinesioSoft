@@ -27,6 +27,7 @@ class PadecimientoTipoResource extends Resource
     protected static ?string $navigationLabel = 'Tipos de padecimiento';
     protected static ?string $pluralModelLabel = 'Tipos de padecimiento';
     protected static ?string $modelLabel = 'Tipo de padecimiento';
+    protected static ?int $navigationSort = 2;
 
     public static function form(Form $form): Form
     {

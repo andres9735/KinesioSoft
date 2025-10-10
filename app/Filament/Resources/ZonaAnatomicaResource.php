@@ -29,6 +29,8 @@ class ZonaAnatomicaResource extends Resource
     protected static ?string $navigationLabel = 'Zonas anatómicas';
     protected static ?string $pluralModelLabel = 'Zonas anatómicas';
     protected static ?string $modelLabel = 'Zona anatómica';
+    protected static ?int $navigationSort = 4;
+
 
     public static function form(Form $form): Form
     {

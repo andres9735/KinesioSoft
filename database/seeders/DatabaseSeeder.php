@@ -2,8 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -13,25 +11,20 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
-
-        /*
-
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
-
-
+        // 🔹 Roles, permisos y usuarios base
         $this->call([
             RolesAndPermissionsSeeder::class,
+            UserSeeder::class,
         ]);
 
+        // 🔹 Catálogos clínicos (diagnósticos, patologías, zonas, padecimientos)
+        $this->call([
+            CatalogosClinicosSeeder::class,
+        ]);
 
-        $this->call(UserSeeder::class);
-
-        */
-
-        $this->call(\Database\Seeders\CatalogosClinicosSeeder::class);
+        // 🔹 Catálogo de ejercicios (nuevo módulo)
+        $this->call([
+            CatalogoEjerciciosSeeder::class,
+        ]);
     }
 }
