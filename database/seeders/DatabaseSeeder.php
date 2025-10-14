@@ -26,5 +26,10 @@ class DatabaseSeeder extends Seeder
         $this->call([
             CatalogoEjerciciosSeeder::class,
         ]);
+
+        // 🔹 Catálogo de técnicas terapéuticas (nuevo módulo)
+        $this->call([
+            CatalogoTecnicasSeeder::class,
+        ]);
     }
 }
