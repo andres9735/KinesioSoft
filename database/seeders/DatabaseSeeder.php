@@ -22,14 +22,19 @@ class DatabaseSeeder extends Seeder
             CatalogosClinicosSeeder::class,
         ]);
 
-        // 🔹 Catálogo de ejercicios (nuevo módulo)
+        // 🔹 Catálogo de ejercicios
         $this->call([
             CatalogoEjerciciosSeeder::class,
         ]);
 
-        // 🔹 Catálogo de técnicas terapéuticas (nuevo módulo)
+        // 🔹 Catálogo de técnicas terapéuticas
         $this->call([
             CatalogoTecnicasSeeder::class,
+        ]);
+
+        // 🔹 Catálogo de equipos terapéuticos
+        $this->call([
+            CatalogoEquiposSeeder::class,
         ]);
     }
 }

@@ -65,8 +65,7 @@ class Kernel extends HttpKernel
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'redirect.nonadmins' => \App\Http\Middleware\RedirectNonAdminsFromAdminPanel::class,
 
-
-        // 📌 Middlewares de Spatie Laravel Permission
+        // 📌 Spatie Permission
         'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
         'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
         'roles_or_permissions' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
