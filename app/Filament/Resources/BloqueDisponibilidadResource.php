@@ -11,6 +11,8 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Tables\Filters\TrashedFilter;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\ValidationException;
 
@@ -41,7 +43,7 @@ class BloqueDisponibilidadResource extends Resource
     public static function canViewAny(): bool
     {
         $u = static::user();
-        return $u && $u->hasAnyRole(['Kinesiologa', 'Administrador']);
+        return $u && $u->hasAnyRole(['Administrador']);
     }
 
     /** =========================================================
@@ -203,7 +205,9 @@ class BloqueDisponibilidadResource extends Resource
      * ========================================================= */
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
+        $query = parent::getEloquentQuery()
+            ->withoutGlobalScopes([SoftDeletingScope::class]); // 👈 permite ver/filtrar borrados
+
         $u = static::user();
 
         if ($u?->hasRole('Kinesiologa')) {
@@ -212,6 +216,7 @@ class BloqueDisponibilidadResource extends Resource
 
         return $query;
     }
+
 
     /** =========================================================
      * Tabla
@@ -247,13 +252,28 @@ class BloqueDisponibilidadResource extends Resource
                 Tables\Columns\IconColumn::make('activo')->boolean()->label('Activo'),
             ])
             ->defaultSort('dia_semana', 'asc')
-            ->filters([])
+            ->filters([
+                TrashedFilter::make(), // 👈 filtro de papelera
+            ])
             ->actions([
                 Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+
+                // Soft delete (aparece sólo si NO está borrado)
+                Tables\Actions\DeleteAction::make()
+                    ->visible(fn ($record) => !$record->trashed()),
+
+                // Restaurar (aparece sólo si está borrado)
+                Tables\Actions\RestoreAction::make()
+                    ->visible(fn ($record) => $record->trashed()),
+
+                // Borrado definitivo (aparece sólo si está borrado)
+                Tables\Actions\ForceDeleteAction::make()
+                    ->visible(fn ($record) => $record->trashed()),
             ])
             ->bulkActions([
                 Tables\Actions\DeleteBulkAction::make(),
+                Tables\Actions\RestoreBulkAction::make(),
+                Tables\Actions\ForceDeleteBulkAction::make(),
             ]);
     }
 

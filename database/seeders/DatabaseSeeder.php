@@ -36,5 +36,11 @@ class DatabaseSeeder extends Seeder
         $this->call([
             CatalogoEquiposSeeder::class,
         ]);
+
+        // 🔹 Catálogos complementarios (movimientos y métodos ROM)
+        $this->call([
+            MovimientoSeeder::class,
+            MetodoRomSeeder::class,
+        ]);
     }
 }

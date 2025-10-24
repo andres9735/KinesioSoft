@@ -40,7 +40,7 @@ class ExcepcionDisponibilidadResource extends Resource
     public static function canViewAny(): bool
     {
         $u = static::user();
-        return $u && $u->hasAnyRole(['Kinesiologa', 'Administrador']);
+        return $u && $u->hasAnyRole(['Administrador']);
     }
 
     /** ============================

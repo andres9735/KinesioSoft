@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Resources\BloqueDisponibilidadResource;
+use App\Filament\Kinesiologa\Pages\MiAgendaSemanal;
 use App\Filament\Resources\ExcepcionDisponibilidadResource;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -40,11 +41,11 @@ class KinesiologaPanelProvider extends PanelProvider
 
             // Registra explícitamente las resources compartidas que querés que se vean aquí:
             ->resources([
-                BloqueDisponibilidadResource::class,
                 ExcepcionDisponibilidadResource::class,
             ])
 
             ->pages([
+                MiAgendaSemanal::class,
                 Pages\Dashboard::class,
             ])
             ->widgets([

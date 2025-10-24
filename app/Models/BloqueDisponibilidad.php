@@ -5,24 +5,12 @@ namespace App\Models;
 use Filament\Facades\Filament;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes; // 👈
+use Illuminate\Support\Facades\Auth;
 
 class BloqueDisponibilidad extends Model
 {
-    use HasFactory;
-
-    /**
-     * @property int $id
-     * @property int $profesional_id
-     * @property int|null $consultorio_id
-     * @property int $dia_semana
-     * @property string $hora_desde
-     * @property string $hora_hasta
-     * @property int $duracion_minutos
-     * @property bool $activo
-     * @property \App\Models\User $profesional
-     * @property \App\Models\Consultorio|null $consultorio
-     */
-
+    use HasFactory, SoftDeletes; // 👈
 
     protected $table = 'bloques_disponibilidad';
 
@@ -36,24 +24,33 @@ class BloqueDisponibilidad extends Model
         'duracion_minutos',
     ];
 
-    /** Airbag: completar profesional_id si viniera vacío */
-    protected static function booted()
+    protected $casts = [
+        'activo' => 'bool',
+    ];
+
+    /**
+     * Completa profesional_id con el usuario autenticado si viene vacío.
+     */
+    protected static function booted(): void
     {
-        static::creating(function (self $model) {
+        $resolveUserId = static fn() =>
+        optional(Filament::auth()->user())->id // panel Filament
+            ?? Auth::id();                          // fallback web
+
+        static::creating(function (self $model) use ($resolveUserId) {
             if (blank($model->profesional_id)) {
-                $model->profesional_id = Filament::auth()->id() ?? auth()->id();
+                $model->profesional_id = $resolveUserId();
             }
         });
 
-        static::updating(function (self $model) {
+        static::updating(function (self $model) use ($resolveUserId) {
             if (blank($model->profesional_id)) {
-                $model->profesional_id = Filament::auth()->id() ?? auth()->id();
+                $model->profesional_id = $resolveUserId();
             }
         });
     }
 
-    /** -------- Relaciones -------- */
-
+    // -------- Relaciones --------
     public function profesional()
     {
         return $this->belongsTo(User::class, 'profesional_id');
@@ -64,8 +61,7 @@ class BloqueDisponibilidad extends Model
         return $this->belongsTo(Consultorio::class, 'consultorio_id');
     }
 
-    /** -------- Accesorios / Helpers opcionales -------- */
-
+    // -------- Accesorios --------
     public function getNombreDiaAttribute(): string
     {
         return [
