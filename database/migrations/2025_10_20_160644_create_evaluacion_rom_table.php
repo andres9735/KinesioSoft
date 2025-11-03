@@ -32,9 +32,9 @@ return new class extends Migration
             $table->timestamps();
 
             // Índices útiles
-            $table->index(['id_eval_func']);
-            $table->index(['id_movimiento']);
-            $table->index(['id_metodo']);
+            //$table->index(['id_eval_func']);
+            //$table->index(['id_movimiento']);
+            //$table->index(['id_metodo']);
         });
     }
 

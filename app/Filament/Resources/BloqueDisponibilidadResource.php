@@ -253,22 +253,22 @@ class BloqueDisponibilidadResource extends Resource
             ])
             ->defaultSort('dia_semana', 'asc')
             ->filters([
-                TrashedFilter::make(), // 👈 filtro de papelera
+                \Filament\Tables\Filters\TrashedFilter::make(),  // ✅ ahora sí
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
 
                 // Soft delete (aparece sólo si NO está borrado)
                 Tables\Actions\DeleteAction::make()
-                    ->visible(fn ($record) => !$record->trashed()),
+                    ->visible(fn($record) => !$record->trashed()),
 
                 // Restaurar (aparece sólo si está borrado)
                 Tables\Actions\RestoreAction::make()
-                    ->visible(fn ($record) => $record->trashed()),
+                    ->visible(fn($record) => $record->trashed()),
 
                 // Borrado definitivo (aparece sólo si está borrado)
                 Tables\Actions\ForceDeleteAction::make()
-                    ->visible(fn ($record) => $record->trashed()),
+                    ->visible(fn($record) => $record->trashed()),
             ])
             ->bulkActions([
                 Tables\Actions\DeleteBulkAction::make(),

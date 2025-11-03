@@ -42,5 +42,10 @@ class DatabaseSeeder extends Seeder
             MovimientoSeeder::class,
             MetodoRomSeeder::class,
         ]);
+
+        // 🔹 Catálogo de especialidades kinesiologicas
+        $this->call([
+            EspecialidadesSeeder::class,
+        ]);
     }
 }

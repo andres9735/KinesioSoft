@@ -26,7 +26,7 @@ class EvaluacionFuncional extends Model
     }
 
     /**
-     * (opcional) cuando tengas la tabla consulta
+     * (Más adelante) cuando exista la entidad Consulta:
      */
     // public function consulta()
     // {

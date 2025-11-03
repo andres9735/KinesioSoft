@@ -49,6 +49,8 @@ class User extends Authenticatable implements AuditableContract
         'specialty',
         'is_active',
         'last_login_at',
+        'rating_avg',
+        'rating_count'
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -110,5 +112,20 @@ class User extends Authenticatable implements AuditableContract
     public function excepcionesDisponibilidad()
     {
         return $this->hasMany(\App\Models\ExcepcionDisponibilidad::class, 'profesional_id');
+    }
+
+    public function especialidades()
+    {
+        return $this->belongsToMany(\App\Models\Especialidad::class, 'especialidad_user')
+            ->withPivot('is_principal')
+            ->withTimestamps();
+    }
+
+    /** Azúcar: obtener la principal (si existe) */
+    public function especialidadPrincipal()
+    {
+        return $this->belongsToMany(\App\Models\Especialidad::class, 'especialidad_user')
+            ->wherePivot('is_principal', true)
+            ->limit(1);
     }
 }

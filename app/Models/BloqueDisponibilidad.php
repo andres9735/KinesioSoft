@@ -2,15 +2,16 @@
 
 namespace App\Models;
 
-use Filament\Facades\Filament;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes; // 👈
+use Illuminate\Database\Eloquent\SoftDeletes;   // 👈 importar
+use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Auth;
 
 class BloqueDisponibilidad extends Model
 {
-    use HasFactory, SoftDeletes; // 👈
+    use HasFactory;
+    use SoftDeletes;    // 👈 activar
 
     protected $table = 'bloques_disponibilidad';
 
@@ -26,31 +27,10 @@ class BloqueDisponibilidad extends Model
 
     protected $casts = [
         'activo' => 'bool',
+        'deleted_at' => 'datetime',  // 👈 opcional pero prolijo
     ];
 
-    /**
-     * Completa profesional_id con el usuario autenticado si viene vacío.
-     */
-    protected static function booted(): void
-    {
-        $resolveUserId = static fn() =>
-        optional(Filament::auth()->user())->id // panel Filament
-            ?? Auth::id();                          // fallback web
-
-        static::creating(function (self $model) use ($resolveUserId) {
-            if (blank($model->profesional_id)) {
-                $model->profesional_id = $resolveUserId();
-            }
-        });
-
-        static::updating(function (self $model) use ($resolveUserId) {
-            if (blank($model->profesional_id)) {
-                $model->profesional_id = $resolveUserId();
-            }
-        });
-    }
-
-    // -------- Relaciones --------
+    /** Relaciones */
     public function profesional()
     {
         return $this->belongsTo(User::class, 'profesional_id');
@@ -61,7 +41,18 @@ class BloqueDisponibilidad extends Model
         return $this->belongsTo(Consultorio::class, 'consultorio_id');
     }
 
-    // -------- Accesorios --------
+    protected static function booted(): void
+    {
+        $resolveUserId = static fn() =>
+        optional(Filament::auth()->user())->id ?? Auth::id();
+
+        static::creating(function (self $model) use ($resolveUserId) {
+            if (blank($model->profesional_id)) {
+                $model->profesional_id = $resolveUserId();
+            }
+        });
+    }
+
     public function getNombreDiaAttribute(): string
     {
         return [

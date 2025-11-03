@@ -5,6 +5,7 @@ namespace App\Filament\Kinesiologa\Pages;
 use App\Models\BloqueDisponibilidad;
 use App\Models\Consultorio;
 use App\Models\ExcepcionDisponibilidad;
+use App\Models\Turno; // 🔹 usamos turnos para chequear solapes
 use App\Models\User;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
@@ -90,12 +91,14 @@ class MiAgendaSemanal extends Page
     /** Quién ve esta página en el menú */
     public static function canAccess(): bool
     {
+        /** @var \App\Models\User|null $u */
         $u = Filament::auth()->user();
         return $u?->hasAnyRole(['Kinesiologa', 'Administrador']) ?? false;
     }
 
     public function mount(): void
     {
+        /** @var \App\Models\User $user */
         $user = Filament::auth()->user();
 
         // Por defecto, la propia kinesiologa:
@@ -107,7 +110,7 @@ class MiAgendaSemanal extends Page
             if ($requestUserId > 0) {
                 $target = User::query()->find($requestUserId);
                 if ($target && $target->hasRole('Kinesiologa')) {
-                    $this->profesionalId = $target->id;
+                    $this->profesionalId = (int) $target->id;
                 }
             }
         }
@@ -129,12 +132,12 @@ class MiAgendaSemanal extends Page
         $baseDia = [
             'consultorio_id' => null,
             'maniana' => [
-                'enabled' => false,
+                'enabled' => true,
                 'desde'   => $this->default['maniana']['desde'],
                 'hasta'   => $this->default['maniana']['hasta'],
             ],
             'tarde'   => [
-                'enabled' => false,
+                'enabled' => true,
                 'desde'   => $this->default['tarde']['desde'],
                 'hasta'   => $this->default['tarde']['hasta'],
             ],
@@ -273,16 +276,13 @@ class MiAgendaSemanal extends Page
         // Reset inteligente del form:
         if ($this->mantenerFechaExcepcion) {
             $this->nuevaExcepcion = [
-                // Mantengo la fecha usada
                 'fecha'       => $this->nuevaExcepcion['fecha'],
-                // Vuelvo a "día completo" y limpio horas/motivo
                 'bloqueado'   => true,
                 'hora_desde'  => null,
                 'hora_hasta'  => null,
                 'motivo'      => null,
             ];
         } else {
-            // Reset total
             $this->nuevaExcepcion = [
                 'fecha'       => null,
                 'bloqueado'   => true,
@@ -317,7 +317,7 @@ class MiAgendaSemanal extends Page
     /** Filtros del listado de excepciones */
     public function aplicarFiltroExcepciones(): void
     {
-        $this->cargarExcepciones(); // usa los filtros si están seteados
+        $this->cargarExcepciones();
     }
 
     public function limpiarFiltroExcepciones(): void
@@ -329,9 +329,6 @@ class MiAgendaSemanal extends Page
 
     /**
      * Chequea si $data solapa con otra excepción existente de la misma fecha.
-     * - bloqueado = true => choca con cualquier registro en esa fecha.
-     * - parcial     => choca con bloqueado o con otro parcial que cumpla:
-     *   start < end_existente && end > start_existente
      */
     protected function excepcionSolapa(array $data, ?int $excludeId = null): bool
     {
@@ -349,11 +346,9 @@ class MiAgendaSemanal extends Page
         $hasta     = $data['hora_hasta'] ?? null;
 
         if ($bloqueado) {
-            // Día completo: choca con cualquier excepción ese día.
             return $base->exists();
         }
 
-        // Parcial: choca con un día completo o con otro parcial que se cruce
         return $base->where(function ($q) use ($desde, $hasta) {
             $q->where('bloqueado', 1)
                 ->orWhere(function ($q2) use ($desde, $hasta) {
@@ -366,7 +361,7 @@ class MiAgendaSemanal extends Page
         })->exists();
     }
 
-    /** ================== BLOQUES (ya existente) ================== */
+    /** ================== BLOQUES ================== */
 
     /** Guarda SOLO el día indicado (ej: 2 = Martes) */
     public function guardarDia(int $dia): void
@@ -398,56 +393,96 @@ class MiAgendaSemanal extends Page
             }
         }
 
-        DB::transaction(function () use ($dia, $man, $tar, $consId) {
-            // Borrar bloques existentes de ese día para el profesional
-            BloqueDisponibilidad::query()
+        // -------- Pre-chequeo: ¿hay turnos futuros que se solapen con los bloques actuales de ese día? --------
+        $bloquesViejos = BloqueDisponibilidad::query()
+            ->where('profesional_id', $this->profesionalId)
+            ->where('dia_semana', $dia)
+            ->get(['hora_desde', 'hora_hasta']);
+
+        if ($bloquesViejos->isNotEmpty()) {
+            $tieneTurnos = Turno::query()
                 ->where('profesional_id', $this->profesionalId)
-                ->where('dia_semana', $dia)
-                ->delete();
+                ->whereDate('fecha', '>=', now()->toDateString())
+                // DAYOFWEEK(MySQL): 1=Dom, 2=Lun, ... 7=Sáb
+                ->whereRaw('DAYOFWEEK(fecha) = ?', [$dia === 0 ? 1 : $dia + 1])
+                ->where(function ($q) use ($bloquesViejos) {
+                    foreach ($bloquesViejos as $b) {
+                        $q->orWhere(function ($qq) use ($b) {
+                            $qq->where('hora_desde', '<', $b->hora_hasta)
+                                ->where('hora_hasta', '>', $b->hora_desde);
+                        });
+                    }
+                })
+                ->exists();
 
-            $toInsert = [];
-
-            if ($man['enabled'] ?? false) {
-                $toInsert[] = [
-                    'profesional_id'   => $this->profesionalId,
-                    'consultorio_id'   => $consId ?: null,
-                    'dia_semana'       => $dia,
-                    'hora_desde'       => $man['desde'] . ':00',
-                    'hora_hasta'       => $man['hasta'] . ':00',
-                    'duracion_minutos' => $this->duracion,
-                    'activo'           => true,
-                    'created_at'       => now(),
-                    'updated_at'       => now(),
-                ];
+            if ($tieneTurnos) {
+                Notification::make()
+                    ->title('No se puede modificar este día')
+                    ->body('Hay turnos asignados en los horarios actuales. Reprogramá o cancelá esos turnos antes de cambiar la disponibilidad.')
+                    ->danger()->send();
+                return; // ← Salimos sin lanzar excepción ni romper la request
             }
+        }
+        // ------------------------------------------------------------------------------------------------------
 
-            if ($tar['enabled'] ?? false) {
-                $toInsert[] = [
-                    'profesional_id'   => $this->profesionalId,
-                    'consultorio_id'   => $consId ?: null,
-                    'dia_semana'       => $dia,
-                    'hora_desde'       => $tar['desde'] . ':00',
-                    'hora_hasta'       => $tar['hasta'] . ':00',
-                    'duracion_minutos' => $this->duracion,
-                    'activo'           => true,
-                    'created_at'       => now(),
-                    'updated_at'       => now(),
-                ];
-            }
+        try {
+            DB::transaction(function () use ($dia, $man, $tar, $consId) {
+                // Borrar existentes y crear los nuevos
+                BloqueDisponibilidad::query()
+                    ->where('profesional_id', $this->profesionalId)
+                    ->where('dia_semana', $dia)
+                    ->delete();
 
-            if (! empty($toInsert)) {
-                BloqueDisponibilidad::insert($toInsert);
-            }
-        });
+                $toInsert = [];
 
-        Notification::make()
-            ->title("{$this->dias[$dia]} guardado")
-            ->success()
-            ->body('Los bloques se actualizaron correctamente.')
-            ->send();
+                if ($man['enabled'] ?? false) {
+                    $toInsert[] = [
+                        'profesional_id'   => $this->profesionalId,
+                        'consultorio_id'   => $consId ?: null,
+                        'dia_semana'       => $dia,
+                        'hora_desde'       => $man['desde'] . ':00',
+                        'hora_hasta'       => $man['hasta'] . ':00',
+                        'duracion_minutos' => $this->duracion,
+                        'activo'           => true,
+                        'created_at'       => now(),
+                        'updated_at'       => now(),
+                    ];
+                }
 
-        // Recargar desde BD para reflejar lo guardado
-        $this->cargarDesdeBD();
+                if ($tar['enabled'] ?? false) {
+                    $toInsert[] = [
+                        'profesional_id'   => $this->profesionalId,
+                        'consultorio_id'   => $consId ?: null,
+                        'dia_semana'       => $dia,
+                        'hora_desde'       => $tar['desde'] . ':00',
+                        'hora_hasta'       => $tar['hasta'] . ':00',
+                        'duracion_minutos' => $this->duracion,
+                        'activo'           => true,
+                        'created_at'       => now(),
+                        'updated_at'       => now(),
+                    ];
+                }
+
+                if (! empty($toInsert)) {
+                    BloqueDisponibilidad::insert($toInsert);
+                }
+            });
+
+            Notification::make()
+                ->title("{$this->dias[$dia]} guardado")
+                ->success()
+                ->body('Los bloques se actualizaron correctamente.')
+                ->send();
+
+            // Recargar desde BD para reflejar lo guardado
+            $this->cargarDesdeBD();
+        } catch (\Throwable $e) {
+            report($e);
+            Notification::make()
+                ->title('No se pudo guardar')
+                ->body('Ocurrió un error inesperado. Intentalo de nuevo.')
+                ->danger()->send();
+        }
     }
 
     /** Copia la configuración del $diaOrigen a TODOS los días visibles (Lunes..Sábado) */
@@ -485,55 +520,116 @@ class MiAgendaSemanal extends Page
 
         $consId = $plantilla['consultorio_id'] ?? null;
 
-        DB::transaction(function () use ($plantilla, $consId) {
-            foreach (array_keys($this->dias) as $dia) {
-                // Borrar existentes
-                BloqueDisponibilidad::query()
-                    ->where('profesional_id', $this->profesionalId)
-                    ->where('dia_semana', $dia)
-                    ->delete();
+        $aplicados = [];
+        $saltados  = [];
 
-                $toInsert = [];
+        foreach (array_keys($this->dias) as $dia) {
+            try {
+                DB::transaction(function () use ($dia, $plantilla, $consId, &$aplicados, &$saltados) {
+                    // 1) Traigo bloques viejos del día
+                    $bloquesViejos = BloqueDisponibilidad::query()
+                        ->where('profesional_id', $this->profesionalId)
+                        ->where('dia_semana', $dia)
+                        ->get(['hora_desde', 'hora_hasta']);
 
-                if (($plantilla['maniana']['enabled'] ?? false)) {
-                    $toInsert[] = [
-                        'profesional_id'   => $this->profesionalId,
-                        'consultorio_id'   => $consId ?: null,
-                        'dia_semana'       => $dia,
-                        'hora_desde'       => $plantilla['maniana']['desde'] . ':00',
-                        'hora_hasta'       => $plantilla['maniana']['hasta'] . ':00',
-                        'duracion_minutos' => $this->duracion,
-                        'activo'           => true,
-                        'created_at'       => now(),
-                        'updated_at'       => now(),
-                    ];
-                }
+                    if ($bloquesViejos->isNotEmpty()) {
+                        // 2) ¿Hay turnos futuros que solapen con esos bloques?
+                        $tieneTurnos = \App\Models\Turno::query()
+                            ->where('profesional_id', $this->profesionalId)
+                            ->whereDate('fecha', '>=', now()->toDateString())
+                            // DAYOFWEEK(MySQL): 1=Dom, 2=Lun, ... 7=Sáb
+                            ->whereRaw('DAYOFWEEK(fecha) = ?', [$dia === 0 ? 1 : $dia + 1])
+                            ->where(function ($q) use ($bloquesViejos) {
+                                foreach ($bloquesViejos as $b) {
+                                    $q->orWhere(function ($qq) use ($b) {
+                                        $qq->where('hora_desde', '<', $b->hora_hasta)
+                                            ->where('hora_hasta', '>', $b->hora_desde);
+                                    });
+                                }
+                            })
+                            ->exists();
 
-                if (($plantilla['tarde']['enabled'] ?? false)) {
-                    $toInsert[] = [
-                        'profesional_id'   => $this->profesionalId,
-                        'consultorio_id'   => $consId ?: null,
-                        'dia_semana'       => $dia,
-                        'hora_desde'       => $plantilla['tarde']['desde'] . ':00',
-                        'hora_hasta'       => $plantilla['tarde']['hasta'] . ':00',
-                        'duracion_minutos' => $this->duracion,
-                        'activo'           => true,
-                        'created_at'       => now(),
-                        'updated_at'       => now(),
-                    ];
-                }
+                        if ($tieneTurnos) {
+                            $saltados[] = $this->dias[$dia];
+                            // Corto esta mini-transacción para este día
+                            throw new \RuntimeException('skip-day');
+                        }
+                    }
 
-                if (! empty($toInsert)) {
-                    BloqueDisponibilidad::insert($toInsert);
+                    // 3) Borrar existentes del día y crear según plantilla
+                    BloqueDisponibilidad::query()
+                        ->where('profesional_id', $this->profesionalId)
+                        ->where('dia_semana', $dia)
+                        ->delete();
+
+                    $toInsert = [];
+
+                    if (($plantilla['maniana']['enabled'] ?? false)) {
+                        $toInsert[] = [
+                            'profesional_id'   => $this->profesionalId,
+                            'consultorio_id'   => $consId ?: null,
+                            'dia_semana'       => $dia,
+                            'hora_desde'       => $plantilla['maniana']['desde'] . ':00',
+                            'hora_hasta'       => $plantilla['maniana']['hasta'] . ':00',
+                            'duracion_minutos' => $this->duracion,
+                            'activo'           => true,
+                            'created_at'       => now(),
+                            'updated_at'       => now(),
+                        ];
+                    }
+
+                    if (($plantilla['tarde']['enabled'] ?? false)) {
+                        $toInsert[] = [
+                            'profesional_id'   => $this->profesionalId,
+                            'consultorio_id'   => $consId ?: null,
+                            'dia_semana'       => $dia,
+                            'hora_desde'       => $plantilla['tarde']['desde'] . ':00',
+                            'hora_hasta'       => $plantilla['tarde']['hasta'] . ':00',
+                            'duracion_minutos' => $this->duracion,
+                            'activo'           => true,
+                            'created_at'       => now(),
+                            'updated_at'       => now(),
+                        ];
+                    }
+
+                    if (! empty($toInsert)) {
+                        BloqueDisponibilidad::insert($toInsert);
+                    }
+
+                    $aplicados[] = $this->dias[$dia];
+                });
+            } catch (\RuntimeException $e) {
+                // si fue 'skip-day', ya lo contamos en $saltados
+                if ($e->getMessage() !== 'skip-day') {
+                    // otro error inesperado
+                    $saltados[] = $this->dias[$dia];
                 }
             }
-        });
+        }
 
-        Notification::make()
-            ->title('Copiado a todos los días')
-            ->success()
-            ->body('Se aplicó la configuración del día de origen a todos los días.')
-            ->send();
+        // Notificación resumen
+        if (!empty($aplicados) && empty($saltados)) {
+            Notification::make()
+                ->title('Copiado a todos los días')
+                ->success()
+                ->body('Se aplicó la configuración a: ' . implode(', ', $aplicados) . '.')
+                ->send();
+        } elseif (!empty($aplicados) && !empty($saltados)) {
+            Notification::make()
+                ->title('Copiado parcial')
+                ->warning()
+                ->body(
+                    'Aplicado en: ' . implode(', ', $aplicados) .
+                        '. Saltado (tienen turnos): ' . implode(', ', $saltados) . '.'
+                )
+                ->send();
+        } else {
+            Notification::make()
+                ->title('No se copió la configuración')
+                ->danger()
+                ->body('Todos los días tenían turnos que impedían el cambio.')
+                ->send();
+        }
 
         $this->cargarDesdeBD();
     }

@@ -105,6 +105,8 @@ class UserResource extends Resource
                     ->disabled(fn(Get $get, ?User $record) =>
                     ! self::hasAnyRoleSelected($get, $record, ['Paciente'])
                         && ! Auth::user()?->hasRole('Administrador'))
+                    ->dehydrated(fn(Get $get, ?User $record) =>
+                    self::hasAnyRoleSelected($get, $record, ['Paciente']) || Auth::user()?->hasRole('Administrador'))
                     ->helperText(self::helperIfMissing(['Paciente'], 'Disponible cuando el rol “Paciente” está seleccionado.'))
                     ->hintIcon('heroicon-m-information-circle'),
 
@@ -115,6 +117,8 @@ class UserResource extends Resource
                     ->disabled(fn(Get $get, ?User $record) =>
                     ! self::hasAnyRoleSelected($get, $record, ['Paciente'])
                         && ! Auth::user()?->hasRole('Administrador'))
+                    ->dehydrated(fn(Get $get, ?User $record) =>
+                    self::hasAnyRoleSelected($get, $record, ['Paciente']) || Auth::user()?->hasRole('Administrador'))
                     ->helperText(self::helperIfMissing(['Paciente'], 'Disponible cuando el rol “Paciente” está seleccionado.'))
                     ->hintIcon('heroicon-m-information-circle'),
 
@@ -125,6 +129,8 @@ class UserResource extends Resource
                     ->disabled(fn(Get $get, ?User $record) =>
                     ! self::hasAnyRoleSelected($get, $record, ['Paciente'])
                         && ! Auth::user()?->hasRole('Administrador'))
+                    ->dehydrated(fn(Get $get, ?User $record) =>
+                    self::hasAnyRoleSelected($get, $record, ['Paciente']) || Auth::user()?->hasRole('Administrador'))
                     ->helperText(self::helperIfMissing(['Paciente'], 'Disponible cuando el rol “Paciente” está seleccionado.'))
                     ->hintIcon('heroicon-m-information-circle'),
 
@@ -147,6 +153,8 @@ class UserResource extends Resource
                     ->disabled(fn(Get $get, ?User $record) =>
                     ! self::hasAnyRoleSelected($get, $record, ['Kinesiologa'])
                         && ! Auth::user()?->hasRole('Administrador'))
+                    ->dehydrated(fn(Get $get, ?User $record) =>
+                    self::hasAnyRoleSelected($get, $record, ['Kinesiologa']) || Auth::user()?->hasRole('Administrador'))
                     ->required(fn(Get $get, ?User $record) =>
                     self::hasAnyRoleSelected($get, $record, ['Kinesiologa']))
                     ->validationMessages([
@@ -267,19 +275,31 @@ class UserResource extends Resource
         return count(array_intersect($roles, $selectedNames)) > 0;
     }
 
-    public static function sanitizeProfileData(array $data): array
+    public static function sanitizeProfileData(array $data, ?User $record = null): array
     {
+        // Si el que edita es Administrador, no forzamos nulls ni recortes.
+        if (Auth::user()?->hasRole('Administrador')) {
+            return $data;
+        }
+
+        // Determinar roles “efectivos”: los que vienen del form o, si no llegaron,
+        // los que ya tiene el registro (útil en edición).
         $roleIdsOrNames = $data['roles'] ?? [];
         $names = self::resolveRoleNamesFromState($roleIdsOrNames);
+        if ($names === [] && $record) {
+            $names = $record->roles->pluck('name')->all();
+        }
 
+        // Si NO es Paciente, NO sobreescribas phone/dni/address -> simplemente no los toques.
         if (! in_array('Paciente', $names, true)) {
-            $data['phone']   = null;
-            $data['dni']     = null;
-            $data['address'] = null;
+            unset($data['phone'], $data['dni'], $data['address']);
         }
+
+        // Si NO es Kinesiologa, NO sobreescribas specialty -> no lo toques.
         if (! in_array('Kinesiologa', $names, true)) {
-            $data['specialty'] = null;
+            unset($data['specialty']);
         }
+
         return $data;
     }
 

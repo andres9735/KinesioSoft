@@ -42,8 +42,8 @@ class EditUser extends EditRecord
      */
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        // Limpieza por roles (seguridad backend)
-        $data = \App\Filament\Resources\UserResource::sanitizeProfileData($data);
+        // Pasamos el record para que la función use sus roles actuales si los del form no vienen
+        $data = \App\Filament\Resources\UserResource::sanitizeProfileData($data, $this->record);
 
         // Si manejás password en el form, hashea sólo si se envía algo
         if (!empty($data['password'])) {
@@ -53,6 +53,36 @@ class EditUser extends EditRecord
         }
 
         return $data;
+    }
+
+    protected function handleRecordUpdate($record, array $data): User
+    {
+        // Limpieza de datos (seguridad)
+        $data = \App\Filament\Resources\UserResource::sanitizeProfileData($data);
+
+        // Forzar actualización de campos del perfil si vienen del form
+        $record->fill([
+            'phone'     => $data['phone']     ?? $record->phone,
+            'dni'       => $data['dni']       ?? $record->dni,
+            'address'   => $data['address']   ?? $record->address,
+            'specialty' => $data['specialty'] ?? $record->specialty,
+            'is_active' => $data['is_active'] ?? $record->is_active,
+        ]);
+
+        // Manejo de contraseña (solo si se envía)
+        if (!empty($data['password'])) {
+            $record->password = bcrypt($data['password']);
+        }
+
+        // Guardar cambios
+        $record->save();
+
+        // Actualizar roles (manteniendo la sincronización estándar de Filament)
+        if (isset($data['roles'])) {
+            $record->syncRoles($data['roles']);
+        }
+
+        return $record;
     }
 
 

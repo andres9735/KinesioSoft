@@ -20,6 +20,12 @@ class EvaluacionRom extends Model
         'observaciones',
     ];
 
+    public function evaluacionFuncional()
+    {
+        return $this->belongsTo(EvaluacionFuncional::class, 'id_eval_func', 'id_eval_func');
+    }
+
+    // Catálogos
     public function movimiento()
     {
         return $this->belongsTo(Movimiento::class, 'id_movimiento', 'id_movimiento');
@@ -29,10 +35,4 @@ class EvaluacionRom extends Model
     {
         return $this->belongsTo(MetodoRom::class, 'id_metodo', 'id_metodo');
     }
-
-    public function evaluacionFuncional()
-    {
-        return $this->belongsTo(EvaluacionFuncional::class, 'id_eval_func', 'id_eval_func');
-    }
 }
-

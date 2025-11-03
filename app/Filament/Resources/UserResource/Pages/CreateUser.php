@@ -24,8 +24,8 @@ class CreateUser extends CreateRecord
      */
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        // Limpieza por roles (seguridad backend)
-        $data = \App\Filament\Resources\UserResource::sanitizeProfileData($data);
+        // Para create no tenemos $record, pasamos null.
+        $data = \App\Filament\Resources\UserResource::sanitizeProfileData($data, null);
 
         // Si manejás password en el form, hashea si está presente
         if (!empty($data['password'])) {
