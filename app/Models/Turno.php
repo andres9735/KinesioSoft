@@ -22,13 +22,20 @@ class Turno extends Model
         'fecha',            // date
         'hora_desde',       // time "H:i" o "H:i:s"
         'hora_hasta',       // time "H:i" o "H:i:s"
-        'estado',           // pendiente|confirmado|cancelado|cancelado_tarde
+        'estado',           // pendiente|confirmado|cancelado|cancelado_tarde|atendido|no_asistio
         'motivo',           // nullable
+
+        // ⬇️ claves del módulo de recordatorios (D-1)
+        'reminder_token',
+        'reminder_status',   // pending|sent|failed (o el que uses)
+        'reminder_sent_at',
     ];
+    // Alternativa: en vez de fillable, podrías usar: protected $guarded = [];
 
     /** ---------- Casts ---------- */
     protected $casts = [
-        'fecha' => 'date',
+        'fecha'             => 'date',
+        'reminder_sent_at'  => 'datetime',
     ];
 
     /** ---------- Constantes de estado ---------- */
@@ -36,6 +43,13 @@ class Turno extends Model
     public const ESTADO_CONFIRMADO       = 'confirmado';
     public const ESTADO_CANCELADO        = 'cancelado';
     public const ESTADO_CANCELADO_TARDE  = 'cancelado_tarde';
+    public const ESTADO_ATENDIDO         = 'atendido';
+    public const ESTADO_NO_ASISTIO       = 'no_asistio';
+
+    /** ---------- (Opcional) Estados de recordatorio ---------- */
+    public const REMINDER_PENDING = 'pending';
+    public const REMINDER_SENT    = 'sent';
+    public const REMINDER_FAILED  = 'failed';
 
     /** ---------- Helpers de presentación (Filament) ---------- */
     public static function estadoColor(string $estado): string
@@ -43,8 +57,10 @@ class Turno extends Model
         return match ($estado) {
             self::ESTADO_PENDIENTE        => 'warning',
             self::ESTADO_CONFIRMADO       => 'success',
-            self::ESTADO_CANCELADO        => 'danger',
-            self::ESTADO_CANCELADO_TARDE  => 'danger', // o 'warning' si preferís
+            self::ESTADO_CANCELADO,
+            self::ESTADO_CANCELADO_TARDE  => 'danger',
+            self::ESTADO_ATENDIDO         => 'success',
+            self::ESTADO_NO_ASISTIO       => 'warning',
             default                       => 'gray',
         };
     }
@@ -56,6 +72,8 @@ class Turno extends Model
             self::ESTADO_CONFIRMADO       => 'heroicon-o-check',
             self::ESTADO_CANCELADO        => 'heroicon-o-x-mark',
             self::ESTADO_CANCELADO_TARDE  => 'heroicon-o-exclamation-triangle',
+            self::ESTADO_ATENDIDO         => 'heroicon-o-check-badge',
+            self::ESTADO_NO_ASISTIO       => 'heroicon-o-user-x-mark',
             default                       => null,
         };
     }
@@ -151,6 +169,26 @@ class Turno extends Model
         return $q->where('estado', $estado);
     }
 
+    /** --- Scopes para Agenda --- */
+    public function scopeActivos($q)
+    {
+        return $q->whereNotIn('estado', [
+            self::ESTADO_CANCELADO,
+            self::ESTADO_CANCELADO_TARDE,
+            self::ESTADO_ATENDIDO,
+            self::ESTADO_NO_ASISTIO,
+        ]);
+    }
+
+    public function scopeDelDia($q, \Illuminate\Support\Carbon|string $fecha)
+    {
+        $f = $fecha instanceof \Illuminate\Support\Carbon
+            ? $fecha->toDateString()
+            : \Illuminate\Support\Carbon::parse($fecha)->toDateString();
+
+        return $q->whereDate('fecha', $f);
+    }
+
     /** =========================================================
      * Accessors / Helpers de tiempo y duración
      * ========================================================= */
@@ -193,20 +231,44 @@ class Turno extends Model
     {
         return $this->estado === self::ESTADO_PENDIENTE;
     }
-
     public function esConfirmado(): bool
     {
         return $this->estado === self::ESTADO_CONFIRMADO;
     }
-
     public function esCancelado(): bool
     {
         return $this->estado === self::ESTADO_CANCELADO;
     }
-
     public function esCanceladoTarde(): bool
     {
         return $this->estado === self::ESTADO_CANCELADO_TARDE;
+    }
+    public function esAtendido(): bool
+    {
+        return $this->estado === self::ESTADO_ATENDIDO;
+    }
+    public function esNoAsistio(): bool
+    {
+        return $this->estado === self::ESTADO_NO_ASISTIO;
+    }
+
+    /** =========================================================
+     * Acciones de negocio (agenda)
+     * ========================================================= */
+    public function marcarAtendido(): bool
+    {
+        if (!$this->fin || now()->lt($this->fin)) {
+            return false;
+        }
+        return $this->update(['estado' => self::ESTADO_ATENDIDO]);
+    }
+
+    public function marcarNoAsistio(): bool
+    {
+        if (!$this->fin || now()->lt($this->fin)) {
+            return false;
+        }
+        return $this->update(['estado' => self::ESTADO_NO_ASISTIO]);
     }
 
     /** =========================================================
@@ -238,15 +300,11 @@ class Turno extends Model
             'fecha'          => ['required', 'date'],
             'hora_desde'     => ['required', 'date_format:H:i'],
             'hora_hasta'     => ['required', 'date_format:H:i', 'after:hora_desde'],
-            'estado'         => ['required', 'in:pendiente,confirmado,cancelado,cancelado_tarde'],
+            'estado'         => ['required', 'in:pendiente,confirmado,cancelado,cancelado_tarde,atendido,no_asistio'],
             'motivo'         => ['nullable', 'string', 'max:255'],
         ];
     }
 
-    /**
-     * Chequeo “optimista” adicional al UNIQUE de la BD;
-     * útil para mostrar un mensaje claro antes de que dispare la excepción.
-     */
     public static function rulesUnique(): array
     {
         return [
@@ -256,7 +314,6 @@ class Turno extends Model
                 }
                 [$prof, $fecha, $desde, $hasta] = $val;
 
-                // Normalizo horas (HH:mm -> HH:mm:ss)
                 $desde = strlen($desde) === 5 ? $desde . ':00' : $desde;
                 $hasta = strlen($hasta) === 5 ? $hasta . ':00' : $hasta;
 
@@ -281,28 +338,24 @@ class Turno extends Model
         return (int) config("turnos.$key", $default);
     }
 
-    /** ¿Puedo confirmar ahora (según lead time y estado)? */
     public function puedeConfirmarAhora(): bool
     {
-        if (!$this->esPendiente() || ! $this->inicio) {
+        if (!$this->esPendiente() || !$this->inicio) {
             return false;
         }
-        // diffInMinutes negativo si ya pasó
         $mins = now()->diffInMinutes($this->inicio, false);
-        return $mins >= self::leadMinutes('confirm_min_minutes', 180); // default 3h
+        return $mins >= self::leadMinutes('confirm_min_minutes', 180);
     }
 
-    /** ¿Puedo cancelar ahora (según lead time y estado)? */
     public function puedeCancelarAhora(): bool
     {
-        if ($this->esCancelado() || ! $this->inicio) {
+        if ($this->esCancelado() || !$this->inicio) {
             return false;
         }
         $mins = now()->diffInMinutes($this->inicio, false);
-        return $mins >= self::leadMinutes('cancel_min_minutes', 1440); // default 24h
+        return $mins >= self::leadMinutes('cancel_min_minutes', 1440);
     }
 
-    /** Hora límite “amigable” para confirmar/cancelar (Carbon o null) */
     public function limiteConfirmacion(): ?Carbon
     {
         return $this->inicio?->copy()->subMinutes(self::leadMinutes('confirm_min_minutes', 180));

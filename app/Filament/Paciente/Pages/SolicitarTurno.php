@@ -165,7 +165,7 @@ class SolicitarTurno extends Page
 
         $todos = [];
         foreach ($profIds as $pid) {
-            $slots = $svc->slotsDisponibles(
+            $slots = (new SlotService())->slotsDisponibles(
                 profesionalId: $pid,
                 fecha: $fechaSel,
                 consultorioId: $this->consultorioId,
@@ -323,6 +323,16 @@ class SolicitarTurno extends Page
             return;
         }
 
+        // 🔒 Regla de negocio: un turno PENDIENTE por profesional
+        if ($this->tienePendienteConProfesional($profId)) {
+            Notification::make()
+                ->title('Ya tenés un turno pendiente con esta profesional.')
+                ->body('Confirmá, asistí o cancelá ese turno antes de solicitar otro.')
+                ->danger()
+                ->send();
+            return;
+        }
+
         try {
             Turno::create([
                 'profesional_id' => $profId,
@@ -364,6 +374,16 @@ class SolicitarTurno extends Page
 
         $s = $this->sugeridos[$index];
         $fecha = Carbon::parse($s['fecha']);
+
+        // 🔒 Regla de negocio: un turno PENDIENTE por profesional
+        if ($this->tienePendienteConProfesional((int) $s['profesional_id'])) {
+            Notification::make()
+                ->title('Ya tenés un turno pendiente con esta profesional.')
+                ->body('Confirmá, asistí o cancelá ese turno antes de solicitar otro.')
+                ->danger()
+                ->send();
+            return;
+        }
 
         // Revalidar que sigue disponible
         $svc = new SlotService();
@@ -409,5 +429,32 @@ class SolicitarTurno extends Page
 
         // Refrescar lista para que desaparezca el reservado
         $this->sugerirProximoLista();
+    }
+
+    /* ======================================================
+     |                    HELPERS DE NEGOCIO
+     |======================================================*/
+
+    /**
+     * Devuelve true si el paciente ya tiene un turno PENDIENTE con la profesional dada
+     * que sea futuro o de hoy aún no finalizado.
+     */
+    protected function tienePendienteConProfesional(int $profesionalId): bool
+    {
+        $hoy = now()->toDateString();
+        $ahora = now()->format('H:i:s');
+
+        return Turno::query()
+            ->where('paciente_id', $this->pacienteId)
+            ->where('profesional_id', $profesionalId)
+            ->where('estado', Turno::ESTADO_PENDIENTE)
+            ->where(function ($q) use ($hoy, $ahora) {
+                $q->whereDate('fecha', '>', $hoy)
+                    ->orWhere(function ($qq) use ($hoy, $ahora) {
+                        $qq->whereDate('fecha', $hoy)
+                            ->where('hora_hasta', '>', $ahora);
+                    });
+            })
+            ->exists();
     }
 }

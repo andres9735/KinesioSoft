@@ -8,58 +8,67 @@ use App\Models\User;
 class TurnoPolicy
 {
     /**
-     * Determine whether the user can view any models.
+     * Determine whether the user can view any turnos.
      */
     public function viewAny(User $user): bool
     {
-        return false;
+        // Admin y Kinesiologa pueden listar turnos, Paciente también sus propios
+        return $user->hasAnyRole(['Administrador', 'Kinesiologa', 'Paciente']);
     }
 
     /**
-     * Determine whether the user can view the model.
+     * Determine whether the user can view a specific turno.
      */
     public function view(User $user, Turno $turno): bool
     {
-        return $user->id === $turno->paciente_id || $user->hasRole('Administrador');
+        return $user->hasRole('Administrador')
+            || ($user->hasRole('Kinesiologa') && $user->id === $turno->profesional_id)
+            || ($user->hasRole('Paciente') && $user->id === $turno->paciente_id);
     }
 
     /**
-     * Determine whether the user can create models.
+     * Determine whether the user can create turnos.
      */
     public function create(User $user): bool
     {
-        return false;
+        // Solo Administrador o Paciente (para agendarse)
+        return $user->hasAnyRole(['Administrador', 'Paciente']);
     }
 
     /**
-     * Determine whether the user can update the model.
+     * Determine whether the user can update a turno.
      */
     public function update(User $user, Turno $turno): bool
     {
-        return $user->id === $turno->paciente_id || $user->hasRole('Administrador');
+        return $user->hasRole('Administrador')
+            || ($user->hasRole('Kinesiologa') && $user->id === $turno->profesional_id)
+            || ($user->hasRole('Paciente') && $user->id === $turno->paciente_id);
     }
 
     /**
-     * Determine whether the user can delete the model.
+     * Determine whether the user can delete a turno.
      */
     public function delete(User $user, Turno $turno): bool
     {
-        return $user->id === $turno->paciente_id || $user->hasRole('Administrador');
+        // Admin puede borrar todo, Kinesiologa o Paciente solo los suyos
+        return $user->hasRole('Administrador')
+            || ($user->hasRole('Kinesiologa') && $user->id === $turno->profesional_id)
+            || ($user->hasRole('Paciente') && $user->id === $turno->paciente_id);
     }
 
     /**
-     * Determine whether the user can restore the model.
+     * Determine whether the user can restore the turno.
      */
     public function restore(User $user, Turno $turno): bool
     {
-        return false;
+        return $user->hasRole('Administrador');
     }
 
     /**
-     * Determine whether the user can permanently delete the model.
+     * Determine whether the user can permanently delete the turno.
      */
     public function forceDelete(User $user, Turno $turno): bool
     {
-        return false;
+        return $user->hasRole('Administrador');
     }
 }

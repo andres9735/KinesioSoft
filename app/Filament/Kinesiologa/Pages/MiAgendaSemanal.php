@@ -5,7 +5,7 @@ namespace App\Filament\Kinesiologa\Pages;
 use App\Models\BloqueDisponibilidad;
 use App\Models\Consultorio;
 use App\Models\ExcepcionDisponibilidad;
-use App\Models\Turno; // 🔹 usamos turnos para chequear solapes
+use App\Models\Turno;
 use App\Models\User;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
@@ -203,7 +203,7 @@ class MiAgendaSemanal extends Page
         }
 
         $this->excepciones = $q->orderByDesc('fecha')
-            ->limit(300) // por si acaso
+            ->limit(300)
             ->get()
             ->map(function (ExcepcionDisponibilidad $e) {
                 return [
@@ -244,7 +244,9 @@ class MiAgendaSemanal extends Page
             $data['hora_hasta'] = null;
 
             if ($this->excepcionSolapa($data, null)) {
-                Notification::make()->title('Ya existe una excepción ese día.')->danger()->send();
+                Notification::make()
+                    ->title('Ya existe un bloqueo de día completo en esa fecha.')
+                    ->danger()->send();
                 return;
             }
 
@@ -260,7 +262,7 @@ class MiAgendaSemanal extends Page
                 return;
             }
             if ($this->excepcionSolapa($data, null)) {
-                Notification::make()->title('El tramo se solapa con otra excepción de ese día.')->danger()->send();
+                Notification::make()->title('El tramo se solapa con otra excepción o existe un día completo.')->danger()->send();
                 return;
             }
 
@@ -329,6 +331,9 @@ class MiAgendaSemanal extends Page
 
     /**
      * Chequea si $data solapa con otra excepción existente de la misma fecha.
+     * Regla MVP (Opción A):
+     * - Full-day (bloqueado=true y horas NULL): colisiona SOLO con otro full-day.
+     * - Parcial: colisiona con full-day o con otra parcial que se solape.
      */
     protected function excepcionSolapa(array $data, ?int $excludeId = null): bool
     {
@@ -345,19 +350,30 @@ class MiAgendaSemanal extends Page
         $desde     = $data['hora_desde'] ?? null;
         $hasta     = $data['hora_hasta'] ?? null;
 
+        // Full-day: solo impide si YA hay otro full-day ese día.
         if ($bloqueado) {
-            return $base->exists();
+            return $base
+                ->where('bloqueado', 1)
+                ->whereNull('hora_desde')
+                ->whereNull('hora_hasta')
+                ->exists();
         }
 
+        // Parcial: choca con full-day o con otra parcial que se solape.
         return $base->where(function ($q) use ($desde, $hasta) {
-            $q->where('bloqueado', 1)
-                ->orWhere(function ($q2) use ($desde, $hasta) {
-                    $q2->where('bloqueado', 0)
-                        ->whereNotNull('hora_desde')
-                        ->whereNotNull('hora_hasta')
-                        ->where('hora_desde', '<', $hasta)
-                        ->where('hora_hasta', '>', $desde);
-                });
+            $q->where(function ($q1) {
+                // Conflicto con full-day
+                $q1->where('bloqueado', 1)
+                    ->whereNull('hora_desde')
+                    ->whereNull('hora_hasta');
+            })->orWhere(function ($q2) use ($desde, $hasta) {
+                // Conflicto con otra parcial solapada
+                $q2->where('bloqueado', 0)
+                    ->whereNotNull('hora_desde')
+                    ->whereNotNull('hora_hasta')
+                    ->where('hora_desde', '<', $hasta)
+                    ->where('hora_hasta', '>', $desde);
+            });
         })->exists();
     }
 
@@ -403,7 +419,7 @@ class MiAgendaSemanal extends Page
             $tieneTurnos = Turno::query()
                 ->where('profesional_id', $this->profesionalId)
                 ->whereDate('fecha', '>=', now()->toDateString())
-                // DAYOFWEEK(MySQL): 1=Dom, 2=Lun, ... 7=Sáb
+                // DAYOFWEEK(MySQL): 1=Dom, 2=Lun, ... 7=Sáb (ajuste domingo si habilitás)
                 ->whereRaw('DAYOFWEEK(fecha) = ?', [$dia === 0 ? 1 : $dia + 1])
                 ->where(function ($q) use ($bloquesViejos) {
                     foreach ($bloquesViejos as $b) {
@@ -420,7 +436,7 @@ class MiAgendaSemanal extends Page
                     ->title('No se puede modificar este día')
                     ->body('Hay turnos asignados en los horarios actuales. Reprogramá o cancelá esos turnos antes de cambiar la disponibilidad.')
                     ->danger()->send();
-                return; // ← Salimos sin lanzar excepción ni romper la request
+                return;
             }
         }
         // ------------------------------------------------------------------------------------------------------
