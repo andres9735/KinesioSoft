@@ -14,6 +14,11 @@ class Turno extends Model
     public $incrementing = true;
     protected $keyType = 'int';
 
+    public function getRouteKeyName()
+    {
+        return 'id_turno';
+    }
+
     /** ---------- Asignación masiva ---------- */
     protected $fillable = [
         'profesional_id',
