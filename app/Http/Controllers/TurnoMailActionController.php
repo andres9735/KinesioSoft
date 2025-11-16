@@ -12,23 +12,26 @@ use Illuminate\View\View;
 class TurnoMailActionController extends Controller
 {
     /**
-     * Página pública firmada: muestra el resumen del turno y el form Confirmar/Cancelar.
-     * Usa Route Model Binding: {turno} en la ruta.
+     * Página pública firmada: muestra el resumen del turno y el formulario
+     * para Confirmar / Cancelar. Usa Route Model Binding: {turno}.
+     *
+     * Ruta esperada (con middleware 'signed'):
+     *   GET  /turnos/mail-action/{turno}   -> name: turnos.mail.show
      */
     public function show(Request $request, Turno $turno): View
     {
-        // Prefijo opcional para preseleccionar la acción desde el mail (?accion=confirmar|cancelar)
+        // (Opcional) Preselección de acción desde el mail (?accion=confirmar|cancelar)
         $accion = $request->query('accion');
-        if ($accion && !in_array($accion, ['confirmar', 'cancelar'], true)) {
+        if ($accion && ! in_array($accion, ['confirmar', 'cancelar'], true)) {
             $accion = null;
         }
 
-        // Cargamos nombres mínimos para la vista
+        // Cargar nombres mínimos para la vista
         $turno->loadMissing(['paciente:id,name', 'profesional:id,name']);
 
-        // Firmamos también la acción POST para que el formulario pase el middleware 'signed'
-        $ttl     = now()->addHours(config('turnos.mail_link_ttl_hours', 24));
-        $postUrl = URL::temporarySignedRoute('turnos.mail.store', $ttl, [
+        // URL firmada para el POST del formulario (respeta el TTL de config/turnos.php)
+        $ttlHours = (int) config('turnos.mail_link_ttl_hours', 36);
+        $postUrl  = URL::temporarySignedRoute('turnos.mail.store', now()->addHours($ttlHours), [
             'turno' => $turno->getKey(),
         ]);
 
@@ -36,8 +39,10 @@ class TurnoMailActionController extends Controller
     }
 
     /**
-     * Procesa Confirmar/Cancelar desde la vista pública firmada.
-     * También usa Route Model Binding: {turno} en la ruta.
+     * Procesa Confirmar / Cancelar desde la página pública firmada.
+     *
+     * Ruta esperada (con middleware 'signed'):
+     *   POST /turnos/mail-action/{turno}   -> name: turnos.mail.store
      */
     public function store(Request $request, Turno $turno): RedirectResponse
     {
@@ -46,11 +51,12 @@ class TurnoMailActionController extends Controller
         ]);
 
         return DB::transaction(function () use ($turno, $data) {
-            // 🔒 Evita condiciones de carrera (doble clic, reenviar, etc.)
+            // Evita condiciones de carrera (doble clic, reenviar, etc.)
+            /** @var Turno $turno */
             $turno = Turno::whereKey($turno->getKey())->lockForUpdate()->firstOrFail();
 
-            // No permitir operar sobre turnos vencidos
-            if (optional($turno->fin)->isPast()) {
+            // No permitir operar sobre turnos ya finalizados
+            if ($turno->fin && now()->gte($turno->fin)) {
                 return back()->with('status', 'El turno ya pasó.');
             }
 
@@ -62,23 +68,18 @@ class TurnoMailActionController extends Controller
                 return back()->with('status', 'Este turno ya fue cancelado.');
             }
 
-
-            // ⬇️ Endurecer por ventana de confirmación/cancelación
-            if ($data['accion'] === 'confirmar' && ! $turno->puedeConfirmarAhora()) {
-                return back()->with('status', 'No podés confirmar en este momento.');
-            }
-            if ($data['accion'] === 'cancelar' && ! $turno->puedeCancelarAhora()) {
-                return back()->with('status', 'No podés cancelar en este momento.');
-            }
-            // ⬆️
-
-
+            // ---------- Confirmar ----------
             if ($data['accion'] === 'confirmar') {
+                // Respetar ventana de confirmación (UI + regla de negocio)
+                if (! $turno->puedeConfirmarAhora()) {
+                    return back()->with('status', 'No podés confirmar en este momento.');
+                }
+
                 if ($turno->estado === Turno::ESTADO_CONFIRMADO) {
                     return back()->with('status', 'Este turno ya estaba confirmado.');
                 }
 
-                // Idempotente: solo si sigue pendiente
+                // Idempotente: solo si seguía "pendiente"
                 $updated = Turno::where('id_turno', $turno->id_turno)
                     ->where('estado', Turno::ESTADO_PENDIENTE)
                     ->update([
@@ -94,10 +95,10 @@ class TurnoMailActionController extends Controller
                 );
             }
 
-            // cancelar (permitimos si estaba pendiente o confirmado)
+            // ---------- Cancelar (siempre permitido; clasifica "tarde" según ventana) ----------
             $inicio   = $turno->inicio;
-            $minReq   = Turno::leadMinutes('cancel_min_minutes', 1440);
-            $minsRest = $inicio ? now()->diffInMinutes($inicio, false) : -1;
+            $minReq   = Turno::leadMinutes('cancel_min_minutes', 1440); // p.ej. 24h
+            $minsRest = $inicio ? now()->diffInMinutes($inicio, false) : -1; // negativo si ya pasó
             $tarde    = $minsRest < $minReq;
 
             $updated = Turno::where('id_turno', $turno->id_turno)
@@ -111,7 +112,8 @@ class TurnoMailActionController extends Controller
 
             return back()->with(
                 'status',
-                $updated ? ($tarde ? 'Turno cancelado (tardío).' : 'Turno cancelado.') : 'Este turno ya fue procesado.'
+                $updated ? ($tarde ? 'Turno cancelado (tardío).' : 'Turno cancelado.')
+                    : 'Este turno ya fue procesado.'
             );
         });
     }

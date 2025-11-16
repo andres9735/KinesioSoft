@@ -2,17 +2,16 @@
 
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\AgendaDiariaController;
-use App\Http\Controllers\TurnoConfirmacionController;   // (token antiguo /r/{token})
 use App\Http\Controllers\TurnoMailActionController;     // (rutas firmadas nuevas)
 use App\Http\Middleware\RedirectToPanel;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
 use App\Models\User;
 
 // 🏠 Página principal
-Route::get('/', function () {
-    return redirect('/login');
-})->middleware(RedirectToPanel::class);
+Route::get('/', fn() => redirect()->route('login'))
+    ->middleware(RedirectToPanel::class);
 
 // 📊 Ruta genérica del dashboard (fallback seguro)
 Route::get('/dashboard', function () {
@@ -63,7 +62,7 @@ Route::prefix('turnos/mail-action')->name('turnos.mail.')->group(function () {
 
     // Procesa Confirmar/Cancelar desde el formulario público
     Route::post('{turno}', [TurnoMailActionController::class, 'store'])
-        ->middleware(['signed', 'throttle:12,1'])
+        ->middleware(['signed', 'throttle:6,1'])
         ->name('store');
 });
 
@@ -86,6 +85,14 @@ Route::middleware(['auth', 'role:Administrador|Kinesiologa'])
         Route::post('/enviar',  [AgendaDiariaController::class, 'run'])->name('agenda-diaria.enviar');
     });
 
+/* 📄 Stub temporal para "Historia clínica" (solo Kinesiologa/Admin autenticados) */
+Route::middleware(['auth', 'role:Kinesiologa|Administrador'])
+    ->get('/kinesiologa/historia/{paciente}', function (Request $request, int $paciente) {
+        // Más adelante, reemplazá este abort por tu página real
+        abort(501, 'Historia clínica: pendiente de implementación.');
+    })
+    ->whereNumber('paciente')
+    ->name('hc.paciente');
+
 // 🔐 Rutas de autenticación
 require __DIR__ . '/auth.php';
-

@@ -4,12 +4,13 @@ namespace App\Mail;
 
 use App\Models\Turno;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\URL;
+// si lo estabas encolando:
+// use Illuminate\Contracts\Queue\ShouldQueue;
 
-class TurnoConfirmacionMail extends Mailable implements ShouldQueue
+class TurnoConfirmacionMail extends Mailable // implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
@@ -25,7 +26,7 @@ class TurnoConfirmacionMail extends Mailable implements ShouldQueue
             ['turno' => $this->turno->getKey(), 'accion' => 'confirmar']
         );
 
-        $cancelUrl  = URL::temporarySignedRoute(
+        $cancelUrl = URL::temporarySignedRoute(
             'turnos.mail.show',
             $ttl,
             ['turno' => $this->turno->getKey(), 'accion' => 'cancelar']
