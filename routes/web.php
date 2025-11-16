@@ -2,17 +2,16 @@
 
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\AgendaDiariaController;
-use App\Http\Controllers\TurnoConfirmacionController;   // (token antiguo /r/{token})
 use App\Http\Controllers\TurnoMailActionController;     // (rutas firmadas nuevas)
 use App\Http\Middleware\RedirectToPanel;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
 use App\Models\User;
 
 // 🏠 Página principal
-Route::get('/', function () {
-    return redirect('/login');
-})->middleware(RedirectToPanel::class);
+Route::get('/', fn() => redirect()->route('login'))
+    ->middleware(RedirectToPanel::class);
 
 // 📊 Ruta genérica del dashboard (fallback seguro)
 Route::get('/dashboard', function () {
@@ -44,24 +43,28 @@ Route::get('/ping', fn() => 'pong');
 /**
  * 🔓 Rutas públicas desde email
  * a) Enlaces con token propio (LEGADO) → /r/{token}
- * b) Enlaces FIRMADOS de Laravel (RECOMENDADO) → /turnos/mail-action
+ * b) Enlaces FIRMADOS de Laravel (RECOMENDADO) → /turnos/mail-action/{turno}
  *
  * Ambas NO requieren auth.
  */
 
-/** a) LEGADO: token guardado en DB (recordatorio_token) */
-Route::get('/r/{token}',            [TurnoConfirmacionController::class, 'show'])->name('recordatorio.form');
-Route::post('/r/{token}/confirmar', [TurnoConfirmacionController::class, 'confirmar'])->name('recordatorio.confirmar');
-Route::post('/r/{token}/cancelar',  [TurnoConfirmacionController::class, 'cancelar'])->name('recordatorio.cancelar');
+/** a) LEGADO: token guardado en DB (recordatorio_token) — dejar comentado si ya migraste */
+# Route::get('/r/{token}',            [TurnoConfirmacionController::class, 'show'])->name('recordatorio.form');
+# Route::post('/r/{token}/confirmar', [TurnoConfirmacionController::class, 'confirmar'])->name('recordatorio.confirmar');
+# Route::post('/r/{token}/cancelar',  [TurnoConfirmacionController::class, 'cancelar'])->name('recordatorio.cancelar');
 
-/** b) NUEVO: enlaces firmados (no requiere token en DB) */
-Route::get('/turnos/mail-action', [TurnoMailActionController::class, 'show'])
-    ->name('turnos.mail-action')
-    ->middleware('signed'); // opcional: ->middleware(['signed','throttle:30,1'])
+/** b) NUEVO: enlaces firmados */
+Route::prefix('turnos/mail-action')->name('turnos.mail.')->group(function () {
+    // Página pública con el resumen y el formulario
+    Route::get('{turno}', [TurnoMailActionController::class, 'show'])
+        ->middleware(['signed', 'throttle:20,1'])
+        ->name('show');
 
-Route::post('/turnos/mail-action', [TurnoMailActionController::class, 'store'])
-    ->name('turnos.mail-action.store')
-    ->middleware('signed'); // opcional: ->middleware(['signed','throttle:30,1'])
+    // Procesa Confirmar/Cancelar desde el formulario público
+    Route::post('{turno}', [TurnoMailActionController::class, 'store'])
+        ->middleware(['signed', 'throttle:6,1'])
+        ->name('store');
+});
 
 // 👤 Perfil del usuario autenticado
 Route::middleware('auth')->group(function () {
@@ -73,10 +76,6 @@ Route::middleware('auth')->group(function () {
 /**
  * 📆 Agenda diaria (versión manual / “inteligente” sin cron)
  * - Solo para Administrador y Kinesiologa
- *
- * GET  /agenda-diaria/preview → previsualiza a quiénes se notificará (D+1) [JSON]
- * GET  /agenda-diaria         → vista HTML para previsualizar y disparar el módulo
- * POST /agenda-diaria/enviar  → ejecuta proceso (SIMULADO/REAL)
  */
 Route::middleware(['auth', 'role:Administrador|Kinesiologa'])
     ->prefix('agenda-diaria')
@@ -86,5 +85,14 @@ Route::middleware(['auth', 'role:Administrador|Kinesiologa'])
         Route::post('/enviar',  [AgendaDiariaController::class, 'run'])->name('agenda-diaria.enviar');
     });
 
-// 🔐 Rutas de autenticación (Laravel Breeze / Jetstream)
+/* 📄 Stub temporal para "Historia clínica" (solo Kinesiologa/Admin autenticados) */
+Route::middleware(['auth', 'role:Kinesiologa|Administrador'])
+    ->get('/kinesiologa/historia/{paciente}', function (Request $request, int $paciente) {
+        // Más adelante, reemplazá este abort por tu página real
+        abort(501, 'Historia clínica: pendiente de implementación.');
+    })
+    ->whereNumber('paciente')
+    ->name('hc.paciente');
+
+// 🔐 Rutas de autenticación
 require __DIR__ . '/auth.php';

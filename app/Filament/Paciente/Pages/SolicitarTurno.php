@@ -326,8 +326,8 @@ class SolicitarTurno extends Page
         // 🔒 Regla de negocio: un turno PENDIENTE por profesional
         if ($this->tienePendienteConProfesional($profId)) {
             Notification::make()
-                ->title('Ya tenés un turno pendiente con esta profesional.')
-                ->body('Confirmá, asistí o cancelá ese turno antes de solicitar otro.')
+                ->title('Un paciente no puede tener más de un turno pendiente con el mismo profesional.')
+                ->body('Confirmá, asistí o cancelá el turno pendiente antes de solicitar otro.')
                 ->danger()
                 ->send();
             return;
@@ -345,11 +345,27 @@ class SolicitarTurno extends Page
                 'motivo'         => null,
             ]);
         } catch (QueryException $e) {
-            Notification::make()
-                ->title('Ese horario se reservó recién.')
-                ->danger()
-                ->body('Elegí otro turno, por favor.')
-                ->send();
+            // Detectar UNIQUE por paciente/profesional/pending_guard vs colisión de slot
+            $msg   = $e->getMessage();
+            $isDup = $e->getCode() === '23000' || str_contains($msg, '1062');
+            $isPendienteUnique = $isDup && (
+                str_contains($msg, 'pendiente_guard') ||
+                str_contains($msg, 'turnos_paciente_profesional_pendiente_guard_unique')
+            );
+
+            if ($isPendienteUnique) {
+                Notification::make()
+                    ->title('Un paciente no puede tener más de un turno pendiente con el mismo profesional.')
+                    ->body('Cancelá o completá el turno pendiente antes de solicitar otro.')
+                    ->danger()
+                    ->send();
+            } else {
+                Notification::make()
+                    ->title('Ese horario se reservó recién.')
+                    ->body('Elegí otro turno, por favor.')
+                    ->danger()
+                    ->send();
+            }
 
             $this->buscarSlots();
             return;
@@ -378,8 +394,8 @@ class SolicitarTurno extends Page
         // 🔒 Regla de negocio: un turno PENDIENTE por profesional
         if ($this->tienePendienteConProfesional((int) $s['profesional_id'])) {
             Notification::make()
-                ->title('Ya tenés un turno pendiente con esta profesional.')
-                ->body('Confirmá, asistí o cancelá ese turno antes de solicitar otro.')
+                ->title('Un paciente no puede tener más de un turno pendiente con el mismo profesional.')
+                ->body('Confirmá, asistí o cancelá el turno pendiente antes de solicitar otro.')
                 ->danger()
                 ->send();
             return;
@@ -416,7 +432,27 @@ class SolicitarTurno extends Page
                 'motivo'         => null,
             ]);
         } catch (\Throwable $e) {
-            Notification::make()->title('Ese horario se reservó recién.')->danger()->send();
+            $msg   = $e->getMessage();
+            $isDup = ($e instanceof QueryException) && ($e->getCode() === '23000' || str_contains($msg, '1062'));
+            $isPendienteUnique = $isDup && (
+                str_contains($msg, 'pendiente_guard') ||
+                str_contains($msg, 'turnos_paciente_profesional_pendiente_guard_unique')
+            );
+
+            if ($isPendienteUnique) {
+                Notification::make()
+                    ->title('Un paciente no puede tener más de un turno pendiente con el mismo profesional.')
+                    ->body('Cancelá o completá el turno pendiente antes de solicitar otro.')
+                    ->danger()
+                    ->send();
+            } else {
+                Notification::make()
+                    ->title('Ese horario se reservó recién.')
+                    ->danger()
+                    ->body('Elegí otro turno, por favor.')
+                    ->send();
+            }
+
             $this->sugerirProximoLista();
             return;
         }

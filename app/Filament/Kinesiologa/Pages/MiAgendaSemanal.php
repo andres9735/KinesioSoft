@@ -18,7 +18,7 @@ class MiAgendaSemanal extends Page
     protected static ?string $navigationIcon  = 'heroicon-o-calendar-days';
     protected static ?string $title           = 'Mis horarios atención';
     protected static ?string $navigationGroup = 'Turnos y Consultas';
-    protected static ?int    $navigationSort  = 50;
+    protected static ?int    $navigationSort  = 10;
 
     /** Vista Livewire/Blade asociada */
     protected static string $view = 'filament.kinesiologa.pages.mi-agenda-semanal';

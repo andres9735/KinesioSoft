@@ -2,20 +2,57 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\EnviarRecordatorioTurno;
 use App\Models\Turno;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Carbon;
-use App\Mail\TurnoConfirmacionMail;
+use Illuminate\View\View;
+use Illuminate\Database\Eloquent\Builder;
 
 class AgendaDiariaController extends Controller
 {
-    /** Vista HTML con la previsualización D+1 */
-    public function previewHtml(Request $request)
+    /** ---------------------------------------------------------
+     * Helpers internos
+     * ----------------------------------------------------------*/
+
+    /**
+     * Query base de turnos a notificar para una fecha dada (D+1).
+     * - Estados: pendiente | confirmado
+     * - Recordatorio: nunca enviado (null) o con fallo previo (failed)
+     */
+    private function baseQueryParaFecha(Carbon $fecha): Builder
     {
-        $hoy = Carbon::today();
+        $d = $fecha->toDateString();
+
+        return Turno::query()
+            ->with(['paciente:id,name,email', 'profesional:id,name'])
+            ->whereDate('fecha', $d)
+            ->whereIn('estado', [Turno::ESTADO_PENDIENTE, Turno::ESTADO_CONFIRMADO])
+            ->where(function ($q) {
+                $q->whereNull('reminder_status')
+                    ->orWhereIn('reminder_status', ['failed']);
+            });
+    }
+
+    /** Obtiene la colección de turnos a notificar (D+1) ya ordenados. */
+    protected function turnosParaNotificar(Carbon $fechaObjetivo)
+    {
+        return $this->baseQueryParaFecha($fechaObjetivo)
+            ->orderBy('hora_desde')
+            ->get();
+    }
+
+    /** ---------------------------------------------------------
+     * Vistas de previsualización
+     * ----------------------------------------------------------*/
+
+    /** Vista HTML con la previsualización D+1 */
+    public function previewHtml(Request $request): View
+    {
+        $hoy           = Carbon::today();
         $fechaObjetivo = $hoy->copy()->addDay();
 
         $turnos = $this->turnosParaNotificar($fechaObjetivo);
@@ -45,8 +82,9 @@ class AgendaDiariaController extends Controller
     /** Previsualización JSON (útil para depurar) */
     public function preview(Request $request)
     {
-        $hoy = Carbon::today();
+        $hoy           = Carbon::today();
         $fechaObjetivo = $hoy->copy()->addDay();
+
         $turnos = $this->turnosParaNotificar($fechaObjetivo);
 
         return response()->json([
@@ -70,19 +108,18 @@ class AgendaDiariaController extends Controller
         ]);
     }
 
+    /** ---------------------------------------------------------
+     * Ejecución del módulo (simulado o real)
+     * ----------------------------------------------------------*/
+
     /** Ejecuta el módulo (simulado o real) */
-    public function run(Request $request)
+    public function run(Request $request): RedirectResponse
     {
         $simulate      = $request->boolean('simulate', true);
         $hoy           = Carbon::today();
         $fechaObjetivo = $hoy->copy()->addDay();
 
-        $turnos = Turno::query()
-            ->with(['paciente:id,name,email', 'profesional:id,name'])
-            ->whereDate('fecha', $fechaObjetivo->toDateString())
-            ->whereIn('estado', [Turno::ESTADO_PENDIENTE, Turno::ESTADO_CONFIRMADO])
-            // no reenviamos si ya se marcó 'sent'
-            ->where(fn($q) => $q->whereNull('reminder_status')->orWhere('reminder_status', '!=', 'sent'))
+        $turnos = $this->baseQueryParaFecha($fechaObjetivo)
             ->orderBy('hora_desde')
             ->get();
 
@@ -96,11 +133,13 @@ class AgendaDiariaController extends Controller
                 $errores++;
                 Log::warning('AgendaDiaria: turno sin email de paciente', ['turno' => $t->id_turno]);
 
-                DB::table('turnos')->where('id_turno', $t->id_turno)->update([
-                    'reminder_status'  => 'failed',
-                    'reminder_sent_at' => now(),
-                    'updated_at'       => now(),
-                ]);
+                DB::table('turnos')
+                    ->where('id_turno', $t->id_turno)
+                    ->update([
+                        'reminder_status'  => 'failed',
+                        'reminder_sent_at' => now(),
+                        'updated_at'       => now(),
+                    ]);
                 continue;
             }
 
@@ -113,38 +152,45 @@ class AgendaDiariaController extends Controller
                     'prof'  => $t->profesional?->name,
                 ]);
 
-                DB::table('turnos')->where('id_turno', $t->id_turno)->update([
-                    'reminder_status'  => 'pending',
-                    'reminder_sent_at' => now(),
-                    'updated_at'       => now(),
-                ]);
+                DB::table('turnos')
+                    ->where('id_turno', $t->id_turno)
+                    ->update([
+                        'reminder_status'  => 'simulated', // si preferís: 'pending'
+                        'reminder_sent_at' => now(),
+                        'updated_at'       => now(),
+                    ]);
 
                 $enviados++;
                 continue;
             }
 
-            // ✉️ REAL: encolamos el mailable (el worker lo envía y no bloquea la request)
+            // ✉️ REAL: encolamos el job (el worker envía y marca sent/failed)
             try {
-                Mail::to($to)->queue(new TurnoConfirmacionMail($t));
+                EnviarRecordatorioTurno::dispatch($t->id_turno, $to)->onQueue('mail');
 
-                DB::table('turnos')->where('id_turno', $t->id_turno)->update([
-                    'reminder_token'   => null,      // ya no usamos tokens manuales
-                    'reminder_status'  => 'sent',    // evita reintentos desde el módulo
-                    'reminder_sent_at' => now(),
-                    'updated_at'       => now(),
-                ]);
+                // Marcamos como ENCOLADO (¡no enviado todavía!)
+                DB::table('turnos')
+                    ->where('id_turno', $t->id_turno)
+                    ->update([
+                        'reminder_token'   => null,
+                        'reminder_status'  => 'queued',
+                        'reminder_sent_at' => null,
+                        'updated_at'       => now(),
+                    ]);
 
                 $enviados++;
             } catch (\Throwable $e) {
                 $errores++;
 
-                DB::table('turnos')->where('id_turno', $t->id_turno)->update([
-                    'reminder_status'  => 'failed',
-                    'reminder_sent_at' => now(),
-                    'updated_at'       => now(),
-                ]);
+                DB::table('turnos')
+                    ->where('id_turno', $t->id_turno)
+                    ->update([
+                        'reminder_status'  => 'failed',
+                        'reminder_sent_at' => now(),
+                        'updated_at'       => now(),
+                    ]);
 
-                Log::error('Fallo envío recordatorio D-1', [
+                Log::error('Fallo encolando recordatorio D-1', [
                     'turno_id' => $t->id_turno,
                     'error'    => $e->getMessage(),
                 ]);
@@ -167,19 +213,5 @@ class AgendaDiariaController extends Controller
                 'msg'            => $msg,
                 'modo'           => $modo,
             ]);
-    }
-
-    /** Colección de turnos (D+1) a notificar */
-    protected function turnosParaNotificar(Carbon $fechaObjetivo)
-    {
-        $d = $fechaObjetivo->toDateString();
-
-        return Turno::query()
-            ->with(['paciente:id,name,email', 'profesional:id,name'])
-            ->whereDate('fecha', $d)
-            ->whereIn('estado', [Turno::ESTADO_PENDIENTE, Turno::ESTADO_CONFIRMADO])
-            ->where(fn($q) => $q->whereNull('reminder_status')->orWhere('reminder_status', '!=', 'sent'))
-            ->orderBy('hora_desde')
-            ->get();
     }
 }

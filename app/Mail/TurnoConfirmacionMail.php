@@ -4,12 +4,13 @@ namespace App\Mail;
 
 use App\Models\Turno;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\URL;
+// si lo estabas encolando:
+// use Illuminate\Contracts\Queue\ShouldQueue;
 
-class TurnoConfirmacionMail extends Mailable implements ShouldQueue
+class TurnoConfirmacionMail extends Mailable // implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
@@ -17,18 +18,18 @@ class TurnoConfirmacionMail extends Mailable implements ShouldQueue
 
     public function build()
     {
-        $ttl = now()->addHours(36);
+        $ttl = now()->addHours((int) config('turnos.mail_link_ttl_hours', 36));
 
         $confirmUrl = URL::temporarySignedRoute(
-            'turnos.mail-action',
+            'turnos.mail.show',
             $ttl,
-            ['turno' => $this->turno->id_turno, 'accion' => 'confirmar']
+            ['turno' => $this->turno->getKey(), 'accion' => 'confirmar']
         );
 
         $cancelUrl = URL::temporarySignedRoute(
-            'turnos.mail-action',
+            'turnos.mail.show',
             $ttl,
-            ['turno' => $this->turno->id_turno, 'accion' => 'cancelar']
+            ['turno' => $this->turno->getKey(), 'accion' => 'cancelar']
         );
 
         return $this->subject('Confirmación de turno')

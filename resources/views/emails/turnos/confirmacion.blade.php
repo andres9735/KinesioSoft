@@ -3,7 +3,7 @@
 
 Hola **{{ $turno->paciente->name }}**,
 
-Tenés un turno con **{{ $turno->profesional->name }}** el **{{ $turno->fecha?->format('d/m/Y') }}**
+Tenés un turno con **{{ $turno->profesional->name }}** el **{{ optional($turno->fecha)->format('d/m/Y') }}**
 de **{{ substr((string)$turno->hora_desde,0,5) }}** a **{{ substr((string)$turno->hora_hasta,0,5) }}**.
 
 @component('mail::button', ['url' => $confirmUrl])
@@ -16,6 +16,8 @@ Cancelar turno
 
 > Si ya confirmaste o cancelaste, podés ignorar este mensaje.
 
-Gracias,<br>
+Gracias,
 {{ config('app.name') }}
 @endcomponent
+
+
