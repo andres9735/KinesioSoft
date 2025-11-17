@@ -19,7 +19,7 @@ class SolicitarTurno extends Page
     protected static string  $view            = 'filament.paciente.pages.solicitar-turno';
     protected static ?int    $navigationSort  = 10;
 
-    /** Listado de profesionales [id => nombre] */
+    /** Listado de profesionales [id => label] */
     public array $profesionales = [];
 
     /** Parámetros */
@@ -40,9 +40,9 @@ class SolicitarTurno extends Page
     public array $slots = [];
 
     /** Sugerencias (lista) para el flujo “consultar ahora” */
-    public array $sugeridos = []; // [['fecha','desde','hasta','consultorio_id','profesional_id','profesional','especialidad','rating_*'], ...]
+    public array $sugeridos = [];
 
-    /** (Opcional) sugerencia individual – compatibilidad */
+    /** (Compatibilidad) sugerencia individual */
     public ?array $sugerido = null;
 
     /** Paciente autenticado */
@@ -59,22 +59,23 @@ class SolicitarTurno extends Page
         $user = Filament::auth()->user();
         $this->pacienteId = (int) $user->id;
 
+        // >>> Opciones del select con “Nombre (Especialidad)”
         $this->profesionales = User::role('Kinesiologa')
             ->orderBy('name')
-            ->pluck('name', 'id')
+            ->get(['id', 'name', 'specialty']) // evita N+1 en el accessor
+            ->mapWithKeys(fn($u) => [$u->id => $u->name_with_specialty])
             ->toArray();
 
         // Defaults
         $this->fecha = Carbon::today()->toDateString();
         $this->slots = [];
 
-        // Precargar varias sugerencias (sin exigir que elija nada)
+        // Precargar sugerencias
         $this->sugerirProximoLista();
     }
 
     public function updated($prop): void
     {
-        // Si destilda profesional/fecha, limpiamos parámetros y recomputamos
         if ($prop === 'eligeProfesional' && $this->eligeProfesional === false) {
             $this->profesionalId = null;
         }
@@ -82,7 +83,6 @@ class SolicitarTurno extends Page
             $this->slots = [];
         }
 
-        // Cambios que requieren recalcular
         if (in_array($prop, ['eligeProfesional', 'profesionalId', 'consultorioId'], true)) {
             $this->slots = [];
             $this->eligeFecha ? $this->buscarSlots() : $this->sugerirProximoLista();
@@ -94,32 +94,24 @@ class SolicitarTurno extends Page
         }
     }
 
-    /* ======================================================
-     |                    BÚSQUEDAS
-     |======================================================*/
+    /* ===================== BÚSQUEDAS ===================== */
 
     public function buscarSlots(): void
     {
         $this->slots = [];
 
-        if (!$this->eligeFecha || !$this->fecha) {
-            return;
-        }
+        if (!$this->eligeFecha || !$this->fecha) return;
 
         $fechaSel = Carbon::parse($this->fecha);
 
-        // Bloquear días pasados (excepto hoy)
         if ($fechaSel->isPast() && !$fechaSel->isToday()) {
-            Notification::make()
-                ->title('No podés reservar en fechas pasadas.')
-                ->warning()
-                ->send();
+            Notification::make()->title('No podés reservar en fechas pasadas.')->warning()->send();
             return;
         }
 
         $svc = new SlotService();
 
-        // ===== CASO A: con profesional elegido → mantener UX, pero ENRIQUECIDO =====
+        // CASO A: con profesional elegido
         if ($this->profesionalId) {
             $prof = User::select('id', 'name', 'specialty', 'rating_avg', 'rating_count')
                 ->find($this->profesionalId);
@@ -139,7 +131,7 @@ class SolicitarTurno extends Page
                     'hasta'          => $s['hasta'],
                     'consultorio_id' => $s['consultorio_id'] ?? null,
                     'profesional_id' => $prof?->id,
-                    'profesional'    => $prof?->name ?? 'Profesional',
+                    'profesional'    => $prof?->name_with_specialty ?? 'Profesional',
                     'especialidad'   => $prof?->specialty,
                     'rating_avg'     => $prof?->rating_avg,
                     'rating_count'   => $prof?->rating_count,
@@ -149,14 +141,13 @@ class SolicitarTurno extends Page
             return;
         }
 
-        // ===== CASO B: sin profesional elegido → traer TODOS y ENRIQUECER =====
+        // CASO B: sin profesional elegido
         $profIds = array_keys($this->profesionales);
         if ($profIds === []) {
             $this->slots = [];
             return;
         }
 
-        // Prefetch para evitar N+1
         $profMeta = User::role('Kinesiologa')
             ->select('id', 'name', 'specialty', 'rating_avg', 'rating_count')
             ->whereIn('id', $profIds)
@@ -181,7 +172,7 @@ class SolicitarTurno extends Page
                     'hasta'          => $s['hasta'],
                     'consultorio_id' => $s['consultorio_id'] ?? null,
                     'profesional_id' => $pid,
-                    'profesional'    => $prof?->name ?? ($this->profesionales[$pid] ?? 'Profesional'),
+                    'profesional'    => $prof?->name_with_specialty ?? ($this->profesionales[$pid] ?? 'Profesional'),
                     'especialidad'   => $prof?->specialty,
                     'rating_avg'     => $prof?->rating_avg,
                     'rating_count'   => $prof?->rating_count,
@@ -189,65 +180,48 @@ class SolicitarTurno extends Page
             }
         }
 
-        // Ordenar por hora y luego por profesional
         usort($todos, fn($a, $b) => [$a['desde'], $a['profesional']] <=> [$b['desde'], $b['profesional']]);
-
         $this->slots = $todos;
     }
 
-    /**
-     * Acción del botón “Consultar ahora”
-     * Decide según el estado de los checkboxes qué mostrar.
-     */
     public function consultarAhora(): void
     {
-        // Limpio resultados
         $this->slots = [];
         $this->sugeridos = [];
         $this->sugerido = null;
 
-        // Si se consulta por día, SIEMPRE llamamos a buscarSlots()
         if ($this->eligeFecha) {
             $this->buscarSlots();
             return;
         }
-
-        // Sin día → sugerencias
         $this->sugerirProximoLista();
     }
 
-    /** Llena $sugeridos con las primeras N sugerencias, enriquecidas */
     public function sugerirProximoLista(int $limite = 3): void
     {
         $this->sugeridos = $this->buscarSiguientesDisponibles($limite);
-        $this->sugerido = $this->sugeridos[0] ?? null;
+        $this->sugerido  = $this->sugeridos[0] ?? null;
     }
 
-    /** (Compatibilidad) sugerencia individual */
     public function sugerirProximo(): void
     {
         $uno = $this->buscarSiguientesDisponibles(1);
         $this->sugerido = $uno[0] ?? null;
     }
 
-    /** Devuelve primeras N sugerencias entre todos (o el elegido), ENRIQUECIDAS */
     protected function buscarSiguientesDisponibles(int $limite = 3, int $diasHaciaAdelante = 30): array
     {
         $resultado = [];
-        if (empty($this->profesionales)) {
-            return $resultado;
-        }
+        if (empty($this->profesionales)) return $resultado;
 
         $svc    = new SlotService();
         $desde  = Carbon::today();
         $hasta  = $desde->copy()->addDays($diasHaciaAdelante);
 
-        // Si elige profesional => buscamos sólo en ese, si no en todos
         $profIds = $this->eligeProfesional && $this->profesionalId
             ? [$this->profesionalId]
             : array_keys($this->profesionales);
 
-        // Prefetch meta de profesionales para enriquecer sin N+1
         $profMeta = User::select('id', 'name', 'specialty', 'rating_avg', 'rating_count')
             ->whereIn('id', $profIds)
             ->get()
@@ -272,14 +246,12 @@ class SolicitarTurno extends Page
                         'hasta'          => $s['hasta'],
                         'consultorio_id' => $s['consultorio_id'] ?? null,
                         'profesional_id' => $pid,
-                        'profesional'    => $prof?->name ?? ($this->profesionales[$pid] ?? 'Profesional'),
+                        'profesional'    => $prof?->name_with_specialty ?? ($this->profesionales[$pid] ?? 'Profesional'),
                         'especialidad'   => $prof?->specialty,
                         'rating_avg'     => $prof?->rating_avg,
                         'rating_count'   => $prof?->rating_count,
                     ];
-                    if (count($resultado) >= $limite) {
-                        return $resultado;
-                    }
+                    if (count($resultado) >= $limite) return $resultado;
                 }
             }
         }
@@ -287,25 +259,15 @@ class SolicitarTurno extends Page
         return $resultado;
     }
 
-    /* ======================================================
-     |                    RESERVAS
-     |======================================================*/
+    /* ===================== RESERVAS ===================== */
 
-    /** Reservar uno de los slots listados para un día elegido manualmente. */
     public function reservar(int $index): void
     {
-        if (!$this->eligeFecha || !$this->fecha) {
-            return;
-        }
+        if (!$this->eligeFecha || !$this->fecha) return;
 
         $fechaSel = Carbon::parse($this->fecha);
-
-        // Seguridad: no permitir fechas pasadas
         if ($fechaSel->isPast() && !$fechaSel->isToday()) {
-            Notification::make()
-                ->title('No podés reservar en fechas pasadas.')
-                ->danger()
-                ->send();
+            Notification::make()->title('No podés reservar en fechas pasadas.')->danger()->send();
             return;
         }
 
@@ -316,20 +278,18 @@ class SolicitarTurno extends Page
         }
 
         $slot   = $this->slots[$index];
-        $profId = $slot['profesional_id'] ?? $this->profesionalId; // soporta “todos los profesionales”
+        $profId = $slot['profesional_id'] ?? $this->profesionalId;
 
         if (!$profId) {
             Notification::make()->title('Falta el profesional en el turno seleccionado.')->danger()->send();
             return;
         }
 
-        // 🔒 Regla de negocio: un turno PENDIENTE por profesional
         if ($this->tienePendienteConProfesional($profId)) {
             Notification::make()
                 ->title('Un paciente no puede tener más de un turno pendiente con el mismo profesional.')
                 ->body('Confirmá, asistí o cancelá el turno pendiente antes de solicitar otro.')
-                ->danger()
-                ->send();
+                ->danger()->send();
             return;
         }
 
@@ -345,8 +305,7 @@ class SolicitarTurno extends Page
                 'motivo'         => null,
             ]);
         } catch (QueryException $e) {
-            // Detectar UNIQUE por paciente/profesional/pending_guard vs colisión de slot
-            $msg   = $e->getMessage();
+            $msg = $e->getMessage();
             $isDup = $e->getCode() === '23000' || str_contains($msg, '1062');
             $isPendienteUnique = $isDup && (
                 str_contains($msg, 'pendiente_guard') ||
@@ -357,14 +316,12 @@ class SolicitarTurno extends Page
                 Notification::make()
                     ->title('Un paciente no puede tener más de un turno pendiente con el mismo profesional.')
                     ->body('Cancelá o completá el turno pendiente antes de solicitar otro.')
-                    ->danger()
-                    ->send();
+                    ->danger()->send();
             } else {
                 Notification::make()
                     ->title('Ese horario se reservó recién.')
                     ->body('Elegí otro turno, por favor.')
-                    ->danger()
-                    ->send();
+                    ->danger()->send();
             }
 
             $this->buscarSlots();
@@ -381,27 +338,21 @@ class SolicitarTurno extends Page
         $this->sugerirProximoLista();
     }
 
-    /** Reservar cualquiera de los turnos sugeridos (por índice) */
     public function reservarSugerido(int $index): void
     {
-        if (!isset($this->sugeridos[$index])) {
-            return;
-        }
+        if (!isset($this->sugeridos[$index])) return;
 
         $s = $this->sugeridos[$index];
         $fecha = Carbon::parse($s['fecha']);
 
-        // 🔒 Regla de negocio: un turno PENDIENTE por profesional
         if ($this->tienePendienteConProfesional((int) $s['profesional_id'])) {
             Notification::make()
                 ->title('Un paciente no puede tener más de un turno pendiente con el mismo profesional.')
                 ->body('Confirmá, asistí o cancelá el turno pendiente antes de solicitar otro.')
-                ->danger()
-                ->send();
+                ->danger()->send();
             return;
         }
 
-        // Revalidar que sigue disponible
         $svc = new SlotService();
         $still = collect(
             $svc->slotsDisponibles(
@@ -432,7 +383,7 @@ class SolicitarTurno extends Page
                 'motivo'         => null,
             ]);
         } catch (\Throwable $e) {
-            $msg   = $e->getMessage();
+            $msg = $e->getMessage();
             $isDup = ($e instanceof QueryException) && ($e->getCode() === '23000' || str_contains($msg, '1062'));
             $isPendienteUnique = $isDup && (
                 str_contains($msg, 'pendiente_guard') ||
@@ -443,8 +394,7 @@ class SolicitarTurno extends Page
                 Notification::make()
                     ->title('Un paciente no puede tener más de un turno pendiente con el mismo profesional.')
                     ->body('Cancelá o completá el turno pendiente antes de solicitar otro.')
-                    ->danger()
-                    ->send();
+                    ->danger()->send();
             } else {
                 Notification::make()
                     ->title('Ese horario se reservó recién.')
@@ -463,18 +413,11 @@ class SolicitarTurno extends Page
             ->body("{$s['desde']}–{$s['hasta']} el {$fecha->isoFormat('DD/MM/YYYY')} con {$s['profesional']}.")
             ->send();
 
-        // Refrescar lista para que desaparezca el reservado
         $this->sugerirProximoLista();
     }
 
-    /* ======================================================
-     |                    HELPERS DE NEGOCIO
-     |======================================================*/
+    /* ===================== HELPERS ===================== */
 
-    /**
-     * Devuelve true si el paciente ya tiene un turno PENDIENTE con la profesional dada
-     * que sea futuro o de hoy aún no finalizado.
-     */
     protected function tienePendienteConProfesional(int $profesionalId): bool
     {
         $hoy = now()->toDateString();

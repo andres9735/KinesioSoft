@@ -9,4 +9,7 @@ return [
 
     // TTL de los links firmados (horas)
     'mail_link_ttl_hours' => (int) env('TURNOS_MAIL_LINK_TTL_HOURS', 36),
+
+    'default_duration'       => 45,
+    'allow_custom_duration'  => false,
 ];
