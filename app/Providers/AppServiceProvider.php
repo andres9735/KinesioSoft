@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Carbon\Carbon;
+use App\Models\User;
+use App\Observers\UserObserver;
 use App\Models\Valoracion;
 use App\Observers\ValoracionObserver;
 
@@ -26,5 +28,7 @@ class AppServiceProvider extends ServiceProvider
         setlocale(LC_TIME, 'es_AR.UTF-8', 'es_ES.UTF-8', 'es.UTF-8');
 
         Valoracion::observe(\App\Observers\ValoracionObserver::class);
+
+        User::observe(UserObserver::class);
     }
 }

@@ -99,6 +99,20 @@ class User extends Authenticatable implements AuditableContract
             ->limit(1);
     }
 
+
+    /** Perfil de Paciente (1:1 con users) */
+    public function paciente()
+    {
+        // Un usuario (cuando tiene rol Paciente) puede tener un perfil de paciente
+        return $this->hasOne(\App\Models\Paciente::class, 'user_id');
+    }
+
+    public function getPacientePerfilIdAttribute(): ?int
+    {
+        return $this->paciente?->getKey(); // equivalente a $this->paciente?->paciente_id
+    }
+
+
     /** ====== ACCESSOR: Nombre + Especialidad ====== */
     public function getNameWithSpecialtyAttribute(): string
     {

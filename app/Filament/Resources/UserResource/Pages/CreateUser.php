@@ -5,13 +5,14 @@ namespace App\Filament\Resources\UserResource\Pages;
 use App\Filament\Resources\UserResource;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Auth;
-use App\Models\User; // 👈 tipamos el modelo
+use App\Models\User;
+use App\Models\Paciente; // 👈 NUEVO
+use Spatie\Permission\Models\Role;
 
 class CreateUser extends CreateRecord
 {
     protected static string $resource = UserResource::class;
 
-    /** Helper para el IDE y para reutilizar */
     private function isAdmin(): bool
     {
         /** @var User|null $u */
@@ -19,15 +20,10 @@ class CreateUser extends CreateRecord
         return $u?->hasRole('Administrador') ?? false;
     }
 
-    /**
-     * Blindaje: si alguien no-admin forzara el POST, ignoro el campo roles.
-     */
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        // Para create no tenemos $record, pasamos null.
         $data = \App\Filament\Resources\UserResource::sanitizeProfileData($data, null);
 
-        // Si manejás password en el form, hashea si está presente
         if (!empty($data['password'])) {
             $data['password'] = bcrypt($data['password']);
         }
@@ -35,16 +31,13 @@ class CreateUser extends CreateRecord
         return $data;
     }
 
-
-    /**
-     * Si no se enviaron roles, intento setear "Paciente" como default (si existe).
-     */
     protected function afterCreate(): void
     {
         $user = $this->record;
 
-        // Si ya vinieron roles por el form, no tocamos nada.
         if ($user->roles()->exists()) {
+            // si ya vino con roles desde el form, aseguramos perfil si corresponde
+            \App\Services\PacienteService::ensureProfile($user);
             return;
         }
 
@@ -53,12 +46,14 @@ class CreateUser extends CreateRecord
                 $roleModel = \Spatie\Permission\Models\Role::where('name', 'Paciente')->first();
                 if ($roleModel) {
                     $user->syncRoles(['Paciente']);
+                    \App\Services\PacienteService::ensureProfile($user);
                 }
             }
         } catch (\Throwable $e) {
-            // Silencioso: no interrumpimos el flujo si falta el rol
+            // silencioso
         }
     }
+
 
     protected function getRedirectUrl(): string
     {
