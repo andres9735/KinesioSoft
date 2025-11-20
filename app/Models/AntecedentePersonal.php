@@ -27,6 +27,13 @@ class AntecedentePersonal extends Model
         'fecha_fin'    => 'date',
     ];
 
+    public function getTituloAttribute(): string
+    {
+        $tipo = $this->tipo?->nombre;
+        $desc = (string) ($this->descripcion ?? '');
+        return trim(($tipo ? $tipo . ': ' : '') . $desc);
+    }
+
     public function entradaHc(): BelongsTo
     {
         return $this->belongsTo(EntradaHc::class, 'entrada_hc_id', 'entrada_hc_id');

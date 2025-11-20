@@ -5,6 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use App\Models\AntecedentePersonal;
+use App\Models\EntradaHc;
 
 class Paciente extends Model
 {
@@ -31,6 +34,19 @@ class Paciente extends Model
     public function entradasHc(): HasMany
     {
         return $this->hasMany(EntradaHc::class, 'paciente_id', 'paciente_id');
+    }
+
+    /** Listado directo de antecedentes a través de entrada_hc */
+    public function antecedentesPersonales(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            AntecedentePersonal::class, // Related
+            EntradaHc::class,           // Through
+            'paciente_id',              // FK en entrada_hc -> pacientes.paciente_id
+            'entrada_hc_id',            // FK en antecedente_personal -> entrada_hc.entrada_hc_id
+            'paciente_id',              // PK local en pacientes
+            'entrada_hc_id'             // PK local en entrada_hc
+        );
     }
 
     // public function turnos(): HasMany

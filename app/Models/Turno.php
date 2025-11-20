@@ -22,25 +22,25 @@ class Turno extends Model
     /** ---------- Asignación masiva ---------- */
     protected $fillable = [
         'profesional_id',
-        'paciente_id',
-        'id_consultorio',   // FK a consultorio.id_consultorio (nullable)
-        'fecha',            // date
-        'hora_desde',       // time "H:i" o "H:i:s"
-        'hora_hasta',       // time "H:i" o "H:i:s"
-        'estado',           // pendiente|confirmado|cancelado|cancelado_tarde|atendido|no_asistio
-        'motivo',           // nullable
+        'paciente_id',          // legacy -> users.id
+        'paciente_perfil_id',   // nuevo -> pacientes.paciente_id (transición)
+        'id_consultorio',
+        'fecha',
+        'hora_desde',
+        'hora_hasta',
+        'estado',
+        'motivo',
 
-        // ⬇️ claves del módulo de recordatorios (D-1)
+        // recordatorios
         'reminder_token',
-        'reminder_status',   // pending|sent|failed (o el que uses)
+        'reminder_status',
         'reminder_sent_at',
     ];
-    // Alternativa: en vez de fillable, podrías usar: protected $guarded = [];
 
     /** ---------- Casts ---------- */
     protected $casts = [
-        'fecha'             => 'date',
-        'reminder_sent_at'  => 'datetime',
+        'fecha'            => 'date',
+        'reminder_sent_at' => 'datetime',
     ];
 
     /** ---------- Constantes de estado ---------- */
@@ -51,10 +51,30 @@ class Turno extends Model
     public const ESTADO_ATENDIDO         = 'atendido';
     public const ESTADO_NO_ASISTIO       = 'no_asistio';
 
-    /** ---------- (Opcional) Estados de recordatorio ---------- */
+    /** ---------- Recordatorios ---------- */
     public const REMINDER_PENDING = 'pending';
     public const REMINDER_SENT    = 'sent';
     public const REMINDER_FAILED  = 'failed';
+
+    /** =========================================================
+     * Capa de compatibilidad (transición a pacientes)
+     * ========================================================= */
+    protected static function booted(): void
+    {
+        static::saving(function (self $turno) {
+            // Si se cambia el legacy (users.id) y falta el perfil, lo completamos
+            if ($turno->isDirty('paciente_id') && empty($turno->paciente_perfil_id)) {
+                $turno->paciente_perfil_id = \App\Models\Paciente::where('user_id', $turno->paciente_id)
+                    ->value('paciente_id');
+            }
+
+            // Si se cambia el perfil y falta el legacy, lo completamos (solo durante transición)
+            if ($turno->isDirty('paciente_perfil_id') && empty($turno->paciente_id)) {
+                $turno->paciente_id = \App\Models\Paciente::where('paciente_id', $turno->paciente_perfil_id)
+                    ->value('user_id');
+            }
+        });
+    }
 
     /** ---------- Helpers de presentación (Filament) ---------- */
     public static function estadoColor(string $estado): string
@@ -91,14 +111,26 @@ class Turno extends Model
         return $this->belongsTo(User::class, 'profesional_id');
     }
 
+    // LEGACY: sigue apuntando a users.id para no romper nada existente
     public function paciente()
+    {
+        return $this->belongsTo(User::class, 'paciente_id');
+    }
+
+    // NUEVO: perfil clínico en pacientes
+    public function pacientePerfil()
+    {
+        return $this->belongsTo(\App\Models\Paciente::class, 'paciente_perfil_id', 'paciente_id');
+    }
+
+    // Alias explícito del legacy (por si querés ir migrando vistas más claras)
+    public function pacienteUser()
     {
         return $this->belongsTo(User::class, 'paciente_id');
     }
 
     public function consultorio()
     {
-        // PK personalizada en consultorio: id_consultorio
         return $this->belongsTo(Consultorio::class, 'id_consultorio', 'id_consultorio');
     }
 
@@ -110,9 +142,22 @@ class Turno extends Model
         return $q->where('profesional_id', $profesionalId);
     }
 
-    public function scopeDePaciente($q, int $pacienteId)
+    // LEGACY: por users.id (se mantiene)
+    public function scopeDePaciente($q, int $pacienteUserId)
     {
-        return $q->where('paciente_id', $pacienteId);
+        return $q->where('paciente_id', $pacienteUserId);
+    }
+
+    // NUEVO: por pacientes.paciente_id
+    public function scopeDePacientePerfil($q, int $pacientePerfilId)
+    {
+        return $q->where('paciente_perfil_id', $pacientePerfilId);
+    }
+
+    // Útil para “Mis turnos” ya con perfil, sin romper legacy
+    public function scopeDelUserAutenticadoViaPerfil($q, int $userId)
+    {
+        return $q->whereHas('pacientePerfil', fn($qq) => $qq->where('user_id', $userId));
     }
 
     public function scopeEnFecha($q, string|Carbon $fecha)
@@ -299,14 +344,15 @@ class Turno extends Model
     public static function rules(): array
     {
         return [
-            'profesional_id' => ['required', 'exists:users,id'],
-            'paciente_id'    => ['required', 'exists:users,id'],
-            'id_consultorio' => ['nullable', 'exists:consultorio,id_consultorio'],
-            'fecha'          => ['required', 'date'],
-            'hora_desde'     => ['required', 'date_format:H:i'],
-            'hora_hasta'     => ['required', 'date_format:H:i', 'after:hora_desde'],
-            'estado'         => ['required', 'in:pendiente,confirmado,cancelado,cancelado_tarde,atendido,no_asistio'],
-            'motivo'         => ['nullable', 'string', 'max:255'],
+            'profesional_id'      => ['required', 'exists:users,id'],
+            'paciente_id'         => ['required', 'exists:users,id'],                 // legacy
+            'paciente_perfil_id'  => ['nullable', 'exists:pacientes,paciente_id'],    // transición
+            'id_consultorio'      => ['nullable', 'exists:consultorio,id_consultorio'],
+            'fecha'               => ['required', 'date'],
+            'hora_desde'          => ['required', 'date_format:H:i'],
+            'hora_hasta'          => ['required', 'date_format:H:i', 'after:hora_desde'],
+            'estado'              => ['required', 'in:pendiente,confirmado,cancelado,cancelado_tarde,atendido,no_asistio'],
+            'motivo'              => ['nullable', 'string', 'max:255'],
         ];
     }
 

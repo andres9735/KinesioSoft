@@ -37,6 +37,7 @@ class KinesiologaPanelProvider extends PanelProvider
 
             // Descubrí SOLO lo propio del panel Kinesiologa (si más adelante agregás páginas/widgets específicos)
             ->discoverPages(in: app_path('Filament/Kinesiologa/Pages'), for: 'App\\Filament\\Kinesiologa\\Pages')
+            ->discoverResources(in: app_path('Filament/Kinesiologa/Resources'), for: 'App\\Filament\\Kinesiologa\\Resources')
             ->discoverWidgets(in: app_path('Filament/Kinesiologa/Widgets'), for: 'App\\Filament\\Kinesiologa\\Widgets')
 
             // Registra explícitamente las resources compartidas que querés que se vean aquí:
