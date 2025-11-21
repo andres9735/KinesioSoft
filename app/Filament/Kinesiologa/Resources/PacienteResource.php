@@ -80,7 +80,7 @@ class PacienteResource extends Resource
     {
         return [
             \App\Filament\Kinesiologa\Resources\PacienteResource\RelationManagers\AntecedentesPersonalesRelationManager::class,
-            // \App\Filament\Kinesiologa\Resources\PacienteResource\RelationManagers\AntecedentesFamiliaresRelationManager::class,
+            \App\Filament\Kinesiologa\Resources\PacienteResource\RelationManagers\AntecedentesFamiliaresRelationManager::class,
             // \App\Filament\Kinesiologa\Resources\PacienteResource\RelationManagers\PatologiasRelationManager::class,
             // \App\Filament\Kinesiologa\Resources\PacienteResource\RelationManagers\AlergiasRelationManager::class,
             // \App\Filament\Kinesiologa\Resources\PacienteResource\RelationManagers\CirugiasRelationManager::class,

@@ -34,4 +34,9 @@ class EntradaHc extends Model
     {
         return $this->hasMany(AntecedentePersonal::class, 'entrada_hc_id', 'entrada_hc_id');
     }
+
+    public function antecedentesFamiliares(): HasMany
+    {
+        return $this->hasMany(AntecedenteFamiliar::class, 'entrada_hc_id', 'entrada_hc_id');
+    }
 }
