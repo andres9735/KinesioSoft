@@ -6,8 +6,8 @@ use Illuminate\Foundation\Configuration\Exceptions;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
-        web: __DIR__.'/../routes/web.php',
-        commands: __DIR__.'/../routes/console.php',
+        web: __DIR__ . '/../routes/web.php',
+        commands: __DIR__ . '/../routes/console.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
@@ -18,6 +18,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'roles_or_permissions' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
         ]);
     })
-   ->withExceptions(function (Exceptions $exceptions) {
+    ->withProviders([
+        \App\Providers\AuthServiceProvider::class, // ⬅️ AÑADIDO
+    ])
+    ->withExceptions(function (Exceptions $exceptions) {
         //
     })->create();

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\Alergia;
 
 class EntradaHc extends Model
 {
@@ -38,5 +39,10 @@ class EntradaHc extends Model
     public function antecedentesFamiliares(): HasMany
     {
         return $this->hasMany(AntecedenteFamiliar::class, 'entrada_hc_id', 'entrada_hc_id');
+    }
+
+    public function alergias(): HasMany
+    {
+        return $this->hasMany(Alergia::class, 'entrada_hc_id', 'entrada_hc_id');
     }
 }

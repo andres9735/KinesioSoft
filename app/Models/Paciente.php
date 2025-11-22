@@ -6,9 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use App\Models\EntradaHc;
 use App\Models\AntecedentePersonal;
 use App\Models\AntecedenteFamiliar;
-use App\Models\EntradaHc;
+use App\Models\Alergia;
 
 class Paciente extends Model
 {
@@ -59,6 +60,18 @@ class Paciente extends Model
             'entrada_hc_id',            // FK en antecedente_familiar -> entrada_hc.entrada_hc_id
             'paciente_id',              // PK local en pacientes
             'entrada_hc_id'             // PK local en entrada_hc
+        );
+    }
+
+    public function alergias(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            Alergia::class,   // related
+            EntradaHc::class, // through
+            'paciente_id',    // FK en entrada_hc -> pacientes.paciente_id
+            'entrada_hc_id',  // FK en alergia -> entrada_hc.entrada_hc_id
+            'paciente_id',    // PK local en pacientes
+            'entrada_hc_id'   // PK local en entrada_hc
         );
     }
 
