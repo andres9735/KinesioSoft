@@ -2,13 +2,14 @@
 
 namespace App\Policies;
 
-use App\Models\AntecedentePersonal;
+use App\Models\Cirugia;
 use App\Models\User;
 
-class AntecedentePersonalPolicy
+class CirugiaPolicy
 {
     public function before(User $user, string $ability): ?bool
     {
+        // Agregá 'Administrador' si querés que también todo le sea permitido
         if ($user->hasAnyRole(['Kinesiologa'])) {
             return true;
         }
@@ -19,22 +20,27 @@ class AntecedentePersonalPolicy
     {
         return false;
     }
-    public function view(User $user, AntecedentePersonal $model): bool
+
+    public function view(User $user, Cirugia $model): bool
     {
         return false;
     }
+
     public function create(User $user): bool
     {
         return false;
     }
-    public function update(User $user, AntecedentePersonal $model): bool
+
+    public function update(User $user, Cirugia $model): bool
     {
         return false;
     }
-    public function delete(User $user, AntecedentePersonal $model): bool
+
+    public function delete(User $user, Cirugia $model): bool
     {
         return false;
     }
+
     public function deleteAny(User $user): bool
     {
         return false;

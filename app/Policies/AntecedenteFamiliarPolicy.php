@@ -9,7 +9,6 @@ class AntecedenteFamiliarPolicy
 {
     public function before(User $user, string $ability): ?bool
     {
-        // si querés, los Admin también:
         if ($user->hasAnyRole(['Kinesiologa'])) {
             return true;
         }

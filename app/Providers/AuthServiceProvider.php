@@ -2,12 +2,15 @@
 
 namespace App\Providers;
 
-use App\Models\Alergia;
-use App\Models\AntecedenteFamiliar;
 use App\Models\AntecedentePersonal;
-use App\Policies\AlergiaPolicy;
-use App\Policies\AntecedenteFamiliarPolicy;
 use App\Policies\AntecedentePersonalPolicy;
+use App\Models\AntecedenteFamiliar;
+use App\Policies\AntecedenteFamiliarPolicy;
+use App\Models\Alergia;
+use App\Policies\AlergiaPolicy;
+use App\Models\Cirugia;
+use App\Policies\CirugiaPolicy;
+
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 
 class AuthServiceProvider extends ServiceProvider
@@ -17,6 +20,7 @@ class AuthServiceProvider extends ServiceProvider
         AntecedentePersonal::class  => AntecedentePersonalPolicy::class,
         AntecedenteFamiliar::class  => AntecedenteFamiliarPolicy::class,
         Alergia::class              => AlergiaPolicy::class,
+        Cirugia::class              => CirugiaPolicy::class,
     ];
 
     public function boot(): void

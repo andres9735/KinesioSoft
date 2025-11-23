@@ -82,9 +82,10 @@ class AlergiasRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
-            ->recordTitleAttribute('titulo')
+            // Usamos un atributo real del modelo para el título del registro
+            ->recordTitleAttribute('sustancia')
 
-            // Igual que en el RM que funciona: no definimos query(), solo aplicamos scopes
+            // Igual que en los otros RM: no definimos query(), solo aplicamos scopes/orden.
             ->modifyQueryUsing(
                 fn(Builder $query) => $query
                     ->orderByRaw("FIELD(gravedad,'anafilaxia','severa','moderada','leve','desconocida')")
@@ -114,7 +115,8 @@ class AlergiasRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('reaccion')
                     ->label('Reacción')
                     ->limit(40)
-                    ->tooltip(fn($record) => $record->reaccion)
+                    // 👇 Tipamos el parámetro para evitar el error de “unresolvable”
+                    ->tooltip(fn(Model $record) => $record->reaccion)
                     ->searchable(),
 
                 Tables\Columns\TextColumn::make('gravedad')
@@ -143,6 +145,7 @@ class AlergiasRelationManager extends RelationManager
                         /** @var \App\Models\Paciente $paciente */
                         $paciente = $livewire->getOwnerRecord();
 
+                        // Reutiliza/crea entrada HC del día
                         $entrada = $paciente->entradasHc()
                             ->whereDate('fecha', today())
                             ->latest('entrada_hc_id')

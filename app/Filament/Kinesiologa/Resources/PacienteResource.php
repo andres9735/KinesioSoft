@@ -83,7 +83,7 @@ class PacienteResource extends Resource
             \App\Filament\Kinesiologa\Resources\PacienteResource\RelationManagers\AntecedentesFamiliaresRelationManager::class,
             // \App\Filament\Kinesiologa\Resources\PacienteResource\RelationManagers\PatologiasRelationManager::class,
             \App\Filament\Kinesiologa\Resources\PacienteResource\RelationManagers\AlergiasRelationManager::class,
-            // \App\Filament\Kinesiologa\Resources\PacienteResource\RelationManagers\CirugiasRelationManager::class,
+            \App\Filament\Kinesiologa\Resources\PacienteResource\RelationManagers\CirugiasRelationManager::class,
             // \App\Filament\Kinesiologa\Resources\PacienteResource\RelationManagers\MedicacionActualRelationManager::class,
             // \App\Filament\Kinesiologa\Resources\PacienteResource\RelationManagers\EstiloDeVidaRelationManager::class,
             // \App\Filament\Kinesiologa\Resources\PacienteResource\RelationManagers\AntropometriaRelationManager::class,
