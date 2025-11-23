@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\UserResource\Pages;
 
 use App\Models\User;
+use App\Models\Paciente; // 👈 NUEVO
 use Filament\Actions;
 use Filament\Forms;
 use Filament\Notifications\Notification;
@@ -18,8 +19,7 @@ class ListUsers extends ListRecords
 
     protected function getTableQuery(): Builder
     {
-        return static::getResource()::getEloquentQuery()
-            ->with('roles'); // eager-load
+        return static::getResource()::getEloquentQuery()->with('roles');
     }
 
     protected function getHeaderActions(): array
@@ -74,9 +74,18 @@ class ListUsers extends ListRecords
                         'password' => Hash::make($data['password']),
                     ]);
 
-                    // Solo administradores pueden asignar roles al crear:
+                    // Solo admins asignan roles al crear
                     if (($authUser?->hasRole('Administrador') ?? false) && ! empty($data['roles'])) {
                         $user->syncRoles($data['roles']);
+                        \App\Services\PacienteService::ensureProfile($user);
+                    }
+
+                    // 👇 Si tiene rol Paciente, asegurar perfil clínico
+                    if ($user->hasRole('Paciente')) {
+                        Paciente::firstOrCreate(
+                            ['user_id' => $user->id],
+                            ['nombre'  => $user->name]
+                        );
                     }
 
                     Notification::make()

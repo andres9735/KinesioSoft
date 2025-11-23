@@ -47,5 +47,10 @@ class DatabaseSeeder extends Seeder
         $this->call([
             EspecialidadesSeeder::class,
         ]);
+
+        // 🔹 Catálogo de tipos de antecedentes personales
+        $this->call([
+            CatalogoAntecedentePersonalTipoSeeder::class,
+        ]);
     }
 }
