@@ -11,6 +11,7 @@ use App\Models\AntecedentePersonal;
 use App\Models\AntecedenteFamiliar;
 use App\Models\Alergia;
 use App\Models\Cirugia;
+use App\Models\MedicacionActual;
 
 class Paciente extends Model
 {
@@ -85,6 +86,18 @@ class Paciente extends Model
             'entrada_hc_id',    // FK en cirugia -> entrada_hc.entrada_hc_id
             'paciente_id',      // PK local en pacientes
             'entrada_hc_id'     // PK local en entrada_hc
+        );
+    }
+
+    public function medicacionesActuales(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            MedicacionActual::class, // related
+            EntradaHc::class,        // through
+            'paciente_id',           // FK en entrada_hc -> pacientes.paciente_id
+            'entrada_hc_id',         // FK en medicacion_actual -> entrada_hc.entrada_hc_id
+            'paciente_id',           // PK local en pacientes
+            'entrada_hc_id'          // PK local en entrada_hc
         );
     }
 

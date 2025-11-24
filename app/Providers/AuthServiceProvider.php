@@ -10,6 +10,8 @@ use App\Models\Alergia;
 use App\Policies\AlergiaPolicy;
 use App\Models\Cirugia;
 use App\Policies\CirugiaPolicy;
+use App\Models\MedicacionActual;
+use App\Policies\MedicacionActualPolicy;
 
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 
@@ -21,6 +23,7 @@ class AuthServiceProvider extends ServiceProvider
         AntecedenteFamiliar::class  => AntecedenteFamiliarPolicy::class,
         Alergia::class              => AlergiaPolicy::class,
         Cirugia::class              => CirugiaPolicy::class,
+        MedicacionActual::class     => MedicacionActualPolicy::class,
     ];
 
     public function boot(): void

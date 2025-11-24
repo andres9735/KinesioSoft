@@ -50,4 +50,9 @@ class EntradaHc extends Model
     {
         return $this->hasMany(Cirugia::class, 'entrada_hc_id', 'entrada_hc_id');
     }
+
+    public function medicacionesActuales()
+    {
+        return $this->hasMany(MedicacionActual::class, 'entrada_hc_id', 'entrada_hc_id');
+    }
 }
