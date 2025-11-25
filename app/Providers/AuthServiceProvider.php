@@ -12,6 +12,8 @@ use App\Models\Cirugia;
 use App\Policies\CirugiaPolicy;
 use App\Models\MedicacionActual;
 use App\Policies\MedicacionActualPolicy;
+use App\Models\Antropometria;
+use App\Policies\AntropometriaPolicy;
 
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 
@@ -24,6 +26,7 @@ class AuthServiceProvider extends ServiceProvider
         Alergia::class              => AlergiaPolicy::class,
         Cirugia::class              => CirugiaPolicy::class,
         MedicacionActual::class     => MedicacionActualPolicy::class,
+        Antropometria::class        => AntropometriaPolicy::class,
     ];
 
     public function boot(): void
