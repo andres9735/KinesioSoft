@@ -87,7 +87,7 @@ class PacienteResource extends Resource
             \App\Filament\Kinesiologa\Resources\PacienteResource\RelationManagers\MedicacionesActualesRelationManager::class,
             // \App\Filament\Kinesiologa\Resources\PacienteResource\RelationManagers\EstiloDeVidaRelationManager::class,
             \App\Filament\Kinesiologa\Resources\PacienteResource\RelationManagers\AntropometriasRelationManager::class,
-            // \App\Filament\Kinesiologa\Resources\PacienteResource\RelationManagers\EstudiosImagenRelationManager::class,
+            \App\Filament\Kinesiologa\Resources\PacienteResource\RelationManagers\EstudiosImagenRelationManager::class,
         ];
     }
 
