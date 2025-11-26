@@ -12,6 +12,7 @@ use App\Models\AntecedenteFamiliar;
 use App\Models\Alergia;
 use App\Models\Cirugia;
 use App\Models\MedicacionActual;
+use App\Models\Antropometria;
 
 class Paciente extends Model
 {
@@ -100,6 +101,31 @@ class Paciente extends Model
             'entrada_hc_id'          // PK local en entrada_hc
         );
     }
+
+    public function antropometrias(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            Antropometria::class, // related
+            EntradaHc::class,     // through
+            'paciente_id',        // FK en entrada_hc -> pacientes.paciente_id
+            'entrada_hc_id',      // FK en antropometria -> entrada_hc.entrada_hc_id
+            'paciente_id',        // PK local en pacientes
+            'entrada_hc_id'       // PK local en entrada_hc
+        );
+    }
+
+    public function estudiosImagen()
+    {
+        return $this->hasManyThrough(
+            EstudioImagen::class, // related
+            EntradaHc::class,     // through
+            'paciente_id',        // FK en entrada_hc -> pacientes.paciente_id
+            'entrada_hc_id',      // FK en estudio_imagen -> entrada_hc.entrada_hc_id
+            'paciente_id',        // PK local en pacientes
+            'entrada_hc_id'       // PK local en entrada_hc
+        );
+    }
+
 
 
     // public function turnos(): HasMany
