@@ -65,3 +65,12 @@ Homestead.yaml
 .env_*
 uploads_*.zip
 
+# Ignorar contenido del symlink public/storage (Windows puede no respetar el .gitignore interno)
+public/storage/**
+!public/storage/.gitignore
+
+# Ignorar el path real de storage público
+storage/app/public/**
+!storage/app/public/.gitignore
+
+
