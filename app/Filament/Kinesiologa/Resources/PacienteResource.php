@@ -79,6 +79,7 @@ class PacienteResource extends Resource
     public static function getRelations(): array
     {
         return [
+            \App\Filament\Kinesiologa\Resources\PacienteResource\RelationManagers\DerivacionesMedicasRelationManager::class,
             \App\Filament\Kinesiologa\Resources\PacienteResource\RelationManagers\AntecedentesPersonalesRelationManager::class,
             \App\Filament\Kinesiologa\Resources\PacienteResource\RelationManagers\AntecedentesFamiliaresRelationManager::class,
             // \App\Filament\Kinesiologa\Resources\PacienteResource\RelationManagers\PatologiasRelationManager::class,

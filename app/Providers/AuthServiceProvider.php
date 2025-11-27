@@ -16,6 +16,9 @@ use App\Models\Antropometria;
 use App\Policies\AntropometriaPolicy;
 use App\Models\EstudioImagen;
 use App\Policies\EstudioImagenPolicy;
+use App\Models\DerivacionMedica;
+use App\Policies\DerivacionMedicaPolicy;
+
 
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 
@@ -30,6 +33,7 @@ class AuthServiceProvider extends ServiceProvider
         MedicacionActual::class     => MedicacionActualPolicy::class,
         Antropometria::class        => AntropometriaPolicy::class,
         EstudioImagen::class        => EstudioImagenPolicy::class,
+        DerivacionMedica::class     => DerivacionMedicaPolicy::class,
     ];
 
     public function boot(): void

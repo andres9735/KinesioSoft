@@ -13,6 +13,7 @@ use App\Models\Alergia;
 use App\Models\Cirugia;
 use App\Models\MedicacionActual;
 use App\Models\Antropometria;
+use App\Models\DerivacionMedica;
 
 class Paciente extends Model
 {
@@ -114,7 +115,7 @@ class Paciente extends Model
         );
     }
 
-    public function estudiosImagen()
+    public function estudiosImagen(): HasManyThrough
     {
         return $this->hasManyThrough(
             EstudioImagen::class, // related
@@ -123,6 +124,18 @@ class Paciente extends Model
             'entrada_hc_id',      // FK en estudio_imagen -> entrada_hc.entrada_hc_id
             'paciente_id',        // PK local en pacientes
             'entrada_hc_id'       // PK local en entrada_hc
+        );
+    }
+
+    public function derivacionesMedicas(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            DerivacionMedica::class, // final
+            EntradaHc::class,        // through
+            'paciente_id',           // FK en entrada_hc → paciente
+            'entrada_hc_id',         // FK en derivacion_medica → entrada_hc
+            'paciente_id',           // PK en paciente
+            'entrada_hc_id'          // PK en entrada_hc
         );
     }
 
