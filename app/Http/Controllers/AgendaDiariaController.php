@@ -34,8 +34,14 @@ class AgendaDiariaController extends Controller
             ->where(function ($q) {
                 $q->whereNull('reminder_status')
                     ->orWhereIn('reminder_status', ['failed']);
+            })
+            ->where(function ($q) {
+                // ❌ Excluir turnos generados por adelanto automático del recordatorio D-1
+                $q->where('es_adelanto_automatico', false)
+                    ->orWhereNull('es_adelanto_automatico'); // compatibilidad con datos viejos
             });
     }
+
 
     /** Obtiene la colección de turnos a notificar (D+1) ya ordenados. */
     protected function turnosParaNotificar(Carbon $fechaObjetivo)

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Events\TurnoCancelado;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Support\Carbon;
@@ -58,9 +59,11 @@ class Turno extends Model
 
     /** =========================================================
      * Capa de compatibilidad (transición a pacientes)
+     * + disparo de eventos de dominio
      * ========================================================= */
     protected static function booted(): void
     {
+        // Compatibilidad paciente_id <-> paciente_perfil_id
         static::saving(function (self $turno) {
             // Si se cambia el legacy (users.id) y falta el perfil, lo completamos
             if ($turno->isDirty('paciente_id') && empty($turno->paciente_perfil_id)) {
@@ -73,6 +76,25 @@ class Turno extends Model
                 $turno->paciente_id = \App\Models\Paciente::where('paciente_id', $turno->paciente_perfil_id)
                     ->value('user_id');
             }
+        });
+
+        // Disparar evento de dominio cuando el turno pasa a cancelado / cancelado_tarde
+        static::updated(function (self $turno) {
+            // Solo nos interesa cuando EL ESTADO cambia
+            if (! $turno->wasChanged('estado')) {
+                return;
+            }
+
+            // Solo cuando el nuevo estado es cancelado o cancelado_tarde
+            if (! in_array($turno->estado, [self::ESTADO_CANCELADO, self::ESTADO_CANCELADO_TARDE], true)) {
+                return;
+            }
+
+            // ¿Fue cancelación temprana (>= minutos de configuración)?
+            $esTemprano = $turno->esCancelacionTemprana();
+
+            // Disparamos el evento de dominio
+            event(new TurnoCancelado($turno, $esTemprano));
         });
     }
 
@@ -132,6 +154,33 @@ class Turno extends Model
     public function consultorio()
     {
         return $this->belongsTo(Consultorio::class, 'id_consultorio', 'id_consultorio');
+    }
+
+    /**
+     * Ofertas de adelanto que se generaron a partir de este turno cancelado.
+     * (Es el turno que quedó libre y se ofrece a otros pacientes).
+     */
+    public function ofertasAdelantoGeneradas()
+    {
+        return $this->hasMany(OfertaAdelantoTurno::class, 'turno_ofertado_id', 'id_turno');
+    }
+
+    /**
+     * Ofertas en las que este turno es el turno original del paciente
+     * (el turno que el paciente tenía antes de adelantar).
+     */
+    public function ofertasAdelantoComoOrigen()
+    {
+        return $this->hasMany(OfertaAdelantoTurno::class, 'turno_original_paciente_id', 'id_turno');
+    }
+
+    /**
+     * Oferta de adelanto en la que este turno es el turno resultante
+     * (turno nuevo que nació por el adelanto automático).
+     */
+    public function ofertaAdelantoResultante()
+    {
+        return $this->hasOne(OfertaAdelantoTurno::class, 'turno_resultante_id', 'id_turno');
     }
 
     /** =========================================================
@@ -415,5 +464,20 @@ class Turno extends Model
     public function limiteCancelacion(): ?Carbon
     {
         return $this->inicio?->copy()->subMinutes(self::leadMinutes('cancel_min_minutes', 1440));
+    }
+
+    /**
+     * Indica si esta cancelación se considera "temprana"
+     * (>= minutos definidos en config/turnos.php para cancelación).
+     */
+    public function esCancelacionTemprana(): bool
+    {
+        $limite = $this->limiteCancelacion();
+
+        if (! $limite) {
+            return false;
+        }
+
+        return now()->lessThanOrEqualTo($limite);
     }
 }

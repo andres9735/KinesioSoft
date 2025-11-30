@@ -70,21 +70,30 @@ class AgendaDeHoy extends Page
         $turnos = Turno::query()
             ->deProfesional($userId)
             ->delDia($this->fecha)
-            ->when($this->soloPendientes, fn($q) => $q->estado(Turno::ESTADO_PENDIENTE))
+            // 👇 SOLO pendientes y confirmados (incluye adelantados porque están confirmados)
+            ->whereIn('estado', [Turno::ESTADO_PENDIENTE, Turno::ESTADO_CONFIRMADO])
+            ->when(
+                $this->soloPendientes,
+                fn($q) => $q->where('estado', Turno::ESTADO_PENDIENTE)
+                // si tenés scope estado() y lo preferís:
+                // fn ($q) => $q->estado(Turno::ESTADO_PENDIENTE)
+            )
             ->with(['paciente:id,name', 'consultorio:id_consultorio,nombre'])
             ->orderBy('hora_desde')
             ->get();
 
         $this->rows = $turnos->map(function (Turno $t) {
             return [
-                'id'               => $t->id_turno,
-                'paciente_id'      => $t->paciente_id,
-                'paciente'         => $t->paciente?->name ?? '—',
-                'hora'             => substr((string)$t->hora_desde, 0, 5) . '–' . substr((string)$t->hora_hasta, 0, 5),
-                'consultorio'      => $t->consultorio?->nombre ?? '—',
-                'estado'           => $t->estado,
-                'estadoColor'      => Turno::estadoColor($t->estado),
-                'reminder_status'  => $t->reminder_status, // para mostrar si confirmó por mail
+                'id'                      => $t->id_turno,
+                'paciente_id'             => $t->paciente_id,
+                'paciente'                => $t->paciente?->name ?? '—',
+                'hora'                    => substr((string) $t->hora_desde, 0, 5) . '–' . substr((string) $t->hora_hasta, 0, 5),
+                'consultorio'             => $t->consultorio?->nombre ?? '—',
+                'estado'                  => $t->estado,
+                'estadoColor'             => Turno::estadoColor($t->estado),
+                'reminder_status'         => $t->reminder_status,
+                // 👇 campo para marcar turnos adelantados
+                'es_adelanto_automatico'  => (bool) $t->es_adelanto_automatico,
             ];
         })->values()->all();
 

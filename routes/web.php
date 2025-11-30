@@ -3,6 +3,7 @@
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\AgendaDiariaController;
 use App\Http\Controllers\TurnoMailActionController;     // (rutas firmadas nuevas)
+use App\Http\Controllers\Turnos\OfertaAdelantoTurnoController; // 👈 NUEVO
 use App\Http\Middleware\RedirectToPanel;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
@@ -44,8 +45,9 @@ Route::get('/ping', fn() => 'pong');
  * 🔓 Rutas públicas desde email
  * a) Enlaces con token propio (LEGADO) → /r/{token}
  * b) Enlaces FIRMADOS de Laravel (RECOMENDADO) → /turnos/mail-action/{turno}
+ * c) Enlace de oferta de adelanto de turno → /oferta-adelanto/{token}
  *
- * Ambas NO requieren auth.
+ * Todas NO requieren auth.
  */
 
 /** a) LEGADO: token guardado en DB (recordatorio_token) — dejar comentado si ya migraste */
@@ -53,7 +55,11 @@ Route::get('/ping', fn() => 'pong');
 # Route::post('/r/{token}/confirmar', [TurnoConfirmacionController::class, 'confirmar'])->name('recordatorio.confirmar');
 # Route::post('/r/{token}/cancelar',  [TurnoConfirmacionController::class, 'cancelar'])->name('recordatorio.cancelar');
 
-/** b) NUEVO: enlaces firmados */
+/** c) NUEVO: enlace de oferta de adelanto */
+Route::get('/oferta-adelanto/{token}', OfertaAdelantoTurnoController::class)
+    ->name('oferta-adelanto.handle');
+
+/** b) NUEVO: enlaces firmados para confirmación/cancelación de turno */
 Route::prefix('turnos/mail-action')->name('turnos.mail.')->group(function () {
     // Página pública con el resumen y el formulario
     Route::get('{turno}', [TurnoMailActionController::class, 'show'])
