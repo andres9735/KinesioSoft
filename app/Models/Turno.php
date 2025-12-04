@@ -6,9 +6,13 @@ use App\Events\TurnoCancelado;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Support\Carbon;
+use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
+use OwenIt\Auditing\Auditable;
 
-class Turno extends Model
+class Turno extends Model implements AuditableContract
 {
+    use Auditable;
+
     /** ---------- Config básica de Eloquent ---------- */
     protected $table = 'turnos';
     protected $primaryKey = 'id_turno';
@@ -36,12 +40,33 @@ class Turno extends Model
         'reminder_token',
         'reminder_status',
         'reminder_sent_at',
+
+        // adelanto automático
+        'es_adelanto_automatico',
     ];
 
     /** ---------- Casts ---------- */
     protected $casts = [
-        'fecha'            => 'date',
-        'reminder_sent_at' => 'datetime',
+        'fecha'                 => 'date',
+        'reminder_sent_at'      => 'datetime',
+        'es_adelanto_automatico' => 'boolean',
+    ];
+
+    /** ---------- Campos a auditar ---------- */
+    protected $auditInclude = [
+        'profesional_id',
+        'paciente_id',
+        'paciente_perfil_id',
+        'id_consultorio',
+        'fecha',
+        'hora_desde',
+        'hora_hasta',
+        'estado',
+        'motivo',
+        'es_adelanto_automatico',
+        'reminder_token',
+        'reminder_status',
+        'reminder_sent_at',
     ];
 
     /** ---------- Constantes de estado ---------- */

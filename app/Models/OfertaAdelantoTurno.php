@@ -4,9 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
+use OwenIt\Auditing\Auditable;
 
-class OfertaAdelantoTurno extends Model
+class OfertaAdelantoTurno extends Model implements AuditableContract
 {
+    use Auditable;
+
     /** ---------- Config básica de Eloquent ---------- */
     protected $table = 'oferta_adelanto_turnos';
 
@@ -30,6 +34,21 @@ class OfertaAdelantoTurno extends Model
         'oferta_enviada_at'      => 'datetime',
         'fecha_limite_respuesta' => 'datetime',
         'respondida_at'          => 'datetime',
+    ];
+
+    /** ---------- Campos a auditar ---------- */
+    protected $auditInclude = [
+        'turno_ofertado_id',
+        'turno_original_paciente_id',
+        'turno_resultante_id',
+        'profesional_id',
+        'paciente_id',
+        'paciente_perfil_id',
+        'estado',
+        'orden_cola',
+        'oferta_enviada_at',
+        'fecha_limite_respuesta',
+        'respondida_at',
     ];
 
     /** ---------- Constantes de estado ---------- */

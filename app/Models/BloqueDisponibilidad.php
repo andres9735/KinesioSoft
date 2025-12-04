@@ -4,14 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;   // 👈 importar
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Auth;
 
 class BloqueDisponibilidad extends Model
 {
     use HasFactory;
-    use SoftDeletes;    // 👈 activar
 
     protected $table = 'bloques_disponibilidad';
 
@@ -27,7 +25,6 @@ class BloqueDisponibilidad extends Model
 
     protected $casts = [
         'activo' => 'bool',
-        'deleted_at' => 'datetime',  // 👈 opcional pero prolijo
     ];
 
     /** Relaciones */

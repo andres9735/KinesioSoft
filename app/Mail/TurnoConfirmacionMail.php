@@ -7,10 +7,8 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\URL;
-// si lo estabas encolando:
-// use Illuminate\Contracts\Queue\ShouldQueue;
 
-class TurnoConfirmacionMail extends Mailable // implements ShouldQueue
+class TurnoConfirmacionMail extends Mailable
 {
     use Queueable, SerializesModels;
 
