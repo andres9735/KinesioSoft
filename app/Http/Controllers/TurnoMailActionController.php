@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Turno;
+use App\Services\AsignacionAutomaticaDeTurnosService;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
@@ -11,6 +12,13 @@ use Illuminate\View\View;
 
 class TurnoMailActionController extends Controller
 {
+    /**
+     * Inyectamos el servicio de adelanto automático.
+     */
+    public function __construct(
+        protected AsignacionAutomaticaDeTurnosService $adelantoService,
+    ) {}
+
     /**
      * Página pública firmada: muestra el resumen del turno y el formulario
      * para Confirmar / Cancelar. Usa Route Model Binding: {turno}.
@@ -109,6 +117,16 @@ class TurnoMailActionController extends Controller
                     'reminder_token'  => null,
                     'updated_at'      => now(),
                 ]);
+
+            // 👇 NUEVO: si la cancelación se aplicó y es "temprana", disparamos adelanto automático
+            if ($updated) {
+                $turno->refresh(); // recarga estado y fechas desde la BD
+
+                // Usamos tu propia regla de negocio del modelo
+                if ($turno->esCancelacionTemprana()) {
+                    $this->adelantoService->generarPrimeraOferta($turno);
+                }
+            }
 
             return back()->with(
                 'status',

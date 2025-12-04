@@ -34,8 +34,14 @@ class AgendaDiariaController extends Controller
             ->where(function ($q) {
                 $q->whereNull('reminder_status')
                     ->orWhereIn('reminder_status', ['failed']);
+            })
+            ->where(function ($q) {
+                // ❌ Excluir turnos generados por adelanto automático del recordatorio D-1
+                $q->where('es_adelanto_automatico', false)
+                    ->orWhereNull('es_adelanto_automatico'); // compatibilidad con datos viejos
             });
     }
+
 
     /** Obtiene la colección de turnos a notificar (D+1) ya ordenados. */
     protected function turnosParaNotificar(Carbon $fechaObjetivo)
@@ -123,15 +129,18 @@ class AgendaDiariaController extends Controller
             ->orderBy('hora_desde')
             ->get();
 
-        $enviados = 0;
-        $errores  = 0;
+        $enviados  = 0;
+        $errores   = 0;
+        $offsetMs  = 0; // para espaciar los envíos reales
 
         foreach ($turnos as $t) {
             $to = $t->paciente?->email;
 
-            if (!$to) {
+            if (! $to) {
                 $errores++;
-                Log::warning('AgendaDiaria: turno sin email de paciente', ['turno' => $t->id_turno]);
+                Log::warning('AgendaDiaria: turno sin email de paciente', [
+                    'turno' => $t->id_turno,
+                ]);
 
                 DB::table('turnos')
                     ->where('id_turno', $t->id_turno)
@@ -140,6 +149,7 @@ class AgendaDiariaController extends Controller
                         'reminder_sent_at' => now(),
                         'updated_at'       => now(),
                     ]);
+
                 continue;
             }
 
@@ -166,7 +176,12 @@ class AgendaDiariaController extends Controller
 
             // ✉️ REAL: encolamos el job (el worker envía y marca sent/failed)
             try {
-                EnviarRecordatorioTurno::dispatch($t->id_turno, $to)->onQueue('mail');
+                EnviarRecordatorioTurno::dispatch($t->id_turno, $to)
+                    ->onQueue('mail')
+                    ->delay(now()->addMilliseconds($offsetMs));
+
+                // sumo 0.5s para el siguiente turno
+                $offsetMs += 500;
 
                 // Marcamos como ENCOLADO (¡no enviado todavía!)
                 DB::table('turnos')

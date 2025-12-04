@@ -10,6 +10,7 @@
                 Pacientes a atender el
                 <strong>{{ \Illuminate\Support\Carbon::parse($this->fecha)->format('d/m/Y') }}</strong>.
                 Incluye turnos <em>confirmados</em> y <em>pendientes</em>.
+                Los turnos adelantados se indican con el icono <span title="Turno adelantado automáticamente">⚡</span>.
             </p>
         </div>
 
@@ -74,24 +75,35 @@
                         <td class="px-4 py-3">
                             <x-filament::badge :color="$r['estadoColor']">
                                 {{ $r['estado'] }}
+
+                                @if($r['es_adelanto_automatico'] ?? false)
+                                    <span
+                                        class="ml-1 text-[11px]"
+                                        title="Turno adelantado automáticamente desde un hueco libre"
+                                    >
+                                        ⚡
+                                    </span>
+                                @endif
                             </x-filament::badge>
 
                             @if(($r['reminder_status'] ?? null) === 'confirmed')
-                                <span class="ml-2 text-xs text-green-600 dark:text-green-400">✔ confirmado vía email</span>
+                                <span class="ml-2 text-xs text-green-600 dark:text-green-400">
+                                    ✔ confirmado vía email
+                                </span>
                             @endif
                         </td>
                         <td class="px-4 py-3">
                             @if (\Illuminate\Support\Facades\Route::has('hc.paciente'))
                                 <a href="{{ route('hc.paciente', ['paciente' => $r['paciente_id']]) }}"
-                                   class="inline-flex items-center rounded-lg bg-gray-100 dark:bg-white/10 px-3 py-1.5 text-xs font-medium hover:bg-gray-200 dark:hover:bg-white/20">
+                                class="inline-flex items-center rounded-lg bg-gray-100 dark:bg-white/10 px-3 py-1.5 text-xs font-medium hover:bg-gray-200 dark:hover:bg-white/20">
                                     Ver historia clínica
                                 </a>
                             @else
                                 <button type="button" disabled title="Próximamente"
-                                   class="inline-flex items-center rounded-lg bg-gray-100 dark:bg-white/10 px-3 py-1.5 text-xs font-medium opacity-50 cursor-not-allowed">
+                                class="inline-flex items-center rounded-lg bg-gray-100 dark:bg-white/10 px-3 py-1.5 text-xs font-medium opacity-50 cursor-not-allowed">
                                     Ver historia clínica
                                 </button>
-                            @endif>
+                            @endif
                         </td>
                     </tr>
                 @empty
