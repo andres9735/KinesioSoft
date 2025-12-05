@@ -70,10 +70,35 @@ class UserResource extends Resource
     {
         return $form->schema([
             Forms\Components\Section::make('Datos de acceso')->schema([
-                Forms\Components\TextInput::make('name')->label('Nombre')->required()->maxLength(255),
-                Forms\Components\TextInput::make('email')->label('Email')->email()->required()->unique(ignoreRecord: true),
+                Forms\Components\TextInput::make('name')
+                    ->label('Nombre')
+                    ->required()
+                    ->maxLength(255)
+                    // Solo letras (incluye acentos) y espacios
+                    ->rules(['regex:/^[\pL\s]+$/u'])
+                    ->validationMessages([
+                        'required' => 'El nombre es obligatorio.',
+                        'regex'    => 'El nombre solo puede contener letras y espacios.',
+                        'max'      => 'El nombre no puede superar los 255 caracteres.',
+                    ])
+                    ->live(onBlur: true),
+
+                Forms\Components\TextInput::make('email')
+                    ->label('Email')
+                    ->email()
+                    ->required()
+                    ->unique(ignoreRecord: true)
+                    ->validationMessages([
+                        'required' => 'El email es obligatorio.',
+                        'email'    => 'Debes ingresar un email válido (debe incluir "@").',
+                        'unique'   => 'Este email ya está registrado.',
+                    ])
+                    ->live(onBlur: true),
+
                 Forms\Components\TextInput::make('password')
-                    ->label('Contraseña')->password()->revealable()
+                    ->label('Contraseña')
+                    ->password()
+                    ->revealable()
                     ->dehydrated(fn($state) => filled($state))
                     ->required(fn(string $operation) => $operation === 'create'),
             ])->columns(3),
@@ -87,11 +112,13 @@ class UserResource extends Resource
                 ->live()
                 ->afterStateUpdated(function ($state, Set $set) {
                     $names = UserResource::resolveRoleNamesFromState($state);
+
                     if (! in_array('Paciente', $names, true)) {
                         $set('phone', null);
                         $set('dni', null);
                         $set('address', null);
                     }
+
                     if (! in_array('Kinesiologa', $names, true)) {
                         $set('specialty', null);
                     }
@@ -99,7 +126,15 @@ class UserResource extends Resource
 
             Forms\Components\Section::make('Perfil')->schema([
                 Forms\Components\TextInput::make('phone')
-                    ->label('Teléfono')->tel()->maxLength(30)
+                    ->label('Teléfono')
+                    ->tel()
+                    ->maxLength(30)
+                    // Números y símbolos comunes de teléfono
+                    ->rules(['regex:/^[0-9+\s()-]+$/'])
+                    ->validationMessages([
+                        'regex' => 'El teléfono solo puede contener números y símbolos como +, -, () y espacios.',
+                        'max'   => 'El teléfono no puede superar los 30 caracteres.',
+                    ])
                     ->visible(fn(Get $get, ?User $record) =>
                     self::hasAnyRoleSelected($get, $record, ['Paciente']) || Auth::user()?->hasRole('Administrador'))
                     ->disabled(fn(Get $get, ?User $record) =>
@@ -111,7 +146,16 @@ class UserResource extends Resource
                     ->hintIcon('heroicon-m-information-circle'),
 
                 Forms\Components\TextInput::make('dni')
-                    ->label('DNI / Identificador')->maxLength(30)->unique(ignoreRecord: true)
+                    ->label('DNI / Identificador')
+                    ->maxLength(30)
+                    // Solo números
+                    ->rules(['regex:/^[0-9]+$/'])
+                    ->unique(ignoreRecord: true)
+                    ->validationMessages([
+                        'regex'  => 'El DNI solo puede contener números.',
+                        'unique' => 'Este DNI ya está registrado.',
+                        'max'    => 'El DNI no puede superar los 30 caracteres.',
+                    ])
                     ->visible(fn(Get $get, ?User $record) =>
                     self::hasAnyRoleSelected($get, $record, ['Paciente']) || Auth::user()?->hasRole('Administrador'))
                     ->disabled(fn(Get $get, ?User $record) =>
@@ -123,7 +167,11 @@ class UserResource extends Resource
                     ->hintIcon('heroicon-m-information-circle'),
 
                 Forms\Components\TextInput::make('address')
-                    ->label('Dirección')->maxLength(255)
+                    ->label('Dirección')
+                    ->maxLength(255)
+                    ->validationMessages([
+                        'max' => 'La dirección no puede superar los 255 caracteres.',
+                    ])
                     ->visible(fn(Get $get, ?User $record) =>
                     self::hasAnyRoleSelected($get, $record, ['Paciente']) || Auth::user()?->hasRole('Administrador'))
                     ->disabled(fn(Get $get, ?User $record) =>
@@ -136,7 +184,9 @@ class UserResource extends Resource
 
                 Forms\Components\Select::make('specialty')
                     ->label('Especialidad (Kinesióloga)')
-                    ->native(false)->searchable()->preload()
+                    ->native(false)
+                    ->searchable()
+                    ->preload()
                     ->options([
                         'Kinesiología Deportiva'  => 'Kinesiología Deportiva',
                         'Neurorehabilitación'     => 'Neurorehabilitación',
@@ -148,22 +198,43 @@ class UserResource extends Resource
                         'Cardiorrespiratoria'     => 'Cardiorrespiratoria',
                     ])
                     ->placeholder('Selecciona una especialidad')
-                    ->visible(fn(Get $get, ?User $record) =>
-                    self::hasAnyRoleSelected($get, $record, ['Kinesiologa']) || Auth::user()?->hasRole('Administrador'))
-                    ->disabled(fn(Get $get, ?User $record) =>
-                    ! self::hasAnyRoleSelected($get, $record, ['Kinesiologa'])
-                        && ! Auth::user()?->hasRole('Administrador'))
-                    ->dehydrated(fn(Get $get, ?User $record) =>
-                    self::hasAnyRoleSelected($get, $record, ['Kinesiologa']) || Auth::user()?->hasRole('Administrador'))
-                    ->required(fn(Get $get, ?User $record) =>
-                    self::hasAnyRoleSelected($get, $record, ['Kinesiologa']))
+
+                    // Solo visible cuando el usuario tiene el rol "Kinesiologa"
+                    ->visible(
+                        fn(Get $get, ?User $record) =>
+                        self::hasAnyRoleSelected($get, $record, ['Kinesiologa'])
+                    )
+
+                    // (opcional, por coherencia si algún día cambiás la visibilidad)
+                    ->disabled(
+                        fn(Get $get, ?User $record) =>
+                        ! self::hasAnyRoleSelected($get, $record, ['Kinesiologa'])
+                    )
+
+                    ->dehydrated(
+                        fn(Get $get, ?User $record) =>
+                        self::hasAnyRoleSelected($get, $record, ['Kinesiologa'])
+                    )
+
+                    ->required(
+                        fn(Get $get, ?User $record) =>
+                        self::hasAnyRoleSelected($get, $record, ['Kinesiologa'])
+                    )
                     ->validationMessages([
                         'required' => 'La especialidad es obligatoria cuando el rol “Kinesiologa” está seleccionado.',
                     ])
-                    ->helperText(self::helperIfMissing(['Kinesiologa'], 'Disponible cuando el rol “Kinesiologa” está seleccionado.'))
+                    ->helperText(
+                        self::helperIfMissing(
+                            ['Kinesiologa'],
+                            'Disponible cuando el rol “Kinesiologa” está seleccionado.'
+                        )
+                    )
                     ->hintIcon('heroicon-m-information-circle'),
 
-                Forms\Components\Toggle::make('is_active')->label('Activo')->inline(false)->default(true),
+                Forms\Components\Toggle::make('is_active')
+                    ->label('Activo')
+                    ->inline(false)
+                    ->default(true),
 
                 Forms\Components\Placeholder::make('last_login_at')
                     ->label('Último login')
@@ -269,9 +340,11 @@ class UserResource extends Resource
     {
         $selected = $get('roles') ?? [];
         $selectedNames = self::resolveRoleNamesFromState($selected);
+
         if ($selectedNames === [] && $record) {
             $selectedNames = $record->roles->pluck('name')->all();
         }
+
         return count(array_intersect($roles, $selectedNames)) > 0;
     }
 
@@ -286,6 +359,7 @@ class UserResource extends Resource
         // los que ya tiene el registro (útil en edición).
         $roleIdsOrNames = $data['roles'] ?? [];
         $names = self::resolveRoleNamesFromState($roleIdsOrNames);
+
         if ($names === [] && $record) {
             $names = $record->roles->pluck('name')->all();
         }
@@ -306,10 +380,13 @@ class UserResource extends Resource
     protected static function resolveRoleNamesFromState(null|array $state): array
     {
         $state = $state ?? [];
+
         if ($state === []) return [];
+
         if (! is_numeric($state[0] ?? null)) {
             return array_values(array_filter(array_map('strval', $state)));
         }
+
         return SpatieRole::query()->whereIn('id', $state)->pluck('name')->all();
     }
 
@@ -324,6 +401,7 @@ class UserResource extends Resource
     {
         return function (Get $get, ?User $record) use ($roles, $text) {
             if (Auth::user()?->hasRole('Administrador')) return null;
+
             return self::hasAnyRoleSelected($get, $record, $roles) ? null : $text;
         };
     }

@@ -36,12 +36,42 @@ class ExcepcionDisponibilidadResource extends Resource
         return $u;
     }
 
-    /** Visibilidad: sólo Kinesiologa / Administrador */
+    public static function shouldRegisterNavigation(): bool
+    {
+        // No mostrar este recurso en ningún panel
+        return false;
+    }
+
+    // Nadie puede listar
     public static function canViewAny(): bool
     {
-        $u = static::user();
-        return $u && $u->hasAnyRole(['Administrador']);
+        return false;
     }
+
+    // Nadie puede ver un registro puntual
+    public static function canView($record): bool
+    {
+        return false;
+    }
+
+    // Nadie puede crear
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
+    // Nadie puede editar
+    public static function canEdit($record): bool
+    {
+        return false;
+    }
+
+    // Nadie puede borrar
+    public static function canDelete($record): bool
+    {
+        return false;
+    }
+
 
     /** ============================
      * Formulario

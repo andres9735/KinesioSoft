@@ -3,9 +3,10 @@
 namespace App\Filament\Resources\UserResource\Pages;
 
 use App\Models\User;
-use App\Models\Paciente; // 👈 NUEVO
+use App\Models\Paciente;
 use Filament\Actions;
 use Filament\Forms;
+use Spatie\Permission\Models\Role;
 use Filament\Notifications\Notification;
 use App\Filament\Resources\UserResource;
 use Filament\Resources\Pages\ListRecords;
@@ -35,7 +36,15 @@ class ListUsers extends ListRecords
                         Forms\Components\TextInput::make('name')
                             ->label('Nombre')
                             ->required()
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            // ✅ solo letras (incluye acentos) y espacios
+                            ->rules(['regex:/^[\pL\s]+$/u'])
+                            ->validationMessages([
+                                'required' => 'El nombre es obligatorio.',
+                                'regex'    => 'El nombre solo puede contener letras y espacios.',
+                                'max'      => 'El nombre no puede superar los 255 caracteres.',
+                            ])
+                            ->live(onBlur: true),
 
                         Forms\Components\TextInput::make('email')
                             ->label('Email')
@@ -54,10 +63,15 @@ class ListUsers extends ListRecords
                     Forms\Components\Section::make('Roles')->schema([
                         Forms\Components\Select::make('roles')
                             ->label('Roles')
-                            ->relationship('roles', 'name')
                             ->multiple()
                             ->preload()
-                            ->searchable(),
+                            ->searchable()
+                            // 👇 cargamos los nombres de los roles explícitamente
+                            ->options(
+                                Role::query()
+                                    ->orderBy('name')
+                                    ->pluck('name', 'name') // ['Paciente' => 'Paciente', ...]
+                            ),
                     ])->visible(function () {
                         /** @var \App\Models\User|null $u */
                         $u = Auth::user();
@@ -65,23 +79,23 @@ class ListUsers extends ListRecords
                     }),
                 ])
                 ->action(function (array $data) {
-                    /** @var \App\Models\User|null $authUser */
-                    $authUser = Auth::user();
-
                     $user = User::create([
                         'name'     => $data['name'],
                         'email'    => $data['email'],
                         'password' => Hash::make($data['password']),
                     ]);
 
-                    // Solo admins asignan roles al crear
-                    if (($authUser?->hasRole('Administrador') ?? false) && ! empty($data['roles'])) {
+                    // ✅ Asignar roles si se seleccionaron
+                    if (! empty($data['roles'])) {
+                        // $data['roles'] es array de nombres: ['Paciente', ...]
                         $user->syncRoles($data['roles']);
+
+                        // Si tenés lógica extra al crear Paciente, la mantenemos
                         \App\Services\PacienteService::ensureProfile($user);
                     }
 
-                    // 👇 Si tiene rol Paciente, asegurar perfil clínico
-                    if ($user->hasRole('Paciente')) {
+                    // ✅ Si tiene rol Paciente, asegurar perfil clínico
+                    if (in_array('Paciente', $data['roles'] ?? [], true)) {
                         Paciente::firstOrCreate(
                             ['user_id' => $user->id],
                             ['nombre'  => $user->name]
@@ -93,13 +107,8 @@ class ListUsers extends ListRecords
                         ->success()
                         ->send();
 
-                    $this->refreshTable();
+                    // Ya no llamamos a refreshTable(), Filament refresca solo.
                 })
-                ->visible(function () {
-                    /** @var \App\Models\User|null $u */
-                    $u = Auth::user();
-                    return $u?->hasRole('Administrador') ?? false;
-                }),
         ];
     }
 }

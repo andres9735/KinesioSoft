@@ -43,8 +43,19 @@ class BloqueDisponibilidadResource extends Resource
     public static function canViewAny(): bool
     {
         $u = static::user();
-        return $u && $u->hasAnyRole(['Administrador']);
+
+        // Solo la Kinesiologa puede ver este módulo
+        return $u && $u->hasRole('Kinesiologa');
     }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        $u = static::user();
+
+        // Solo mostramos el menú a la Kinesiologa
+        return $u && $u->hasRole('Kinesiologa');
+    }
+
 
     /** =========================================================
      * Verifica solapamientos entre bloques de disponibilidad
