@@ -128,11 +128,12 @@
             </table>
         </div>
 
-        {{-- Nota cola --}}
+
+        {{-- Nota cola
         <p class="text-xs text-gray-500">
             Nota: en modo real, se encolan jobs en la cola <code>mail</code>. Asegurate de correr:
             <code>php artisan queue:work --queue=mail,default --tries=3</code>
-        </p>
+        </p>  --}}
     </div>
 </x-filament-panels::page>
 

@@ -32,6 +32,9 @@ class PacientePanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::Amber, // color distinto al admin
             ])
+
+            ->viteTheme('resources/css/app.css')
+
             ->discoverResources(in: app_path('Filament/Paciente/Resources'), for: 'App\\Filament\\Paciente\\Resources')
             ->discoverPages(in: app_path('Filament/Paciente/Pages'), for: 'App\\Filament\\Paciente\\Pages')
             ->pages([

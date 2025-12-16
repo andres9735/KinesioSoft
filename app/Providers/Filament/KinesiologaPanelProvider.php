@@ -55,6 +55,7 @@ class KinesiologaPanelProvider extends PanelProvider
                 \App\Filament\Kinesiologa\Widgets\ProximasExcepciones::class,
             ])
 
+            ->viteTheme('resources/css/app.css')
 
             ->middleware([
                 EncryptCookies::class,

@@ -3,7 +3,8 @@
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\AgendaDiariaController;
 use App\Http\Controllers\TurnoMailActionController;     // (rutas firmadas nuevas)
-use App\Http\Controllers\Turnos\OfertaAdelantoTurnoController; // 👈 NUEVO
+use App\Http\Controllers\Turnos\OfertaAdelantoTurnoController;
+use App\Http\Controllers\Kinesiologa\AgendaEventsController;
 use App\Http\Middleware\RedirectToPanel;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
@@ -90,6 +91,15 @@ Route::middleware(['auth', 'role:Administrador|Kinesiologa'])
         Route::get('/preview',  [AgendaDiariaController::class, 'preview'])->name('agenda-diaria.preview');
         Route::post('/enviar',  [AgendaDiariaController::class, 'run'])->name('agenda-diaria.enviar');
     });
+
+    
+/**
+ * 🎯 Eventos JSON para la agenda (FullCalendar de la kinesióloga)
+ */
+Route::middleware(['auth', 'role:Kinesiologa'])
+    ->get('/kinesiologa/agenda/events', [AgendaEventsController::class, 'index'])
+    ->name('kinesiologa.agenda.events');
+
 
 /* 📄 Stub temporal para "Historia clínica" (solo Kinesiologa/Admin autenticados) */
 Route::middleware(['auth', 'role:Kinesiologa|Administrador'])
