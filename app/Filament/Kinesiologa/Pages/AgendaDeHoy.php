@@ -37,16 +37,22 @@ class AgendaDeHoy extends Page
         $this->fecha             = request()->query('fecha', now()->toDateString());
         $this->profesionalNombre = (string) (Auth::user()->name ?? '—');
         $this->refreshRows();
+
+        // Notificar al JS el estado inicial
+        $this->dispatch('agenda-updated', fecha: $this->fecha, soloPendientes: $this->soloPendientes);
     }
 
     /** Cambios de fecha / filtro */
     public function updatedFecha(): void
     {
         $this->refreshRows();
+        $this->dispatch('agenda-updated', fecha: $this->fecha, soloPendientes: $this->soloPendientes);
     }
+
     public function updatedSoloPendientes(): void
     {
         $this->refreshRows();
+        $this->dispatch('agenda-updated', fecha: $this->fecha, soloPendientes: $this->soloPendientes);
     }
 
     /** Botones rápidos */
@@ -54,6 +60,7 @@ class AgendaDeHoy extends Page
     {
         $this->fecha = now()->toDateString();
         $this->refreshRows();
+        $this->dispatch('agenda-updated', fecha: $this->fecha, soloPendientes: $this->soloPendientes);
     }
 
     private function refreshRows(): void

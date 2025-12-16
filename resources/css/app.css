@@ -2,8 +2,188 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================
+   🎨 Estilo de los eventos FullCalendar
+   ============================ */
 
-.filament-loading-indicator { display: none !important; }
+/* Contenedor del evento en vista de día/hora */
+.fc .fc-timegrid-event {
+    border: none;
+    border-radius: 0.75rem; /* esquinas redondeadas */
+    background: linear-gradient(135deg, #3b82f6, #2563eb); /* azul tipo Tailwind */
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.35);
+    overflow: hidden; /* por si el contenido se pasa */
+}
+
+/* Pequeño espacio entre eventos y líneas de la grilla */
+.fc .fc-timegrid-event-harness {
+    margin-top: 2px;
+    margin-bottom: 2px;
+}
+
+/* Contenido interno del evento (texto) */
+.fc .fc-timegrid-event .fc-event-main {
+    padding: 3px 8px;
+    font-size: 0.72rem;
+    line-height: 1.1;
+    color: #f9fafb; /* casi blanco */
+    font-weight: 500;
+}
+
+/* Hora dentro del evento */
+.fc .fc-timegrid-event .fc-event-time {
+    font-weight: 600;
+}
+
+/* Título (paciente + estado) en una segunda línea más suave */
+.fc .fc-timegrid-event .fc-event-title {
+    display: block;
+    margin-top: 1px;
+    font-weight: 400;
+    opacity: 0.9;
+}
+
+/* En modo oscuro, ajustamos un poco el contraste */
+html.dark .fc .fc-timegrid-event {
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.7);
+}
+
+/* Opcional: líneas de la grilla un poco más suaves */
+.fc .fc-timegrid-slot,
+.fc .fc-timegrid-slot-label {
+    border-color: rgba(148, 163, 184, 0.35);
+}
+
+/* Ocultar spinner de Filament mientras carga SPA */
+.filament-loading-indicator {
+    display: none !important;
+}
+
+/* -------------------------------------------------
+   💡 Mejora de botones en MODO CLARO
+   (Edit, Reservar, Agregar excepción, login, etc.)
+   ------------------------------------------------- */
+
+/* ===== Botones PRIMARIOS (verde) ===== */
+
+/* Todos los botones primarios en modo claro */
+html:not(.dark) .fi-btn.fi-color-primary,
+html:not(.dark) button.fi-btn.fi-color-primary {
+    background-color: #22c55e;  /* emerald-500 */
+    border-color: #16a34a;      /* emerald-600 */
+    color: #ffffff;
+}
+
+/* Hover botones primarios en modo claro */
+html:not(.dark) .fi-btn.fi-color-primary:hover,
+html:not(.dark) button.fi-btn.fi-color-primary:hover {
+    background-color: #16a34a;  /* emerald-600 */
+    border-color: #15803d;      /* emerald-700 */
+}
+
+/* Variante outline primaria en modo claro
+   (botón se ve clarito, pero NO transparente) */
+html:not(.dark) .fi-btn.fi-color-primary.fi-btn-outline,
+html:not(.dark) button.fi-btn.fi-color-primary.fi-btn-outline {
+    background-color: #ecfdf5;  /* emerald-50 */
+    border-color: #10b981;      /* emerald-500 */
+    color: #065f46;             /* emerald-800 */
+}
+
+html:not(.dark) .fi-btn.fi-color-primary.fi-btn-outline:hover,
+html:not(.dark) button.fi-btn.fi-color-primary.fi-btn-outline:hover {
+    background-color: #d1fae5;  /* emerald-100 */
+    border-color: #059669;      /* emerald-600 */
+}
+
+/* ===== Botones DANGER (rojo) – Borrar, eliminar, etc. ===== */
+
+/* Botones danger rellenos en modo claro */
+html:not(.dark) .fi-btn.fi-color-danger,
+html:not(.dark) button.fi-btn.fi-color-danger {
+    background-color: #ef4444;  /* red-500 */
+    border-color: #dc2626;      /* red-600 */
+    color: #ffffff;
+}
+
+/* Hover danger rellenos */
+html:not(.dark) .fi-btn.fi-color-danger:hover,
+html:not(.dark) button.fi-btn.fi-color-danger:hover {
+    background-color: #dc2626;  /* red-600 */
+    border-color: #b91c1c;      /* red-700 */
+}
+
+/* Botones danger OUTLINE en modo claro
+   (como el botón Borrar en excepciones) */
+html:not(.dark) .fi-btn.fi-color-danger.fi-btn-outline,
+html:not(.dark) button.fi-btn.fi-color-danger.fi-btn-outline {
+    background-color: #fef2f2;  /* red-50 */
+    border-color: #ef4444;      /* red-500 */
+    color: #b91c1c;             /* red-700 */
+}
+
+html:not(.dark) .fi-btn.fi-color-danger.fi-btn-outline:hover,
+html:not(.dark) button.fi-btn.fi-color-danger.fi-btn-outline:hover {
+    background-color: #fee2e2;  /* red-100 */
+    border-color: #dc2626;      /* red-600 */
+}
+
+/* -------------------------------------------------
+   🌈 Cabeceras de tablas en modo claro
+   (por ejemplo la tabla de horarios)
+   ------------------------------------------------- */
+
+html:not(.dark) table thead tr {
+    background-color: #ecfdf5; /* emerald-50 */
+}
+
+html:not(.dark) table thead th {
+    color: #166534;             /* emerald-700 */
+    font-weight: 600;
+}
+
+/* ================================
+   Estilos específicos para imprimir
+   ================================ */
+@media print {
+    /* Calendario: fondo de eventos oscuro, texto negro,
+       sin sombras para que se lea bien en papel */
+    .fc .fc-timegrid-event,
+    .fc .fc-timegrid-event .fc-event-main {
+        background-color: #bfdbfe !important; /* azul clarito pero visible */
+        border-color: #60a5fa !important;
+        color: #000000 !important;
+        box-shadow: none !important;
+    }
+
+    /* Líneas de la grilla un poco más fuertes */
+    .fc .fc-timegrid-slot {
+        border-color: #d1d5db !important;
+    }
+
+    /* Tabla de turnos (abajo) */
+    .agenda-dia-tabla table {
+        font-size: 11px;
+        table-layout: fixed;
+        width: 100%;
+    }
+
+    /* Columna Paciente: evitar que se corte en dos líneas */
+    .agenda-dia-tabla th.col-paciente,
+    .agenda-dia-tabla td.col-paciente {
+        white-space: nowrap;
+        width: 30%;
+    }
+
+    /* Menos padding para que entren más filas en la hoja */
+    .agenda-dia-tabla th,
+    .agenda-dia-tabla td {
+        padding-top: 0.25rem !important;
+        padding-bottom: 0.25rem !important;
+    }
+}
+
+
 
 
 
