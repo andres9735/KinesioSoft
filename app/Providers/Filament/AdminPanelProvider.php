@@ -35,6 +35,7 @@ class AdminPanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::Emerald,
             ])
+
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
@@ -44,16 +45,14 @@ class AdminPanelProvider extends PanelProvider
             ->widgets([
                 Widgets\AccountWidget::class,
             ])
-
-            // 👉 Todos los grupos arrancan colapsados
-            // ✅ Declaramos grupos (sin iconos en el grupo, todos colapsados)
             ->navigationGroups([
                 NavigationGroup::make('Usuarios')->collapsed(true),
-
                 NavigationGroup::make('Auditoría')->collapsed(true),
-
                 NavigationGroup::make('Catálogos clínicos')->collapsed(true),
             ])
+
+            // 👇 **IMPORTANTE**: aquí enganchamos app.css (con FullCalendar dentro)
+            ->viteTheme('resources/css/app.css')
 
             ->middleware([
                 EncryptCookies::class,
