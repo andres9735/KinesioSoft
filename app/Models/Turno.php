@@ -181,6 +181,12 @@ class Turno extends Model implements AuditableContract
         return $this->belongsTo(Consultorio::class, 'id_consultorio', 'id_consultorio');
     }
 
+    public function consulta()
+    {
+        // consultas.turno_id -> turnos.id_turno
+        return $this->hasOne(\App\Models\Consulta::class, 'turno_id', 'id_turno');
+    }
+
     /**
      * Ofertas de adelanto que se generaron a partir de este turno cancelado.
      * (Es el turno que quedó libre y se ofrece a otros pacientes).

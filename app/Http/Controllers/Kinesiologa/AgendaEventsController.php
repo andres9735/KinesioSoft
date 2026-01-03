@@ -18,7 +18,6 @@ class AgendaEventsController extends Controller
             abort(403);
         }
 
-        // Fecha YYYY-mm-dd que viene del Front
         $date = $request->query('date', now()->toDateString());
 
         try {
@@ -29,14 +28,30 @@ class AgendaEventsController extends Controller
 
         $soloPendientes = $request->boolean('solo_pendientes', false);
 
-        // Misma lógica que en AgendaDeHoy::refreshRows()
+        $vista = (string) $request->query('vista', 'programados');
+        if (! in_array($vista, ['programados', 'atendidos', 'todos'], true)) {
+            $vista = 'programados';
+        }
+
         $query = Turno::query()
             ->deProfesional($user->id)
-            ->delDia($date)
-            ->whereIn('estado', [Turno::ESTADO_PENDIENTE, Turno::ESTADO_CONFIRMADO]);
+            ->delDia($date);
 
-        if ($soloPendientes) {
-            $query->where('estado', Turno::ESTADO_PENDIENTE);
+        // Vista: programados / atendidos / no_asistio / todos
+        if ($vista === 'programados') {
+            $query->whereIn('estado', [Turno::ESTADO_PENDIENTE, Turno::ESTADO_CONFIRMADO]);
+
+            if ($soloPendientes) {
+                $query->where('estado', Turno::ESTADO_PENDIENTE);
+            }
+        } elseif ($vista === 'atendidos') {
+            $query->where('estado', Turno::ESTADO_ATENDIDO);
+            // ignoramos $soloPendientes
+        } elseif ($vista === 'no_asistio') {
+            $query->where('estado', Turno::ESTADO_NO_ASISTIO);
+            // ignoramos $soloPendientes
+        } else { // 'todos'
+            $query->whereNotIn('estado', [Turno::ESTADO_CANCELADO, Turno::ESTADO_CANCELADO_TARDE]);
         }
 
         $turnos = $query
@@ -45,7 +60,6 @@ class AgendaEventsController extends Controller
             ->get();
 
         $events = $turnos->map(function (Turno $t) use ($date) {
-            // Aseguramos formato ISO completo: 2025-12-09T08:00:00
             $start = Carbon::parse($date . ' ' . $t->hora_desde)->toIso8601String();
             $end   = Carbon::parse($date . ' ' . $t->hora_hasta)->toIso8601String();
 
@@ -58,7 +72,12 @@ class AgendaEventsController extends Controller
                 'start' => $start,
                 'end'   => $end,
 
-                // Info extra por si luego querés mostrarla en tooltips, etc.
+                // ✅ NUEVO: clases CSS para colorear según estado
+                'classNames' => [
+                    'kine-event',
+                    'estado-' . str_replace('_', '-', $estado), // no_asistio -> estado-no-asistio
+                ],
+
                 'extendedProps' => [
                     'paciente'               => $paciente,
                     'estado'                 => $estado,

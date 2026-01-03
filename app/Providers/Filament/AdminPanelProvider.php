@@ -31,6 +31,7 @@ class AdminPanelProvider extends PanelProvider
             ->authGuard('web')
             ->login(\App\Filament\Admin\Pages\Auth\AdminLogin::class)
             ->brandName('Kinesiosoft • Admin')
+            ->darkMode(false)
             ->favicon(asset('favicon-administrador.ico'))
             ->colors([
                 'primary' => Color::Emerald,

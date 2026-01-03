@@ -30,6 +30,7 @@ class KinesiologaPanelProvider extends PanelProvider
             ->path('kinesiologa')
             ->login()
             ->brandName('Kinesiosoft')
+            ->darkMode(false)
             ->favicon(asset('favicon-kinesiologa.ico'))
             ->colors([
                 'primary' => Color::Emerald, // diferenciá del paciente/admin

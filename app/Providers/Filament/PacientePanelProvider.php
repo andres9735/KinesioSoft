@@ -28,6 +28,7 @@ class PacientePanelProvider extends PanelProvider
             ->path('paciente')
             ->login() // pantalla de login propia del panel
             ->brandName('Kinesiosoft') // nombre que aparece en el header
+            ->darkMode(false)
             ->favicon(asset('favicon-paciente.ico'))
             ->colors([
                 'primary' => Color::Amber, // color distinto al admin
