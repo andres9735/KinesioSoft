@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureAdminOrSuperadmin;
+use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\EnsureUserIsKinesiologist;
 use App\Http\Middleware\EnsureUserIsPatient;
 use App\Http\Middleware\EnsureUserProfileIsComplete;
@@ -15,6 +16,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->appendToGroup('web', [
+            EnsureUserIsActive::class,
+        ]);
+
         $middleware->alias([
             'perfil.completo' => EnsureUserProfileIsComplete::class,
             'perfil.paciente' => EnsureUserIsPatient::class,

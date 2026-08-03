@@ -282,7 +282,10 @@ class UserController extends Controller
             403
         );
 
-        if ($usuarioAutenticado->esAdministrador() && ($user->esAdministrador() || $user->esSuperadmin())) {
+        if (
+            $usuarioAutenticado->esAdministrador()
+            && ($user->esAdministrador() || $user->esSuperadmin())
+        ) {
             abort(403);
         }
 
@@ -290,20 +293,43 @@ class UserController extends Controller
             $cantidadSuperadminsActivos = User::query()
                 ->where('activo', true)
                 ->whereHas('roles', function ($query) {
-                    $query->where('name', RoleEnum::SUPERADMIN->value);
+                    $query->where(
+                        'name',
+                        RoleEnum::SUPERADMIN->value
+                    );
                 })
                 ->count();
 
             if ($cantidadSuperadminsActivos <= 1) {
                 return redirect()
                     ->route('usuarios.index')
-                    ->with('warning', 'No se puede desactivar al único superadmin activo.');
+                    ->with(
+                        'warning',
+                        'No se puede desactivar al único superadmin activo.'
+                    );
             }
         }
 
-        $user->update([
-            'activo' => ! $user->activo,
-        ]);
+        DB::transaction(function () use ($user) {
+            $user->activo = ! (bool) $user->activo;
+
+            if (! $user->activo) {
+                $user->remember_token = null;
+            }
+
+            $user->save();
+
+            if (
+                ! $user->activo
+                && config('session.driver') === 'database'
+            ) {
+                $sessionTable = config('session.table') ?: 'sessions';
+
+                DB::table($sessionTable)
+                    ->where('user_id', $user->getKey())
+                    ->delete();
+            }
+        });
 
         $mensaje = $user->activo
             ? 'Usuario activado correctamente.'
