@@ -142,9 +142,9 @@ class MisMatriculasProfesionalesController extends Controller
     }
 
     private function validateData(
-        Request $request,
-        Kinesiologa $kinesiologa,
-        ?MatriculaProfesionalKinesiologia $matricula = null
+    Request $request,
+    Kinesiologa $kinesiologa,
+    ?MatriculaProfesionalKinesiologia $matricula = null
     ): array {
         $matriculaId = $matricula?->id;
 
@@ -153,37 +153,83 @@ class MisMatriculasProfesionalesController extends Controller
                 'required',
                 'integer',
                 'exists:jurisdicciones,id',
-                Rule::unique('matriculas_profesionales_kinesiologia', 'jurisdiccion_id')
+
+                // Una kinesióloga solo puede tener una matrícula
+                // dentro de cada jurisdicción.
+                Rule::unique(
+                    'matriculas_profesionales_kinesiologia',
+                    'jurisdiccion_id'
+                )
                     ->where(function ($query) use ($kinesiologa) {
-                        return $query->where('kinesiologa_id', $kinesiologa->id);
+                        return $query->where(
+                            'kinesiologa_id',
+                            $kinesiologa->id
+                        );
                     })
                     ->ignore($matriculaId),
             ],
+
             'colegio_emisor_id' => [
                 'required',
                 'integer',
                 'exists:colegios_emisores,id',
-                Rule::exists('colegios_emisores', 'id')->where(function ($query) use ($request) {
-                    return $query->where('jurisdiccion_id', $request->jurisdiccion_id);
-                }),
+
+                // El colegio debe pertenecer a la jurisdicción seleccionada.
+                Rule::exists('colegios_emisores', 'id')
+                    ->where(function ($query) use ($request) {
+                        return $query->where(
+                            'jurisdiccion_id',
+                            $request->jurisdiccion_id
+                        );
+                    }),
             ],
+
             'nro_matricula_profesional' => [
                 'required',
                 'string',
                 'max:50',
                 'regex:/^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9\s\-\.\/]+$/',
+
+                // El número debe ser único dentro de la jurisdicción.
+                Rule::unique(
+                    'matriculas_profesionales_kinesiologia',
+                    'nro_matricula_profesional'
+                )
+                    ->where(function ($query) use ($request) {
+                        return $query->where(
+                            'jurisdiccion_id',
+                            $request->jurisdiccion_id
+                        );
+                    })
+                    ->ignore($matriculaId),
             ],
         ], [
-            'jurisdiccion_id.required' => 'Debe seleccionar una jurisdicción.',
-            'jurisdiccion_id.exists' => 'La jurisdicción seleccionada no existe.',
-            'jurisdiccion_id.unique' => 'Ya tiene una matrícula registrada para la jurisdicción seleccionada.',
+            'jurisdiccion_id.required' =>
+                'Debe seleccionar una jurisdicción.',
 
-            'colegio_emisor_id.required' => 'Debe seleccionar un colegio emisor.',
-            'colegio_emisor_id.exists' => 'El colegio emisor seleccionado no pertenece a la jurisdicción elegida.',
+            'jurisdiccion_id.exists' =>
+                'La jurisdicción seleccionada no existe.',
 
-            'nro_matricula_profesional.required' => 'Debe ingresar el número de matrícula profesional.',
-            'nro_matricula_profesional.max' => 'El número de matrícula no puede superar los 50 caracteres.',
-            'nro_matricula_profesional.regex' => 'El número de matrícula contiene caracteres no permitidos.',
+            'jurisdiccion_id.unique' =>
+                'Ya tiene una matrícula registrada para la jurisdicción seleccionada.',
+
+            'colegio_emisor_id.required' =>
+                'Debe seleccionar un colegio emisor.',
+
+            'colegio_emisor_id.exists' =>
+                'El colegio emisor seleccionado no pertenece a la jurisdicción elegida.',
+
+            'nro_matricula_profesional.required' =>
+                'Debe ingresar el número de matrícula profesional.',
+
+            'nro_matricula_profesional.max' =>
+                'El número de matrícula no puede superar los 50 caracteres.',
+
+            'nro_matricula_profesional.regex' =>
+                'El número de matrícula contiene caracteres no permitidos.',
+
+            'nro_matricula_profesional.unique' =>
+                'Ya existe una matrícula profesional con ese número en la jurisdicción seleccionada.',
         ]);
     }
 

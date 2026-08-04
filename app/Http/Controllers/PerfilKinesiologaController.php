@@ -89,12 +89,28 @@ class PerfilKinesiologaController extends Controller
                 'string',
                 'max:50',
                 'regex:/^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9\s\-\.\/]+$/',
+
+                Rule::unique(
+                    'matriculas_profesionales_kinesiologia',
+                    'nro_matricula_profesional'
+                )->where(function ($query) use ($request) {
+                    return $query->where(
+                        'jurisdiccion_id',
+                        $request->jurisdiccion_id
+                    );
+                }),
             ];
         }
 
         $messages = [
-            'colegio_emisor_id.exists' => 'El colegio emisor seleccionado no pertenece a la jurisdicción elegida.',
-            'especialidades.*.distinct' => 'No puede seleccionar la misma especialidad más de una vez.',
+            'colegio_emisor_id.exists' =>
+            'El colegio emisor seleccionado no pertenece a la jurisdicción elegida.',
+
+            'especialidades.*.distinct' =>
+            'No puede seleccionar la misma especialidad más de una vez.',
+
+            'nro_matricula_profesional.unique' =>
+            'Ya existe una matrícula profesional con ese número en la jurisdicción seleccionada.',
         ];
 
         $data = $request->validate($rules, $messages);

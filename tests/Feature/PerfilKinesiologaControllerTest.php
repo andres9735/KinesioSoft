@@ -212,6 +212,144 @@ class PerfilKinesiologaControllerTest extends TestCase
         ]);
     }
 
+    public function test_initial_profile_rejects_license_number_already_used_in_same_jurisdiction(): void
+    {
+        $catalogos = $this->catalogos();
+
+        $titular = User::factory()->create([
+            'name' => 'Laura',
+            'apellido' => 'Titular',
+            'email' => 'titular_' . uniqid() . '@example.com',
+            'dni' => '30999888',
+            'fecha_nacimiento' => '1988-05-10',
+            'sexo' => 'femenino',
+            'telefono' => '3764111111',
+            'activo' => true,
+        ]);
+
+        $titular->assignRole(RoleEnum::KINESIOLOGO->value);
+
+        $kinesiologaTitular = Kinesiologa::create([
+            'user_id' => $titular->id,
+            'titulo_profesional_id' => $catalogos['titulo']->id,
+            'consultorio_id' => null,
+        ]);
+
+        MatriculaProfesionalKinesiologia::create([
+            'kinesiologa_id' => $kinesiologaTitular->id,
+            'nro_matricula_profesional' => '0763',
+            'jurisdiccion_id' => $catalogos['jurisdiccion1']->id,
+            'colegio_emisor_id' => $catalogos['colegio1']->id,
+            'activa' => true,
+        ]);
+
+        $user = $this->kinesiologaIncompleta();
+
+        $response = $this
+            ->from(route('perfil.kinesiologa.completar'))
+            ->actingAs($user)
+            ->post(route('perfil.kinesiologa.actualizar'), [
+                'dni' => '30456321',
+                'fecha_nacimiento' => '1993-08-09',
+                'sexo' => 'femenino',
+                'telefono' => '3758-451963',
+                'titulo_profesional_id' => $catalogos['titulo']->id,
+                'jurisdiccion_id' => $catalogos['jurisdiccion1']->id,
+                'colegio_emisor_id' => $catalogos['colegio1']->id,
+                'nro_matricula_profesional' => '0763',
+                'especialidades' => [
+                    $catalogos['especialidad1']->id,
+                ],
+            ]);
+
+        $response
+            ->assertRedirect(route('perfil.kinesiologa.completar'))
+            ->assertSessionHasErrors('nro_matricula_profesional');
+
+        $this->assertDatabaseMissing('kinesiologas', [
+            'user_id' => $user->id,
+        ]);
+
+        $this->assertSame(
+            1,
+            MatriculaProfesionalKinesiologia::query()
+                ->where('jurisdiccion_id', $catalogos['jurisdiccion1']->id)
+                ->where('nro_matricula_profesional', '0763')
+                ->count()
+        );
+    }
+
+    public function test_initial_profile_allows_same_license_number_in_different_jurisdiction(): void
+    {
+        $catalogos = $this->catalogos();
+
+        $titular = User::factory()->create([
+            'name' => 'Laura',
+            'apellido' => 'Titular',
+            'email' => 'titular_' . uniqid() . '@example.com',
+            'dni' => '30999888',
+            'fecha_nacimiento' => '1988-05-10',
+            'sexo' => 'femenino',
+            'telefono' => '3764111111',
+            'activo' => true,
+        ]);
+
+        $titular->assignRole(RoleEnum::KINESIOLOGO->value);
+
+        $kinesiologaTitular = Kinesiologa::create([
+            'user_id' => $titular->id,
+            'titulo_profesional_id' => $catalogos['titulo']->id,
+            'consultorio_id' => null,
+        ]);
+
+        MatriculaProfesionalKinesiologia::create([
+            'kinesiologa_id' => $kinesiologaTitular->id,
+            'nro_matricula_profesional' => '0763',
+            'jurisdiccion_id' => $catalogos['jurisdiccion1']->id,
+            'colegio_emisor_id' => $catalogos['colegio1']->id,
+            'activa' => true,
+        ]);
+
+        $user = $this->kinesiologaIncompleta();
+
+        $response = $this
+            ->actingAs($user)
+            ->post(route('perfil.kinesiologa.actualizar'), [
+                'dni' => '30456321',
+                'fecha_nacimiento' => '1993-08-09',
+                'sexo' => 'femenino',
+                'telefono' => '3758-451963',
+                'titulo_profesional_id' => $catalogos['titulo']->id,
+                'jurisdiccion_id' => $catalogos['jurisdiccion2']->id,
+                'colegio_emisor_id' => $catalogos['colegio2']->id,
+                'nro_matricula_profesional' => '0763',
+                'especialidades' => [
+                    $catalogos['especialidad1']->id,
+                ],
+            ]);
+
+        $response
+            ->assertRedirect(route('dashboard'))
+            ->assertSessionHas(
+                'success',
+                'Perfil profesional completado correctamente.'
+            );
+
+        $kinesiologa = Kinesiologa::where('user_id', $user->id)
+            ->firstOrFail();
+
+        $this->assertDatabaseHas(
+            'matriculas_profesionales_kinesiologia',
+            [
+                'kinesiologa_id' => $kinesiologa->id,
+                'jurisdiccion_id' => $catalogos['jurisdiccion2']->id,
+                'colegio_emisor_id' => $catalogos['colegio2']->id,
+                'nro_matricula_profesional' => '0763',
+                'activa' => 1,
+            ]
+        );
+    }
+
     public function test_update_requires_dni(): void
     {
         $user = $this->kinesiologaIncompleta();
