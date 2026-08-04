@@ -406,6 +406,129 @@ class ColegioEmisorControllerTest extends TestCase
         $response->assertSessionHasErrors('sigla');
     }
 
+    public function test_create_form_does_not_show_inactive_jurisdictions(): void
+    {
+        $admin = $this->adminUser();
+
+        $activa = Jurisdiccion::create([
+            'nombre' => 'Misiones',
+            'slug' => 'misiones',
+            'activo' => true,
+        ]);
+
+        $inactiva = Jurisdiccion::create([
+            'nombre' => 'Jurisdicción archivada',
+            'slug' => 'jurisdiccion-archivada',
+            'activo' => false,
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->get(route('catalogos.colegios.create'));
+
+        $response->assertOk();
+        $response->assertSee($activa->nombre);
+        $response->assertDontSee($inactiva->nombre);
+    }
+
+    public function test_store_rejects_inactive_jurisdiction(): void
+    {
+        $admin = $this->adminUser();
+
+        $jurisdiccion = Jurisdiccion::create([
+            'nombre' => 'Jurisdicción inactiva',
+            'slug' => 'jurisdiccion-inactiva',
+            'activo' => false,
+        ]);
+
+        $response = $this
+            ->from(route('catalogos.colegios.create'))
+            ->actingAs($admin)
+            ->post(route('catalogos.colegios.store'), [
+                'nombre' => 'Colegio de jurisdicción inactiva',
+                'sigla' => 'CJI',
+                'jurisdiccion_id' => $jurisdiccion->id,
+            ]);
+
+        $response
+            ->assertRedirect(route('catalogos.colegios.create'))
+            ->assertSessionHasErrors('jurisdiccion_id');
+
+        $this->assertDatabaseMissing('colegios_emisores', [
+            'nombre' => 'Colegio de jurisdicción inactiva',
+            'jurisdiccion_id' => $jurisdiccion->id,
+        ]);
+    }
+
+    public function test_edit_form_shows_current_inactive_jurisdiction(): void
+    {
+        $admin = $this->adminUser();
+
+        $jurisdiccion = Jurisdiccion::create([
+            'nombre' => 'Jurisdicción histórica',
+            'slug' => 'jurisdiccion-historica',
+            'activo' => false,
+        ]);
+
+        $colegio = ColegioEmisor::create([
+            'nombre' => 'Colegio histórico',
+            'sigla' => 'CH',
+            'jurisdiccion_id' => $jurisdiccion->id,
+            'activo' => true,
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->get(route('catalogos.colegios.edit', $colegio));
+
+        $response->assertOk();
+        $response->assertSee($jurisdiccion->nombre);
+    }
+
+    public function test_update_rejects_switching_to_inactive_jurisdiction(): void
+    {
+        $admin = $this->adminUser();
+
+        $jurisdiccionActual = Jurisdiccion::create([
+            'nombre' => 'Misiones',
+            'slug' => 'misiones',
+            'activo' => true,
+        ]);
+
+        $jurisdiccionInactiva = Jurisdiccion::create([
+            'nombre' => 'Jurisdicción destino inactiva',
+            'slug' => 'jurisdiccion-destino-inactiva',
+            'activo' => false,
+        ]);
+
+        $colegio = ColegioEmisor::create([
+            'nombre' => 'Colegio de Kinesiólogos de Misiones',
+            'sigla' => 'COKIFIMI',
+            'jurisdiccion_id' => $jurisdiccionActual->id,
+            'activo' => true,
+        ]);
+
+        $response = $this
+            ->from(route('catalogos.colegios.edit', $colegio))
+            ->actingAs($admin)
+            ->put(route('catalogos.colegios.update', $colegio), [
+                'nombre' => 'Colegio trasladado',
+                'sigla' => 'CT',
+                'jurisdiccion_id' => $jurisdiccionInactiva->id,
+            ]);
+
+        $response
+            ->assertRedirect(route('catalogos.colegios.edit', $colegio))
+            ->assertSessionHasErrors('jurisdiccion_id');
+
+        $this->assertDatabaseHas('colegios_emisores', [
+            'id' => $colegio->id,
+            'nombre' => 'Colegio de Kinesiólogos de Misiones',
+            'sigla' => 'COKIFIMI',
+            'jurisdiccion_id' => $jurisdiccionActual->id,
+        ]);
+    }
+
     public function test_toggle_activo_inactivates_colegio(): void
     {
         $admin = $this->adminUser();
@@ -432,6 +555,44 @@ class ColegioEmisorControllerTest extends TestCase
         $this->assertDatabaseHas('colegios_emisores', [
             'id' => $colegio->id,
             'activo' => 0,
+        ]);
+    }
+
+    public function test_update_allows_keeping_current_inactive_jurisdiction(): void
+    {
+        $admin = $this->adminUser();
+
+        $jurisdiccion = Jurisdiccion::create([
+            'nombre' => 'Jurisdicción histórica',
+            'slug' => 'jurisdiccion-historica',
+            'activo' => false,
+        ]);
+
+        $colegio = ColegioEmisor::create([
+            'nombre' => 'Colegio histórico',
+            'sigla' => 'CH',
+            'jurisdiccion_id' => $jurisdiccion->id,
+            'activo' => true,
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->put(route('catalogos.colegios.update', $colegio), [
+                'nombre' => 'Colegio histórico actualizado',
+                'sigla' => 'CHA',
+                'jurisdiccion_id' => $jurisdiccion->id,
+            ]);
+
+        $response
+            ->assertRedirect(route('catalogos.colegios.index'))
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('colegios_emisores', [
+            'id' => $colegio->id,
+            'nombre' => 'Colegio histórico actualizado',
+            'sigla' => 'CHA',
+            'jurisdiccion_id' => $jurisdiccion->id,
         ]);
     }
 

@@ -111,10 +111,23 @@ class ColegioEmisorController extends Controller
                 Rule::unique('colegios_emisores', 'sigla')->ignore($colegioId),
             ],
             'jurisdiccion_id' => [
-                'required',
-                'integer',
-                Rule::exists('jurisdicciones', 'id'),
-            ],
+            'required',
+            'integer',
+
+            Rule::exists('jurisdicciones', 'id')
+                ->where(function ($query) use ($colegio) {
+                    $query->where(function ($subquery) use ($colegio) {
+                        $subquery->where('activo', true);
+
+                        if ($colegio) {
+                            $subquery->orWhere(
+                                'id',
+                                $colegio->jurisdiccion_id
+                            );
+                        }
+                    });
+                }),
+        ],
         ], [
             'nombre.required' => 'Debe ingresar el nombre del colegio emisor.',
             'nombre.max' => 'El nombre no puede superar los 255 caracteres.',
@@ -129,7 +142,7 @@ class ColegioEmisorController extends Controller
 
             'jurisdiccion_id.required' => 'Debe seleccionar una jurisdicción.',
             'jurisdiccion_id.integer' => 'La jurisdicción seleccionada no es válida.',
-            'jurisdiccion_id.exists' => 'La jurisdicción seleccionada no existe.',
+            'jurisdiccion_id.exists' => 'La jurisdicción seleccionada no existe, se encuentra inactiva o no puede utilizarse para esta operación.',
         ]);
 
         $data['nombre'] = preg_replace('/\s+/', ' ', trim($data['nombre']));

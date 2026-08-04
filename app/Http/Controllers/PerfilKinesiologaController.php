@@ -23,8 +23,31 @@ class PerfilKinesiologaController extends Controller
      */
     public function edit(): View
     {
+        /** @var User $user */
+        $user = Auth::user();
+
+        $kinesiologaActual = $user->kinesiologa;
+        $tituloActualId = $kinesiologaActual?->titulo_profesional_id;
+
+        $especialidadesActualesIds = $kinesiologaActual
+            ? $kinesiologaActual
+            ->especialidades()
+            ->pluck('especialidades_kinesiologia.id')
+            ->all()
+            : [];
+
+        /*
+         * Se muestran los títulos activos y, si corresponde,
+         * el título histórico actualmente asociado.
+         */
         $titulosProfesionales = TituloProfesional::query()
-            ->where('activo', true)
+            ->where(function ($query) use ($tituloActualId) {
+                $query->where('activo', true);
+
+                if ($tituloActualId !== null) {
+                    $query->orWhere('id', $tituloActualId);
+                }
+            })
             ->orderBy('nombre')
             ->get();
 
@@ -38,8 +61,21 @@ class PerfilKinesiologaController extends Controller
             ->orderBy('nombre')
             ->get();
 
+        /*
+         * Se muestran las especialidades activas y también las
+         * especialidades históricas actualmente asociadas.
+         */
         $especialidades = EspecialidadKinesiologia::query()
-            ->where('activo', true)
+            ->where(function ($query) use ($especialidadesActualesIds) {
+                $query->where('activo', true);
+
+                if ($especialidadesActualesIds !== []) {
+                    $query->orWhereIn(
+                        'id',
+                        $especialidadesActualesIds
+                    );
+                }
+            })
             ->orderBy('nombre')
             ->get();
 
@@ -64,6 +100,15 @@ class PerfilKinesiologaController extends Controller
         $tieneMatriculas = $kinesiologaActual
             ?->matriculasProfesionales()
             ->exists() ?? false;
+
+        $tituloActualId = $kinesiologaActual?->titulo_profesional_id;
+
+        $especialidadesActualesIds = $kinesiologaActual
+            ? $kinesiologaActual
+            ->especialidades()
+            ->pluck('especialidades_kinesiologia.id')
+            ->all()
+            : [];
 
         $rules = [
             'dni' => [
@@ -96,13 +141,28 @@ class PerfilKinesiologaController extends Controller
                 'regex:/^[0-9+\-\s()]+$/',
             ],
 
+            /*
+             * Se acepta un título activo o el título histórico
+             * actualmente asociado a la kinesióloga.
+             */
             'titulo_profesional_id' => [
                 'required',
                 'integer',
 
                 Rule::exists('titulos_profesionales', 'id')
-                    ->where(function ($query) {
-                        return $query->where('activo', true);
+                    ->where(function ($query) use ($tituloActualId) {
+                        $query->where(
+                            function ($subquery) use ($tituloActualId) {
+                                $subquery->where('activo', true);
+
+                                if ($tituloActualId !== null) {
+                                    $subquery->orWhere(
+                                        'id',
+                                        $tituloActualId
+                                    );
+                                }
+                            }
+                        );
                     }),
             ],
 
@@ -112,14 +172,37 @@ class PerfilKinesiologaController extends Controller
                 'min:1',
             ],
 
+            /*
+             * Cada especialidad debe estar activa o encontrarse
+             * actualmente asociada a la kinesióloga.
+             */
             'especialidades.*' => [
                 'distinct',
                 'integer',
 
                 Rule::exists('especialidades_kinesiologia', 'id')
-                    ->where(function ($query) {
-                        return $query->where('activo', true);
-                    }),
+                    ->where(
+                        function ($query) use (
+                            $especialidadesActualesIds
+                        ) {
+                            $query->where(
+                                function ($subquery) use (
+                                    $especialidadesActualesIds
+                                ) {
+                                    $subquery->where('activo', true);
+
+                                    if (
+                                        $especialidadesActualesIds !== []
+                                    ) {
+                                        $subquery->orWhereIn(
+                                            'id',
+                                            $especialidadesActualesIds
+                                        );
+                                    }
+                                }
+                            );
+                        }
+                    ),
             ],
         ];
 
@@ -173,7 +256,7 @@ class PerfilKinesiologaController extends Controller
 
         $messages = [
             'titulo_profesional_id.exists' =>
-            'El título profesional seleccionado no existe o se encuentra inactivo.',
+            'El título profesional seleccionado no existe, se encuentra inactivo o no puede utilizarse para esta operación.',
 
             'jurisdiccion_id.exists' =>
             'La jurisdicción seleccionada no existe o se encuentra inactiva.',
@@ -182,7 +265,7 @@ class PerfilKinesiologaController extends Controller
             'El colegio emisor seleccionado no pertenece a la jurisdicción elegida o se encuentra inactivo.',
 
             'especialidades.*.exists' =>
-            'Una de las especialidades seleccionadas no existe o se encuentra inactiva.',
+            'Una de las especialidades seleccionadas no existe, se encuentra inactiva o no puede utilizarse para esta operación.',
 
             'especialidades.*.distinct' =>
             'No puede seleccionar la misma especialidad más de una vez.',

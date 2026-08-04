@@ -559,6 +559,266 @@ class PerfilKinesiologaControllerTest extends TestCase
         ]);
     }
 
+    public function test_profile_view_shows_current_inactive_professional_title(): void
+    {
+        $user = $this->kinesiologaCompleta();
+
+        $titulo = TituloProfesional::findOrFail(
+            $user->kinesiologa->titulo_profesional_id
+        );
+
+        $titulo->update([
+            'nombre' => 'Título Profesional Histórico Único',
+            'slug' => 'titulo-profesional-historico-unico',
+            'activo' => false,
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->get(route('perfil.kinesiologa.completar'));
+
+        $response->assertOk();
+        $response->assertSee(
+            'Título Profesional Histórico Único'
+        );
+    }
+
+    public function test_profile_view_shows_current_inactive_specialty(): void
+    {
+        $user = $this->kinesiologaCompleta();
+
+        $especialidad = $user->kinesiologa
+            ->especialidades()
+            ->firstOrFail();
+
+        $especialidad->update([
+            'activo' => false,
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->get(route('perfil.kinesiologa.completar'));
+
+        $response->assertOk();
+        $response->assertSee($especialidad->nombre);
+    }
+
+    public function test_existing_kinesiologa_can_keep_current_inactive_professional_title(): void
+    {
+        $user = $this->kinesiologaCompleta();
+
+        $titulo = TituloProfesional::findOrFail(
+            $user->kinesiologa->titulo_profesional_id
+        );
+
+        $especialidad = $user->kinesiologa
+            ->especialidades()
+            ->firstOrFail();
+
+        $titulo->update([
+            'activo' => false,
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->post(route('perfil.kinesiologa.actualizar'), [
+                'dni' => '30111222',
+                'fecha_nacimiento' => '1990-01-01',
+                'sexo' => 'femenino',
+                'telefono' => '3764222222',
+                'titulo_profesional_id' => $titulo->id,
+                'especialidades' => [
+                    $especialidad->id,
+                ],
+            ]);
+
+        $response
+            ->assertRedirect(route('dashboard'))
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('kinesiologas', [
+            'id' => $user->kinesiologa->id,
+            'titulo_profesional_id' => $titulo->id,
+        ]);
+
+        $this->assertDatabaseHas('users', [
+            'id' => $user->id,
+            'telefono' => '3764222222',
+        ]);
+    }
+
+    public function test_existing_kinesiologa_rejects_switching_to_another_inactive_professional_title(): void
+    {
+        $user = $this->kinesiologaCompleta();
+
+        $tituloOriginalId = $user->kinesiologa->titulo_profesional_id;
+
+        $tituloInactivo = TituloProfesional::create([
+            'nombre' => 'Licenciado en Kinesiología Archivado',
+            'slug' => 'licenciado-kinesiologia-archivado',
+            'activo' => false,
+        ]);
+
+        $especialidad = $user->kinesiologa
+            ->especialidades()
+            ->firstOrFail();
+
+        $response = $this
+            ->from(route('perfil.kinesiologa.completar'))
+            ->actingAs($user)
+            ->post(route('perfil.kinesiologa.actualizar'), [
+                'dni' => '30111222',
+                'fecha_nacimiento' => '1990-01-01',
+                'sexo' => 'femenino',
+                'telefono' => '3764222222',
+                'titulo_profesional_id' => $tituloInactivo->id,
+                'especialidades' => [
+                    $especialidad->id,
+                ],
+            ]);
+
+        $response
+            ->assertRedirect(route('perfil.kinesiologa.completar'))
+            ->assertSessionHasErrors('titulo_profesional_id');
+
+        $this->assertDatabaseHas('kinesiologas', [
+            'id' => $user->kinesiologa->id,
+            'titulo_profesional_id' => $tituloOriginalId,
+        ]);
+    }
+
+    public function test_existing_kinesiologa_can_keep_current_inactive_specialty(): void
+    {
+        $user = $this->kinesiologaCompleta();
+
+        $especialidad = $user->kinesiologa
+            ->especialidades()
+            ->firstOrFail();
+
+        $especialidad->update([
+            'activo' => false,
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->post(route('perfil.kinesiologa.actualizar'), [
+                'dni' => '30111222',
+                'fecha_nacimiento' => '1990-01-01',
+                'sexo' => 'femenino',
+                'telefono' => '3764333333',
+                'titulo_profesional_id' =>
+                $user->kinesiologa->titulo_profesional_id,
+                'especialidades' => [
+                    $especialidad->id,
+                ],
+            ]);
+
+        $response
+            ->assertRedirect(route('dashboard'))
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('kinesiologa_especialidad', [
+            'kinesiologa_id' => $user->kinesiologa->id,
+            'especialidad_id' => $especialidad->id,
+        ]);
+    }
+
+    public function test_existing_kinesiologa_rejects_adding_another_inactive_specialty(): void
+    {
+        $user = $this->kinesiologaCompleta();
+
+        $especialidadActual = $user->kinesiologa
+            ->especialidades()
+            ->firstOrFail();
+
+        $especialidadInactiva = EspecialidadKinesiologia::create([
+            'nombre' => 'Especialidad Archivada',
+            'slug' => 'especialidad-archivada',
+            'activo' => false,
+        ]);
+
+        $response = $this
+            ->from(route('perfil.kinesiologa.completar'))
+            ->actingAs($user)
+            ->post(route('perfil.kinesiologa.actualizar'), [
+                'dni' => '30111222',
+                'fecha_nacimiento' => '1990-01-01',
+                'sexo' => 'femenino',
+                'telefono' => '3764333333',
+                'titulo_profesional_id' =>
+                $user->kinesiologa->titulo_profesional_id,
+                'especialidades' => [
+                    $especialidadActual->id,
+                    $especialidadInactiva->id,
+                ],
+            ]);
+
+        $response
+            ->assertRedirect(route('perfil.kinesiologa.completar'))
+            ->assertSessionHasErrors('especialidades.1');
+
+        $this->assertDatabaseMissing('kinesiologa_especialidad', [
+            'kinesiologa_id' => $user->kinesiologa->id,
+            'especialidad_id' => $especialidadInactiva->id,
+        ]);
+    }
+
+    public function test_existing_kinesiologa_can_update_basic_data_with_inactive_historical_catalogs(): void
+    {
+        $user = $this->kinesiologaCompleta();
+
+        $titulo = TituloProfesional::findOrFail(
+            $user->kinesiologa->titulo_profesional_id
+        );
+
+        $especialidad = $user->kinesiologa
+            ->especialidades()
+            ->firstOrFail();
+
+        $titulo->update([
+            'activo' => false,
+        ]);
+
+        $especialidad->update([
+            'activo' => false,
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->post(route('perfil.kinesiologa.actualizar'), [
+                'dni' => '30111222',
+                'fecha_nacimiento' => '1990-01-01',
+                'sexo' => 'femenino',
+                'telefono' => '3764999999',
+                'titulo_profesional_id' => $titulo->id,
+                'especialidades' => [
+                    $especialidad->id,
+                ],
+            ]);
+
+        $response
+            ->assertRedirect(route('dashboard'))
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('users', [
+            'id' => $user->id,
+            'telefono' => '3764999999',
+        ]);
+
+        $this->assertDatabaseHas('kinesiologas', [
+            'id' => $user->kinesiologa->id,
+            'titulo_profesional_id' => $titulo->id,
+        ]);
+
+        $this->assertDatabaseHas('kinesiologa_especialidad', [
+            'kinesiologa_id' => $user->kinesiologa->id,
+            'especialidad_id' => $especialidad->id,
+        ]);
+    }
+
     public function test_existing_kinesiologa_does_not_require_matricula_fields_in_profile_update(): void
     {
         $user = $this->kinesiologaCompleta();
