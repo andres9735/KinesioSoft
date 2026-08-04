@@ -80,10 +80,6 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])
         ->middleware('perfil.completo')
         ->name('profile.update');
-
-    Route::delete('/profile', [ProfileController::class, 'destroy'])
-        ->middleware('perfil.completo')
-        ->name('profile.destroy');
 });
 
 /*
