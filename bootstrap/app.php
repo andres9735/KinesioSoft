@@ -1,7 +1,10 @@
 <?php
 
-use App\Http\Middleware\EnsureUserProfileIsComplete;
 use App\Http\Middleware\EnsureAdminOrSuperadmin;
+use App\Http\Middleware\EnsureUserIsActive;
+use App\Http\Middleware\EnsureUserIsKinesiologist;
+use App\Http\Middleware\EnsureUserIsPatient;
+use App\Http\Middleware\EnsureUserProfileIsComplete;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -13,11 +16,18 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->appendToGroup('web', [
+            EnsureUserIsActive::class,
+        ]);
+
         $middleware->alias([
             'perfil.completo' => EnsureUserProfileIsComplete::class,
+            'perfil.paciente' => EnsureUserIsPatient::class,
+            'perfil.kinesiologo' => EnsureUserIsKinesiologist::class,
             'admin.or.superadmin' => EnsureAdminOrSuperadmin::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
-    })->create();
+    })
+    ->create();

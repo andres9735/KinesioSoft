@@ -23,19 +23,59 @@ class PerfilKinesiologaController extends Controller
      */
     public function edit(): View
     {
-        $titulosProfesionales = TituloProfesional::where('activo', true)
+        /** @var User $user */
+        $user = Auth::user();
+
+        $kinesiologaActual = $user->kinesiologa;
+        $tituloActualId = $kinesiologaActual?->titulo_profesional_id;
+
+        $especialidadesActualesIds = $kinesiologaActual
+            ? $kinesiologaActual
+            ->especialidades()
+            ->pluck('especialidades_kinesiologia.id')
+            ->all()
+            : [];
+
+        /*
+         * Se muestran los títulos activos y, si corresponde,
+         * el título histórico actualmente asociado.
+         */
+        $titulosProfesionales = TituloProfesional::query()
+            ->where(function ($query) use ($tituloActualId) {
+                $query->where('activo', true);
+
+                if ($tituloActualId !== null) {
+                    $query->orWhere('id', $tituloActualId);
+                }
+            })
             ->orderBy('nombre')
             ->get();
 
-        $jurisdicciones = Jurisdiccion::where('activo', true)
+        $jurisdicciones = Jurisdiccion::query()
+            ->where('activo', true)
             ->orderBy('nombre')
             ->get();
 
-        $colegiosEmisores = ColegioEmisor::where('activo', true)
+        $colegiosEmisores = ColegioEmisor::query()
+            ->where('activo', true)
             ->orderBy('nombre')
             ->get();
 
-        $especialidades = EspecialidadKinesiologia::where('activo', true)
+        /*
+         * Se muestran las especialidades activas y también las
+         * especialidades históricas actualmente asociadas.
+         */
+        $especialidades = EspecialidadKinesiologia::query()
+            ->where(function ($query) use ($especialidadesActualesIds) {
+                $query->where('activo', true);
+
+                if ($especialidadesActualesIds !== []) {
+                    $query->orWhereIn(
+                        'id',
+                        $especialidadesActualesIds
+                    );
+                }
+            })
             ->orderBy('nombre')
             ->get();
 
@@ -56,32 +96,144 @@ class PerfilKinesiologaController extends Controller
         $user = Auth::user();
 
         $kinesiologaActual = $user->kinesiologa;
-        $tieneMatriculas = $kinesiologaActual?->matriculasProfesionales()->exists() ?? false;
+
+        $tieneMatriculas = $kinesiologaActual
+            ?->matriculasProfesionales()
+            ->exists() ?? false;
+
+        $tituloActualId = $kinesiologaActual?->titulo_profesional_id;
+
+        $especialidadesActualesIds = $kinesiologaActual
+            ? $kinesiologaActual
+            ->especialidades()
+            ->pluck('especialidades_kinesiologia.id')
+            ->all()
+            : [];
 
         $rules = [
-            'dni' => ['required', 'string', 'max:20', 'unique:users,dni,' . $user->id],
-            'fecha_nacimiento' => ['required', 'date', 'before:today'],
-            'sexo' => ['required', 'in:masculino,femenino,otro,prefiero_no_decir'],
-            'telefono' => ['required', 'string', 'max:20', 'regex:/^[0-9+\-\s()]+$/'],
+            'dni' => [
+                'required',
+                'string',
+                'max:20',
+                Rule::unique('users', 'dni')->ignore($user->id),
+            ],
 
-            'titulo_profesional_id' => ['required', 'exists:titulos_profesionales,id'],
+            'fecha_nacimiento' => [
+                'required',
+                'date',
+                'before:today',
+            ],
 
-            'especialidades' => ['required', 'array', 'min:1'],
-            'especialidades.*' => ['distinct', 'exists:especialidades_kinesiologia,id'],
+            'sexo' => [
+                'required',
+                Rule::in([
+                    'masculino',
+                    'femenino',
+                    'otro',
+                    'prefiero_no_decir',
+                ]),
+            ],
+
+            'telefono' => [
+                'required',
+                'string',
+                'max:20',
+                'regex:/^[0-9+\-\s()]+$/',
+            ],
+
+            /*
+             * Se acepta un título activo o el título histórico
+             * actualmente asociado a la kinesióloga.
+             */
+            'titulo_profesional_id' => [
+                'required',
+                'integer',
+
+                Rule::exists('titulos_profesionales', 'id')
+                    ->where(function ($query) use ($tituloActualId) {
+                        $query->where(
+                            function ($subquery) use ($tituloActualId) {
+                                $subquery->where('activo', true);
+
+                                if ($tituloActualId !== null) {
+                                    $subquery->orWhere(
+                                        'id',
+                                        $tituloActualId
+                                    );
+                                }
+                            }
+                        );
+                    }),
+            ],
+
+            'especialidades' => [
+                'required',
+                'array',
+                'min:1',
+            ],
+
+            /*
+             * Cada especialidad debe estar activa o encontrarse
+             * actualmente asociada a la kinesióloga.
+             */
+            'especialidades.*' => [
+                'distinct',
+                'integer',
+
+                Rule::exists('especialidades_kinesiologia', 'id')
+                    ->where(
+                        function ($query) use (
+                            $especialidadesActualesIds
+                        ) {
+                            $query->where(
+                                function ($subquery) use (
+                                    $especialidadesActualesIds
+                                ) {
+                                    $subquery->where('activo', true);
+
+                                    if (
+                                        $especialidadesActualesIds !== []
+                                    ) {
+                                        $subquery->orWhereIn(
+                                            'id',
+                                            $especialidadesActualesIds
+                                        );
+                                    }
+                                }
+                            );
+                        }
+                    ),
+            ],
         ];
 
+        /*
+         * Los datos de la primera matrícula solamente son obligatorios
+         * cuando la kinesióloga todavía no posee matrículas registradas.
+         */
         if (! $tieneMatriculas) {
             $rules['jurisdiccion_id'] = [
                 'required',
-                'exists:jurisdicciones,id',
+                'integer',
+
+                Rule::exists('jurisdicciones', 'id')
+                    ->where(function ($query) {
+                        return $query->where('activo', true);
+                    }),
             ];
 
             $rules['colegio_emisor_id'] = [
                 'required',
-                'exists:colegios_emisores,id',
-                Rule::exists('colegios_emisores', 'id')->where(function ($query) use ($request) {
-                    return $query->where('jurisdiccion_id', $request->jurisdiccion_id);
-                }),
+                'integer',
+
+                Rule::exists('colegios_emisores', 'id')
+                    ->where(function ($query) use ($request) {
+                        return $query
+                            ->where(
+                                'jurisdiccion_id',
+                                $request->jurisdiccion_id
+                            )
+                            ->where('activo', true);
+                    }),
             ];
 
             $rules['nro_matricula_profesional'] = [
@@ -89,17 +241,47 @@ class PerfilKinesiologaController extends Controller
                 'string',
                 'max:50',
                 'regex:/^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9\s\-\.\/]+$/',
+
+                Rule::unique(
+                    'matriculas_profesionales_kinesiologia',
+                    'nro_matricula_profesional'
+                )->where(function ($query) use ($request) {
+                    return $query->where(
+                        'jurisdiccion_id',
+                        $request->jurisdiccion_id
+                    );
+                }),
             ];
         }
 
         $messages = [
-            'colegio_emisor_id.exists' => 'El colegio emisor seleccionado no pertenece a la jurisdicción elegida.',
-            'especialidades.*.distinct' => 'No puede seleccionar la misma especialidad más de una vez.',
+            'titulo_profesional_id.exists' =>
+            'El título profesional seleccionado no existe, se encuentra inactivo o no puede utilizarse para esta operación.',
+
+            'jurisdiccion_id.exists' =>
+            'La jurisdicción seleccionada no existe o se encuentra inactiva.',
+
+            'colegio_emisor_id.exists' =>
+            'El colegio emisor seleccionado no pertenece a la jurisdicción elegida o se encuentra inactivo.',
+
+            'especialidades.*.exists' =>
+            'Una de las especialidades seleccionadas no existe, se encuentra inactiva o no puede utilizarse para esta operación.',
+
+            'especialidades.*.distinct' =>
+            'No puede seleccionar la misma especialidad más de una vez.',
+
+            'nro_matricula_profesional.unique' =>
+            'Ya existe una matrícula profesional con ese número en la jurisdicción seleccionada.',
         ];
 
         $data = $request->validate($rules, $messages);
 
-        DB::transaction(function () use ($request, $user, $kinesiologaActual, $tieneMatriculas, $data) {
+        DB::transaction(function () use (
+            $user,
+            $kinesiologaActual,
+            $tieneMatriculas,
+            $data
+        ) {
             $user->update([
                 'dni' => $data['dni'],
                 'fecha_nacimiento' => $data['fecha_nacimiento'],
@@ -108,24 +290,38 @@ class PerfilKinesiologaController extends Controller
             ]);
 
             $kinesiologa = Kinesiologa::updateOrCreate(
-                ['user_id' => $user->id],
                 [
-                    'titulo_profesional_id' => $data['titulo_profesional_id'],
-                    'consultorio_id' => $kinesiologaActual?->consultorio_id,
+                    'user_id' => $user->id,
+                ],
+                [
+                    'titulo_profesional_id' =>
+                    $data['titulo_profesional_id'],
+
+                    'consultorio_id' =>
+                    $kinesiologaActual?->consultorio_id,
                 ]
             );
 
             if (! $tieneMatriculas) {
                 MatriculaProfesionalKinesiologia::create([
                     'kinesiologa_id' => $kinesiologa->id,
-                    'nro_matricula_profesional' => $data['nro_matricula_profesional'],
-                    'jurisdiccion_id' => $data['jurisdiccion_id'],
-                    'colegio_emisor_id' => $data['colegio_emisor_id'],
+
+                    'nro_matricula_profesional' =>
+                    $data['nro_matricula_profesional'],
+
+                    'jurisdiccion_id' =>
+                    $data['jurisdiccion_id'],
+
+                    'colegio_emisor_id' =>
+                    $data['colegio_emisor_id'],
+
                     'activa' => true,
                 ]);
             }
 
-            $kinesiologa->especialidades()->sync($data['especialidades']);
+            $kinesiologa
+                ->especialidades()
+                ->sync($data['especialidades']);
         });
 
         $mensaje = $tieneMatriculas
