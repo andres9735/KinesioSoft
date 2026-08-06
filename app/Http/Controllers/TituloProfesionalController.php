@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\TituloProfesional;
+use App\Http\Requests\StoreTituloProfesionalRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -22,32 +23,13 @@ class TituloProfesionalController extends Controller
         return view('catalogos.titulos.create');
     }
 
-    public function store(Request $request): RedirectResponse
-    {
-        $request->validate([
-            'nombre' => [
-                'required',
-                'string',
-                'max:255',
-            ],
-        ]);
+    public function store(
+        StoreTituloProfesionalRequest $request
+    ): RedirectResponse {
+        $data = $request->validated();
 
-        $nombre = trim($request->nombre);
+        $nombre = $data['nombre'];
         $slug = Str::slug($nombre);
-
-        // validar duplicado por nombre
-        if (TituloProfesional::where('nombre', $nombre)->exists()) {
-            return back()->withErrors([
-                'nombre' => 'Ya existe un título profesional con ese nombre.',
-            ])->withInput();
-        }
-
-        // validar duplicado por slug
-        if (TituloProfesional::where('slug', $slug)->exists()) {
-            return back()->withErrors([
-                'nombre' => 'El nombre ingresado genera un slug duplicado.',
-            ])->withInput();
-        }
 
         TituloProfesional::create([
             'nombre' => $nombre,
@@ -57,7 +39,10 @@ class TituloProfesionalController extends Controller
 
         return redirect()
             ->route('catalogos.titulos.index')
-            ->with('success', 'Título profesional creado correctamente.');
+            ->with(
+                'success',
+                'Título profesional creado correctamente.'
+            );
     }
 
     public function edit(TituloProfesional $titulo): View

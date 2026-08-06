@@ -114,6 +114,29 @@ class TituloProfesionalControllerTest extends TestCase
         ]);
     }
 
+    public function test_store_trims_nombre_before_persisting(): void
+    {
+        $admin = $this->adminUser();
+
+        $response = $this
+            ->actingAs($admin)
+            ->post(route('catalogos.titulos.store'), [
+                'nombre' => '  Licenciado en Kinesiología  ',
+            ]);
+
+        $response->assertRedirect(
+            route('catalogos.titulos.index')
+        );
+
+        $response->assertSessionHas('success');
+
+        $this->assertDatabaseHas('titulos_profesionales', [
+            'nombre' => 'Licenciado en Kinesiología',
+            'slug' => 'licenciado-en-kinesiologia',
+            'activo' => 1,
+        ]);
+    }
+
     public function test_store_requires_nombre(): void
     {
         $admin = $this->adminUser();
@@ -145,7 +168,10 @@ class TituloProfesionalControllerTest extends TestCase
             ]);
 
         $response->assertRedirect(route('catalogos.titulos.create'));
-        $response->assertSessionHasErrors('nombre');
+        $response->assertSessionHasErrors([
+            'nombre' =>
+                'Ya existe un título profesional con ese nombre.',
+        ]);
     }
 
     public function test_store_generates_slug_automatically(): void
@@ -167,7 +193,7 @@ class TituloProfesionalControllerTest extends TestCase
         $admin = $this->adminUser();
 
         TituloProfesional::create([
-            'nombre' => 'Kinesiólogo',
+            'nombre' => 'Kinesiólogo!',
             'slug' => 'kinesiologo',
             'activo' => true,
         ]);
@@ -179,7 +205,10 @@ class TituloProfesionalControllerTest extends TestCase
             ]);
 
         $response->assertRedirect(route('catalogos.titulos.create'));
-        $response->assertSessionHasErrors('nombre');
+        $response->assertSessionHasErrors([
+            'nombre' =>
+                'El nombre ingresado genera un slug duplicado.',
+        ]);
     }
 
     public function test_admin_can_view_edit_form(): void
