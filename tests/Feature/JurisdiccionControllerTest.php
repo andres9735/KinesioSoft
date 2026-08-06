@@ -205,7 +205,7 @@ class JurisdiccionControllerTest extends TestCase
         $response->assertRedirect(route('catalogos.jurisdicciones.create'));
         $response->assertSessionHasErrors([
             'nombre' =>
-                'El nombre ingresado genera un slug que ya existe. Intente con una variante distinta.',
+            'El nombre ingresado genera un slug que ya existe. Intente con una variante distinta.',
         ]);
     }
 
@@ -268,6 +268,47 @@ class JurisdiccionControllerTest extends TestCase
         $response->assertSessionHasNoErrors();
     }
 
+    public function test_update_rejects_nombre_with_invalid_characters(): void
+    {
+        $admin = $this->adminUser();
+
+        $jurisdiccion = Jurisdiccion::create([
+            'nombre' => 'Misiones',
+            'slug' => 'misiones',
+            'activo' => true,
+        ]);
+
+        $response = $this
+            ->from(
+                route(
+                    'catalogos.jurisdicciones.edit',
+                    $jurisdiccion
+                )
+            )
+            ->actingAs($admin)
+            ->put(
+                route(
+                    'catalogos.jurisdicciones.update',
+                    $jurisdiccion
+                ),
+                [
+                    'nombre' => 'Misiones 123',
+                ]
+            );
+
+        $response->assertRedirect(
+            route(
+                'catalogos.jurisdicciones.edit',
+                $jurisdiccion
+            )
+        );
+
+        $response->assertSessionHasErrors([
+            'nombre' =>
+            'El nombre solo puede contener letras y espacios.',
+        ]);
+    }
+
     public function test_update_rejects_duplicate_nombre_from_another_record(): void
     {
         $admin = $this->adminUser();
@@ -291,7 +332,10 @@ class JurisdiccionControllerTest extends TestCase
             ]);
 
         $response->assertRedirect(route('catalogos.jurisdicciones.edit', $jurisdiccion2));
-        $response->assertSessionHasErrors('nombre');
+        $response->assertSessionHasErrors([
+            'nombre' =>
+                'Ya existe una jurisdicción con ese nombre.',
+        ]);
     }
 
     public function test_update_rejects_when_new_nombre_generates_duplicate_slug(): void
@@ -317,7 +361,10 @@ class JurisdiccionControllerTest extends TestCase
             ]);
 
         $response->assertRedirect(route('catalogos.jurisdicciones.edit', $jurisdiccion));
-        $response->assertSessionHasErrors('nombre');
+        $response->assertSessionHasErrors([
+            'nombre' =>
+                'El nombre ingresado genera un slug que ya existe. Intente con una variante distinta.',
+        ]);
     }
 
     public function test_toggle_activo_inactivates_jurisdiccion(): void

@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Jurisdiccion;
 use App\Http\Requests\StoreJurisdiccionRequest;
+use App\Http\Requests\UpdateJurisdiccionRequest;
+use App\Models\Jurisdiccion;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -17,7 +17,10 @@ class JurisdiccionController extends Controller
             ->orderBy('nombre')
             ->paginate(10);
 
-        return view('catalogos.jurisdicciones.index', compact('jurisdicciones'));
+        return view(
+            'catalogos.jurisdicciones.index',
+            compact('jurisdicciones')
+        );
     }
 
     public function create(): View
@@ -49,48 +52,20 @@ class JurisdiccionController extends Controller
 
     public function edit(Jurisdiccion $jurisdiccion): View
     {
-        return view('catalogos.jurisdicciones.edit', compact('jurisdiccion'));
+        return view(
+            'catalogos.jurisdicciones.edit',
+            compact('jurisdiccion')
+        );
     }
 
-    public function update(Request $request, Jurisdiccion $jurisdiccion): RedirectResponse
-    {
-        $request->validate([
-            'nombre' => [
-                'required',
-                'string',
-                'max:255',
-                'regex:/^[\pL\s]+$/u',
-            ],
-        ], [
-            'nombre.regex' => 'El nombre solo puede contener letras y espacios.',
-        ]);
+    public function update(
+        UpdateJurisdiccionRequest $request,
+        Jurisdiccion $jurisdiccion
+    ): RedirectResponse {
+        $data = $request->validated();
 
-        $nombre = trim($request->nombre);
+        $nombre = $data['nombre'];
         $slug = Str::slug($nombre);
-
-        $existeNombre = Jurisdiccion::where('nombre', $nombre)
-            ->where('id', '!=', $jurisdiccion->id)
-            ->exists();
-
-        if ($existeNombre) {
-            return back()
-                ->withErrors([
-                    'nombre' => 'Ya existe una jurisdicción con ese nombre.',
-                ])
-                ->withInput();
-        }
-
-        $existeSlug = Jurisdiccion::where('slug', $slug)
-            ->where('id', '!=', $jurisdiccion->id)
-            ->exists();
-
-        if ($existeSlug) {
-            return back()
-                ->withErrors([
-                    'nombre' => 'El nombre ingresado genera un slug que ya existe. Intente con una variante distinta.',
-                ])
-                ->withInput();
-        }
 
         $jurisdiccion->update([
             'nombre' => $nombre,
@@ -99,11 +74,15 @@ class JurisdiccionController extends Controller
 
         return redirect()
             ->route('catalogos.jurisdicciones.index')
-            ->with('success', 'Jurisdicción actualizada correctamente.');
+            ->with(
+                'success',
+                'Jurisdicción actualizada correctamente.'
+            );
     }
 
-    public function toggleActivo(Jurisdiccion $jurisdiccion): RedirectResponse
-    {
+    public function toggleActivo(
+        Jurisdiccion $jurisdiccion
+    ): RedirectResponse {
         $jurisdiccion->update([
             'activo' => ! $jurisdiccion->activo,
         ]);
