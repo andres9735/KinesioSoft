@@ -154,7 +154,7 @@ class EspecialidadKinesiologiaControllerTest extends TestCase
 
         $response->assertSessionHasErrors([
             'nombre' =>
-                'El nombre solo puede contener letras y espacios.',
+            'El nombre solo puede contener letras y espacios.',
         ]);
 
         $this->assertDatabaseMissing(
@@ -181,7 +181,7 @@ class EspecialidadKinesiologiaControllerTest extends TestCase
 
         $response->assertSessionHasErrors([
             'nombre' =>
-                'Debe ingresar el nombre de la especialidad.',
+            'Debe ingresar el nombre de la especialidad.',
         ]);
     }
 
@@ -207,7 +207,7 @@ class EspecialidadKinesiologiaControllerTest extends TestCase
 
         $response->assertSessionHasErrors([
             'nombre' =>
-                'Ya existe una especialidad de kinesiología con ese nombre.',
+            'Ya existe una especialidad de kinesiología con ese nombre.',
         ]);
     }
 
@@ -247,7 +247,7 @@ class EspecialidadKinesiologiaControllerTest extends TestCase
 
         $response->assertSessionHasErrors([
             'nombre' =>
-                'El nombre ingresado genera un slug que ya existe. Intente con una variante distinta.',
+            'El nombre ingresado genera un slug que ya existe. Intente con una variante distinta.',
         ]);
     }
 
@@ -292,6 +292,145 @@ class EspecialidadKinesiologiaControllerTest extends TestCase
         ]);
     }
 
+    public function test_update_normalizes_nombre_before_persisting(): void
+    {
+        $admin = $this->adminUser();
+
+        $especialidad = EspecialidadKinesiologia::create([
+            'nombre' => 'Kinesiología Deportiva',
+            'slug' => 'kinesiologia-deportiva',
+            'activo' => true,
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->put(
+                route(
+                    'catalogos.especialidades.update',
+                    $especialidad
+                ),
+                [
+                    'nombre' =>
+                    '  Kinesiología   Traumatológica  ',
+                ]
+            );
+
+        $response->assertRedirect(
+            route('catalogos.especialidades.index')
+        );
+
+        $response->assertSessionHas('success');
+
+        $this->assertDatabaseHas(
+            'especialidades_kinesiologia',
+            [
+                'id' => $especialidad->id,
+                'nombre' => 'Kinesiología Traumatológica',
+                'slug' => 'kinesiologia-traumatologica',
+            ]
+        );
+    }
+
+    public function test_update_rejects_invalid_nombre_characters(): void
+    {
+        $admin = $this->adminUser();
+
+        $especialidad = EspecialidadKinesiologia::create([
+            'nombre' => 'Kinesiología Deportiva',
+            'slug' => 'kinesiologia-deportiva',
+            'activo' => true,
+        ]);
+
+        $response = $this
+            ->from(
+                route(
+                    'catalogos.especialidades.edit',
+                    $especialidad
+                )
+            )
+            ->actingAs($admin)
+            ->put(
+                route(
+                    'catalogos.especialidades.update',
+                    $especialidad
+                ),
+                [
+                    'nombre' => 'Kinesiología / Traumatológica',
+                ]
+            );
+
+        $response->assertRedirect(
+            route(
+                'catalogos.especialidades.edit',
+                $especialidad
+            )
+        );
+
+        $response->assertSessionHasErrors([
+            'nombre' =>
+            'El nombre solo puede contener letras y espacios.',
+        ]);
+
+        $this->assertDatabaseHas(
+            'especialidades_kinesiologia',
+            [
+                'id' => $especialidad->id,
+                'nombre' => 'Kinesiología Deportiva',
+                'slug' => 'kinesiologia-deportiva',
+            ]
+        );
+    }
+
+    public function test_update_requires_nombre(): void
+    {
+        $admin = $this->adminUser();
+
+        $especialidad = EspecialidadKinesiologia::create([
+            'nombre' => 'Kinesiología Deportiva',
+            'slug' => 'kinesiologia-deportiva',
+            'activo' => true,
+        ]);
+
+        $response = $this
+            ->from(
+                route(
+                    'catalogos.especialidades.edit',
+                    $especialidad
+                )
+            )
+            ->actingAs($admin)
+            ->put(
+                route(
+                    'catalogos.especialidades.update',
+                    $especialidad
+                ),
+                [
+                    'nombre' => '',
+                ]
+            );
+
+        $response->assertRedirect(
+            route(
+                'catalogos.especialidades.edit',
+                $especialidad
+            )
+        );
+
+        $response->assertSessionHasErrors([
+            'nombre' =>
+            'Debe ingresar el nombre de la especialidad.',
+        ]);
+
+        $this->assertDatabaseHas(
+            'especialidades_kinesiologia',
+            [
+                'id' => $especialidad->id,
+                'nombre' => 'Kinesiología Deportiva',
+                'slug' => 'kinesiologia-deportiva',
+            ]
+        );
+    }
+
     public function test_update_allows_same_nombre_for_same_record(): void
     {
         $admin = $this->adminUser();
@@ -333,7 +472,10 @@ class EspecialidadKinesiologiaControllerTest extends TestCase
             ]);
 
         $response->assertRedirect(route('catalogos.especialidades.edit', $especialidad2));
-        $response->assertSessionHasErrors('nombre');
+        $response->assertSessionHasErrors([
+            'nombre' =>
+            'Ya existe una especialidad de kinesiología con ese nombre.',
+        ]);
     }
 
     public function test_update_rejects_when_new_nombre_generates_duplicate_slug(): void
