@@ -414,6 +414,126 @@ class ColegioEmisorControllerTest extends TestCase
         ]);
     }
 
+    public function test_update_normalizes_nombre_and_sigla_before_persisting(): void
+    {
+        $admin = $this->adminUser();
+
+        $jurisdiccion = Jurisdiccion::create([
+            'nombre' => 'Misiones',
+            'slug' => 'misiones',
+            'activo' => true,
+        ]);
+
+        $colegio = ColegioEmisor::create([
+            'nombre' => 'Colegio original',
+            'sigla' => 'CO',
+            'jurisdiccion_id' => $jurisdiccion->id,
+            'activo' => true,
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->put(route('catalogos.colegios.update', $colegio), [
+                'nombre' =>
+                '  Colegio   de Kinesiólogos   de Misiones  ',
+                'sigla' => '  coki   mi  ',
+                'jurisdiccion_id' => $jurisdiccion->id,
+            ]);
+
+        $response->assertRedirect(
+            route('catalogos.colegios.index')
+        );
+
+        $response->assertSessionHas('success');
+
+        $this->assertDatabaseHas('colegios_emisores', [
+            'id' => $colegio->id,
+            'nombre' => 'Colegio de Kinesiólogos de Misiones',
+            'sigla' => 'COKI MI',
+            'jurisdiccion_id' => $jurisdiccion->id,
+        ]);
+    }
+
+    public function test_update_rejects_invalid_nombre_and_sigla_characters(): void
+    {
+        $admin = $this->adminUser();
+
+        $jurisdiccion = Jurisdiccion::create([
+            'nombre' => 'Misiones',
+            'slug' => 'misiones',
+            'activo' => true,
+        ]);
+
+        $colegio = ColegioEmisor::create([
+            'nombre' => 'Colegio original',
+            'sigla' => 'CO',
+            'jurisdiccion_id' => $jurisdiccion->id,
+            'activo' => true,
+        ]);
+
+        $response = $this
+            ->from(route('catalogos.colegios.edit', $colegio))
+            ->actingAs($admin)
+            ->put(route('catalogos.colegios.update', $colegio), [
+                'nombre' => 'Colegio / Misiones',
+                'sigla' => 'COKI@MI',
+                'jurisdiccion_id' => $jurisdiccion->id,
+            ]);
+
+        $response->assertRedirect(
+            route('catalogos.colegios.edit', $colegio)
+        );
+
+        $response->assertSessionHasErrors([
+            'nombre' =>
+            'El nombre contiene caracteres no permitidos.',
+            'sigla' =>
+            'La sigla solo puede contener letras, números, espacios, puntos y guiones.',
+        ]);
+
+        $this->assertDatabaseHas('colegios_emisores', [
+            'id' => $colegio->id,
+            'nombre' => 'Colegio original',
+            'sigla' => 'CO',
+        ]);
+    }
+
+    public function test_update_rejects_sigla_shorter_than_two_characters(): void
+    {
+        $admin = $this->adminUser();
+
+        $jurisdiccion = Jurisdiccion::create([
+            'nombre' => 'Misiones',
+            'slug' => 'misiones',
+            'activo' => true,
+        ]);
+
+        $colegio = ColegioEmisor::create([
+            'nombre' => 'Colegio original',
+            'sigla' => 'CO',
+            'jurisdiccion_id' => $jurisdiccion->id,
+            'activo' => true,
+        ]);
+
+        $response = $this
+            ->from(route('catalogos.colegios.edit', $colegio))
+            ->actingAs($admin)
+            ->put(route('catalogos.colegios.update', $colegio), [
+                'nombre' => 'Colegio actualizado',
+                'sigla' => 'C',
+                'jurisdiccion_id' => $jurisdiccion->id,
+            ]);
+
+        $response->assertRedirect(
+            route('catalogos.colegios.edit', $colegio)
+        );
+
+        $response->assertSessionHasErrors([
+            'sigla' =>
+            'La sigla debe tener al menos 2 caracteres.',
+        ]);
+    }
+
     public function test_update_allows_same_nombre_and_sigla_for_same_record(): void
     {
         $admin = $this->adminUser();
@@ -474,7 +594,10 @@ class ColegioEmisorControllerTest extends TestCase
             ]);
 
         $response->assertRedirect(route('catalogos.colegios.edit', $colegio2));
-        $response->assertSessionHasErrors('nombre');
+        $response->assertSessionHasErrors([
+            'nombre' =>
+            'Ya existe un colegio emisor con ese nombre.',
+        ]);
     }
 
     public function test_update_rejects_duplicate_sigla_from_another_record(): void
@@ -510,7 +633,10 @@ class ColegioEmisorControllerTest extends TestCase
             ]);
 
         $response->assertRedirect(route('catalogos.colegios.edit', $colegio2));
-        $response->assertSessionHasErrors('sigla');
+        $response->assertSessionHasErrors([
+            'sigla' =>
+            'Ya existe un colegio emisor con esa sigla.',
+        ]);
     }
 
     public function test_create_form_does_not_show_inactive_jurisdictions(): void
@@ -629,7 +755,10 @@ class ColegioEmisorControllerTest extends TestCase
 
         $response
             ->assertRedirect(route('catalogos.colegios.edit', $colegio))
-            ->assertSessionHasErrors('jurisdiccion_id');
+            ->assertSessionHasErrors([
+                'jurisdiccion_id' =>
+                'La jurisdicción seleccionada no existe, se encuentra inactiva o no puede utilizarse para esta operación.',
+            ]);
 
         $this->assertDatabaseHas('colegios_emisores', [
             'id' => $colegio->id,
