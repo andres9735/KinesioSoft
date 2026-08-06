@@ -440,6 +440,53 @@ class MisMatriculasProfesionalesControllerTest extends TestCase
         $response->assertForbidden();
     }
 
+    public function test_kinesiologa_cannot_update_foreign_matricula(): void
+    {
+        $user = $this->kinesiologaCompleta(
+            'propietaria',
+            '0755'
+        );
+
+        $other = $this->kinesiologaCompleta(
+            'otra',
+            '0855'
+        );
+
+        $foreignMatricula = $other->kinesiologa
+            ->matriculasProfesionales()
+            ->firstOrFail();
+
+        $response = $this
+            ->actingAs($user)
+            ->put(
+                route(
+                    'perfil.kinesiologa.matriculas.update',
+                    $foreignMatricula
+                ),
+                [
+                    /*
+                    * Los datos son deliberadamente inválidos para
+                    * comprobar que la autorización se evalúa antes
+                    * que la validación.
+                    */
+                    'jurisdiccion_id' => 999,
+                    'colegio_emisor_id' => 999,
+                    'nro_matricula_profesional' => '',
+                ]
+            );
+
+        $response->assertForbidden();
+
+        $this->assertDatabaseHas(
+            'matriculas_profesionales_kinesiologia',
+            [
+                'id' => $foreignMatricula->id,
+                'kinesiologa_id' => $other->kinesiologa->id,
+                'nro_matricula_profesional' => '0855',
+            ]
+        );
+    }
+
     public function test_kinesiologa_can_update_own_matricula(): void
     {
         $user = $this->kinesiologaCompleta();

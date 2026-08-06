@@ -7,12 +7,11 @@ use App\Models\ColegioEmisor;
 use App\Models\Jurisdiccion;
 use App\Models\Kinesiologa;
 use App\Http\Requests\StoreMatriculaProfesionalRequest;
+use App\Http\Requests\UpdateMatriculaProfesionalRequest;
 use App\Models\MatriculaProfesionalKinesiologia;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class MisMatriculasProfesionalesController extends Controller
@@ -103,23 +102,40 @@ class MisMatriculasProfesionalesController extends Controller
         return view('perfil.matriculas.edit', compact('matricula', 'jurisdicciones', 'colegiosEmisores'));
     }
 
-    public function update(Request $request, MatriculaProfesionalKinesiologia $matricula): RedirectResponse
-    {
+    public function update(
+        UpdateMatriculaProfesionalRequest $request,
+        MatriculaProfesionalKinesiologia $matricula
+    ): RedirectResponse {
         $kinesiologa = $this->obtenerKinesiologaAutenticada();
 
-        abort_unless($matricula->kinesiologa_id === $kinesiologa->id, 403);
+        /*
+        * Se conserva temporalmente esta comprobación como defensa
+        * adicional hasta incorporar la Policy del Incremento 10.
+        */
+        abort_unless(
+            $matricula->kinesiologa_id === $kinesiologa->id,
+            403
+        );
 
-        $data = $this->validateData($request, $kinesiologa, $matricula);
+        $data = $request->validated();
 
         $matricula->update([
-            'nro_matricula_profesional' => $data['nro_matricula_profesional'],
-            'jurisdiccion_id' => $data['jurisdiccion_id'],
-            'colegio_emisor_id' => $data['colegio_emisor_id'],
+            'nro_matricula_profesional' =>
+            $data['nro_matricula_profesional'],
+
+            'jurisdiccion_id' =>
+            $data['jurisdiccion_id'],
+
+            'colegio_emisor_id' =>
+            $data['colegio_emisor_id'],
         ]);
 
         return redirect()
             ->route('perfil.kinesiologa.matriculas.index')
-            ->with('success', 'Matrícula profesional actualizada correctamente.');
+            ->with(
+                'success',
+                'Matrícula profesional actualizada correctamente.'
+            );
     }
 
     public function toggleActiva(MatriculaProfesionalKinesiologia $matricula): RedirectResponse
@@ -151,117 +167,6 @@ class MisMatriculasProfesionalesController extends Controller
         return redirect()
             ->route('perfil.kinesiologa.matriculas.index')
             ->with('success', $mensaje);
-    }
-
-    private function validateData(
-        Request $request,
-        Kinesiologa $kinesiologa,
-        ?MatriculaProfesionalKinesiologia $matricula = null
-    ): array {
-        $matriculaId = $matricula?->id;
-
-        return $request->validate([
-            'jurisdiccion_id' => [
-                'required',
-                'integer',
-
-                Rule::exists('jurisdicciones', 'id')
-                    ->where(function ($query) use ($matricula) {
-                        $query->where(function ($subquery) use ($matricula) {
-                            $subquery->where('activo', true);
-
-                            if ($matricula) {
-                                $subquery->orWhere(
-                                    'id',
-                                    $matricula->jurisdiccion_id
-                                );
-                            }
-                        });
-                    }),
-
-                Rule::unique(
-                    'matriculas_profesionales_kinesiologia',
-                    'jurisdiccion_id'
-                )
-                    ->where(function ($query) use ($kinesiologa) {
-                        return $query->where(
-                            'kinesiologa_id',
-                            $kinesiologa->id
-                        );
-                    })
-                    ->ignore($matriculaId),
-            ],
-
-            'colegio_emisor_id' => [
-                'required',
-                'integer',
-
-                Rule::exists('colegios_emisores', 'id')
-                    ->where(function ($query) use ($request, $matricula) {
-                        $query
-                            ->where(
-                                'jurisdiccion_id',
-                                $request->jurisdiccion_id
-                            )
-                            ->where(function ($subquery) use ($matricula) {
-                                $subquery->where('activo', true);
-
-                                if ($matricula) {
-                                    $subquery->orWhere(
-                                        'id',
-                                        $matricula->colegio_emisor_id
-                                    );
-                                }
-                            });
-                    }),
-            ],
-
-            'nro_matricula_profesional' => [
-                'required',
-                'string',
-                'max:50',
-                'regex:/^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9\s\-\.\/]+$/',
-
-                Rule::unique(
-                    'matriculas_profesionales_kinesiologia',
-                    'nro_matricula_profesional'
-                )
-                    ->where(function ($query) use ($request) {
-                        return $query->where(
-                            'jurisdiccion_id',
-                            $request->jurisdiccion_id
-                        );
-                    })
-                    ->ignore($matriculaId),
-            ],
-        ], [
-            'jurisdiccion_id.required' =>
-            'Debe seleccionar una jurisdicción.',
-
-            'jurisdiccion_id.exists' =>
-            'La jurisdicción seleccionada no existe o se encuentra inactiva.',
-
-            'jurisdiccion_id.unique' =>
-            'Ya tiene una matrícula registrada para la jurisdicción seleccionada.',
-
-            'colegio_emisor_id.required' =>
-            'Debe seleccionar un colegio emisor.',
-
-            'colegio_emisor_id.exists' =>
-            'El colegio emisor seleccionado no pertenece a la jurisdicción elegida o se encuentra inactivo.',
-
-            'nro_matricula_profesional.required' =>
-            'Debe ingresar el número de matrícula profesional.',
-
-            'nro_matricula_profesional.max' =>
-            'El número de matrícula no puede superar los 50 caracteres.',
-
-            'nro_matricula_profesional.regex' =>
-            'El número de matrícula contiene caracteres no permitidos.',
-
-            'nro_matricula_profesional.unique' =>
-            'Ya existe una matrícula profesional con ese número en la jurisdicción seleccionada.',
-        ]);
     }
 
     private function obtenerKinesiologaAutenticada(): Kinesiologa
