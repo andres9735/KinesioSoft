@@ -129,6 +129,70 @@ class ColegioEmisorControllerTest extends TestCase
         ]);
     }
 
+    public function test_store_normalizes_nombre_and_sigla_before_persisting(): void
+    {
+        $admin = $this->adminUser();
+
+        $jurisdiccion = Jurisdiccion::create([
+            'nombre' => 'Misiones',
+            'slug' => 'misiones',
+            'activo' => true,
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->post(route('catalogos.colegios.store'), [
+                'nombre' =>
+                '  Colegio   de Kinesiólogos   de Misiones  ',
+                'sigla' => '  coki   mi  ',
+                'jurisdiccion_id' => $jurisdiccion->id,
+            ]);
+
+        $response->assertRedirect(
+            route('catalogos.colegios.index')
+        );
+
+        $response->assertSessionHas('success');
+
+        $this->assertDatabaseHas('colegios_emisores', [
+            'nombre' => 'Colegio de Kinesiólogos de Misiones',
+            'sigla' => 'COKI MI',
+            'jurisdiccion_id' => $jurisdiccion->id,
+            'activo' => 1,
+        ]);
+    }
+
+    public function test_store_rejects_invalid_nombre_and_sigla_characters(): void
+    {
+        $admin = $this->adminUser();
+
+        $jurisdiccion = Jurisdiccion::create([
+            'nombre' => 'Misiones',
+            'slug' => 'misiones',
+            'activo' => true,
+        ]);
+
+        $response = $this
+            ->from(route('catalogos.colegios.create'))
+            ->actingAs($admin)
+            ->post(route('catalogos.colegios.store'), [
+                'nombre' => 'Colegio / Misiones',
+                'sigla' => 'COKI@MI',
+                'jurisdiccion_id' => $jurisdiccion->id,
+            ]);
+
+        $response->assertRedirect(
+            route('catalogos.colegios.create')
+        );
+
+        $response->assertSessionHasErrors([
+            'nombre' =>
+            'El nombre contiene caracteres no permitidos.',
+            'sigla' =>
+            'La sigla solo puede contener letras, números, espacios, puntos y guiones.',
+        ]);
+    }
+
     public function test_store_requires_nombre(): void
     {
         $admin = $this->adminUser();
@@ -147,7 +211,10 @@ class ColegioEmisorControllerTest extends TestCase
             ]);
 
         $response->assertRedirect(route('catalogos.colegios.create'));
-        $response->assertSessionHasErrors('nombre');
+        $response->assertSessionHasErrors([
+            'nombre' =>
+            'Debe ingresar el nombre del colegio emisor.',
+        ]);
     }
 
     public function test_store_requires_sigla(): void
@@ -168,7 +235,38 @@ class ColegioEmisorControllerTest extends TestCase
             ]);
 
         $response->assertRedirect(route('catalogos.colegios.create'));
-        $response->assertSessionHasErrors('sigla');
+        $response->assertSessionHasErrors([
+            'sigla' => 'Debe ingresar la sigla del colegio emisor.',
+        ]);
+    }
+
+    public function test_store_rejects_sigla_shorter_than_two_characters(): void
+    {
+        $admin = $this->adminUser();
+
+        $jurisdiccion = Jurisdiccion::create([
+            'nombre' => 'Misiones',
+            'slug' => 'misiones',
+            'activo' => true,
+        ]);
+
+        $response = $this
+            ->from(route('catalogos.colegios.create'))
+            ->actingAs($admin)
+            ->post(route('catalogos.colegios.store'), [
+                'nombre' => 'Colegio de Kinesiólogos de Misiones',
+                'sigla' => 'C',
+                'jurisdiccion_id' => $jurisdiccion->id,
+            ]);
+
+        $response->assertRedirect(
+            route('catalogos.colegios.create')
+        );
+
+        $response->assertSessionHasErrors([
+            'sigla' =>
+            'La sigla debe tener al menos 2 caracteres.',
+        ]);
     }
 
     public function test_store_requires_jurisdiccion(): void
@@ -184,7 +282,10 @@ class ColegioEmisorControllerTest extends TestCase
             ]);
 
         $response->assertRedirect(route('catalogos.colegios.create'));
-        $response->assertSessionHasErrors('jurisdiccion_id');
+        $response->assertSessionHasErrors([
+            'jurisdiccion_id' =>
+            'Debe seleccionar una jurisdicción.',
+        ]);
     }
 
     public function test_store_rejects_duplicate_nombre(): void
@@ -212,7 +313,10 @@ class ColegioEmisorControllerTest extends TestCase
             ]);
 
         $response->assertRedirect(route('catalogos.colegios.create'));
-        $response->assertSessionHasErrors('nombre');
+        $response->assertSessionHasErrors([
+            'nombre' =>
+            'Ya existe un colegio emisor con ese nombre.',
+        ]);
     }
 
     public function test_store_rejects_duplicate_sigla(): void
@@ -240,7 +344,10 @@ class ColegioEmisorControllerTest extends TestCase
             ]);
 
         $response->assertRedirect(route('catalogos.colegios.create'));
-        $response->assertSessionHasErrors('sigla');
+        $response->assertSessionHasErrors([
+            'sigla' =>
+            'Ya existe un colegio emisor con esa sigla.',
+        ]);
     }
 
     public function test_admin_can_view_edit_form(): void
@@ -452,7 +559,10 @@ class ColegioEmisorControllerTest extends TestCase
 
         $response
             ->assertRedirect(route('catalogos.colegios.create'))
-            ->assertSessionHasErrors('jurisdiccion_id');
+            ->assertSessionHasErrors([
+                'jurisdiccion_id' =>
+                'La jurisdicción seleccionada no existe, se encuentra inactiva o no puede utilizarse para esta operación.',
+            ]);
 
         $this->assertDatabaseMissing('colegios_emisores', [
             'nombre' => 'Colegio de jurisdicción inactiva',

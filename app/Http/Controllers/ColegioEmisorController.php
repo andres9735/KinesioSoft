@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ColegioEmisor;
 use App\Models\Jurisdiccion;
+use App\Http\Requests\StoreColegioEmisorRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -31,20 +32,38 @@ class ColegioEmisorController extends Controller
         return view('catalogos.colegios-emisores.create', compact('jurisdicciones'));
     }
 
-    public function store(Request $request): RedirectResponse
-    {
-        $data = $this->validateData($request);
+    public function store(
+        StoreColegioEmisorRequest $request
+    ): RedirectResponse {
+        $data = $request->validated();
+
+        $nombre = preg_replace(
+            '/\s+/',
+            ' ',
+            trim($data['nombre'])
+        );
+
+        $sigla = mb_strtoupper(
+            preg_replace(
+                '/\s+/',
+                ' ',
+                trim($data['sigla'])
+            )
+        );
 
         ColegioEmisor::create([
-            'nombre' => $data['nombre'],
-            'sigla' => $data['sigla'],
+            'nombre' => $nombre,
+            'sigla' => $sigla,
             'jurisdiccion_id' => $data['jurisdiccion_id'],
             'activo' => true,
         ]);
 
         return redirect()
             ->route('catalogos.colegios.index')
-            ->with('success', 'Colegio emisor creado correctamente.');
+            ->with(
+                'success',
+                'Colegio emisor creado correctamente.'
+            );
     }
 
     public function edit(ColegioEmisor $colegio): View
