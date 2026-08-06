@@ -6,6 +6,7 @@ use App\Enums\RoleEnum;
 use App\Models\ColegioEmisor;
 use App\Models\Jurisdiccion;
 use App\Models\Kinesiologa;
+use App\Http\Requests\StoreMatriculaProfesionalRequest;
 use App\Models\MatriculaProfesionalKinesiologia;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -47,23 +48,34 @@ class MisMatriculasProfesionalesController extends Controller
         return view('perfil.matriculas.create', compact('jurisdicciones', 'colegiosEmisores'));
     }
 
-    public function store(Request $request): RedirectResponse
-    {
+    public function store(
+        StoreMatriculaProfesionalRequest $request
+    ): RedirectResponse {
         $kinesiologa = $this->obtenerKinesiologaAutenticada();
 
-        $data = $this->validateData($request, $kinesiologa);
+        $data = $request->validated();
 
         MatriculaProfesionalKinesiologia::create([
             'kinesiologa_id' => $kinesiologa->id,
-            'nro_matricula_profesional' => $data['nro_matricula_profesional'],
-            'jurisdiccion_id' => $data['jurisdiccion_id'],
-            'colegio_emisor_id' => $data['colegio_emisor_id'],
+
+            'nro_matricula_profesional' =>
+            $data['nro_matricula_profesional'],
+
+            'jurisdiccion_id' =>
+            $data['jurisdiccion_id'],
+
+            'colegio_emisor_id' =>
+            $data['colegio_emisor_id'],
+
             'activa' => true,
         ]);
 
         return redirect()
             ->route('perfil.kinesiologa.matriculas.index')
-            ->with('success', 'Matrícula profesional creada correctamente.');
+            ->with(
+                'success',
+                'Matrícula profesional creada correctamente.'
+            );
     }
 
     public function edit(MatriculaProfesionalKinesiologia $matricula): View

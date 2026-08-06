@@ -180,6 +180,21 @@ class MisMatriculasProfesionalesControllerTest extends TestCase
         $response->assertForbidden();
     }
 
+    public function test_non_kinesiologa_cannot_store_matricula(): void
+    {
+        $user = $this->pacienteCompleto();
+
+        $response = $this
+            ->actingAs($user)
+            ->post(route('perfil.kinesiologa.matriculas.store'), [
+                'jurisdiccion_id' => 999,
+                'colegio_emisor_id' => 999,
+                'nro_matricula_profesional' => '0955',
+            ]);
+
+        $response->assertForbidden();
+    }
+
     public function test_kinesiologa_can_view_create_form(): void
     {
         $user = $this->kinesiologaCompleta();
