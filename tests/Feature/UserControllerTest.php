@@ -6,6 +6,7 @@ use App\Enums\RoleEnum;
 use App\Models\Paciente;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -206,6 +207,83 @@ class UserControllerTest extends TestCase
         $this->assertTrue($user->hasRole(RoleEnum::ADMINISTRADOR->value));
     }
 
+    public function test_store_hashes_password_before_persisting(): void
+    {
+        $admin = $this->admin();
+
+        $response = $this
+            ->actingAs($admin)
+            ->post(route('usuarios.store'), [
+                'name' => 'Usuario',
+                'apellido' => 'Seguro',
+                'email' => 'usuario.seguro@example.com',
+                'password' => 'password123',
+                'password_confirmation' => 'password123',
+                'rol' => RoleEnum::KINESIOLOGO->value,
+            ]);
+
+        $response->assertRedirect(route('usuarios.index'));
+        $response->assertSessionHasNoErrors();
+
+        $user = User::where(
+            'email',
+            'usuario.seguro@example.com'
+        )->firstOrFail();
+
+        $this->assertNotSame('password123', $user->password);
+        $this->assertTrue(
+            Hash::check('password123', $user->password)
+        );
+    }
+
+    public function test_admin_cannot_store_superadmin_user(): void
+    {
+        $admin = $this->admin();
+
+        $response = $this
+            ->from(route('usuarios.create'))
+            ->actingAs($admin)
+            ->post(route('usuarios.store'), [
+                'name' => 'Superadmin',
+                'apellido' => 'No permitido',
+                'email' => 'superadmin.no.permitido@example.com',
+                'password' => 'password123',
+                'password_confirmation' => 'password123',
+                'rol' => RoleEnum::SUPERADMIN->value,
+            ]);
+
+        $response->assertRedirect(route('usuarios.create'));
+        $response->assertSessionHasErrors('rol');
+
+        $this->assertDatabaseMissing('users', [
+            'email' => 'superadmin.no.permitido@example.com',
+        ]);
+    }
+
+    public function test_superadmin_cannot_store_superadmin_user(): void
+    {
+        $superadmin = $this->superadmin();
+
+        $response = $this
+            ->from(route('usuarios.create'))
+            ->actingAs($superadmin)
+            ->post(route('usuarios.store'), [
+                'name' => 'Otro',
+                'apellido' => 'Superadmin',
+                'email' => 'otro.superadmin@example.com',
+                'password' => 'password123',
+                'password_confirmation' => 'password123',
+                'rol' => RoleEnum::SUPERADMIN->value,
+            ]);
+
+        $response->assertRedirect(route('usuarios.create'));
+        $response->assertSessionHasErrors('rol');
+
+        $this->assertDatabaseMissing('users', [
+            'email' => 'otro.superadmin@example.com',
+        ]);
+    }
+
     public function test_admin_cannot_store_admin_user(): void
     {
         $admin = $this->admin();
@@ -303,6 +381,54 @@ class UserControllerTest extends TestCase
 
         $response->assertRedirect(route('usuarios.create'));
         $response->assertSessionHasErrors('password');
+    }
+
+    public function test_store_requires_rol(): void
+    {
+        $admin = $this->admin();
+
+        $response = $this
+            ->from(route('usuarios.create'))
+            ->actingAs($admin)
+            ->post(route('usuarios.store'), [
+                'name' => 'Andrés',
+                'apellido' => 'Schupiak',
+                'email' => 'andres@example.com',
+                'password' => 'password123',
+                'password_confirmation' => 'password123',
+                'rol' => '',
+            ]);
+
+        $response->assertRedirect(route('usuarios.create'));
+        $response->assertSessionHasErrors('rol');
+
+        $this->assertDatabaseMissing('users', [
+            'email' => 'andres@example.com',
+        ]);
+    }
+
+    public function test_store_rejects_password_shorter_than_eight_characters(): void
+    {
+        $admin = $this->admin();
+
+        $response = $this
+            ->from(route('usuarios.create'))
+            ->actingAs($admin)
+            ->post(route('usuarios.store'), [
+                'name' => 'Andrés',
+                'apellido' => 'Schupiak',
+                'email' => 'andres@example.com',
+                'password' => '1234567',
+                'password_confirmation' => '1234567',
+                'rol' => RoleEnum::PACIENTE->value,
+            ]);
+
+        $response->assertRedirect(route('usuarios.create'));
+        $response->assertSessionHasErrors('password');
+
+        $this->assertDatabaseMissing('users', [
+            'email' => 'andres@example.com',
+        ]);
     }
 
     public function test_admin_can_view_edit_form_for_paciente(): void

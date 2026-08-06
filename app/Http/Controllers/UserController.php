@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\RoleEnum;
+use App\Http\Requests\StoreUserRequest;
 use App\Models\Paciente;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -92,8 +93,9 @@ class UserController extends Controller
         return view('usuarios.create', compact('rolesDisponibles'));
     }
 
-    public function store(Request $request): RedirectResponse
-    {
+    public function store(
+        StoreUserRequest $request
+    ): RedirectResponse {
         /** @var User $usuarioAutenticado */
         $usuarioAutenticado = Auth::user();
 
@@ -105,37 +107,20 @@ class UserController extends Controller
             403
         );
 
-        $rolesPermitidos = $usuarioAutenticado->esSuperadmin()
-            ? [
-                RoleEnum::PACIENTE->value,
-                RoleEnum::KINESIOLOGO->value,
-                RoleEnum::ADMINISTRADOR->value,
-            ]
-            : [
-                RoleEnum::PACIENTE->value,
-                RoleEnum::KINESIOLOGO->value,
-            ];
+        $data = $request->validated();
 
-        $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'apellido' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'confirmed', 'min:8'],
-            'rol' => ['required', Rule::in($rolesPermitidos)],
-        ]);
-
-        DB::transaction(function () use ($request) {
+        DB::transaction(function () use ($data): void {
             $user = User::create([
-                'name' => $request->name,
-                'apellido' => $request->apellido,
-                'email' => $request->email,
-                'password' => Hash::make($request->password),
+                'name' => $data['name'],
+                'apellido' => $data['apellido'],
+                'email' => $data['email'],
+                'password' => Hash::make($data['password']),
                 'activo' => true,
             ]);
 
-            $user->assignRole($request->rol);
+            $user->assignRole($data['rol']);
 
-            if ($request->rol === RoleEnum::PACIENTE->value) {
+            if ($data['rol'] === RoleEnum::PACIENTE->value) {
                 $paciente = Paciente::create([
                     'user_id' => $user->id,
                     'nro_historia_clinica' => 'TEMP',
@@ -143,7 +128,13 @@ class UserController extends Controller
                 ]);
 
                 $paciente->update([
-                    'nro_historia_clinica' => 'HC-' . str_pad($paciente->id, 6, '0', STR_PAD_LEFT),
+                    'nro_historia_clinica' =>
+                    'HC-' . str_pad(
+                        $paciente->id,
+                        6,
+                        '0',
+                        STR_PAD_LEFT
+                    ),
                 ]);
             }
         });
