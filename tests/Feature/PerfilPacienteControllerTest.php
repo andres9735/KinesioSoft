@@ -169,6 +169,24 @@ class PerfilPacienteControllerTest extends TestCase
         $response->assertSessionHasErrors('telefono');
     }
 
+    public function test_update_rejects_invalid_telefono_format(): void
+    {
+        $user = $this->pacienteIncompleto();
+
+        $response = $this
+            ->from(route('perfil.completar'))
+            ->actingAs($user)
+            ->post(route('perfil.actualizar'), [
+                'dni' => '43122015',
+                'fecha_nacimiento' => '2001-02-06',
+                'sexo' => 'masculino',
+                'telefono' => 'telefono-invalido!',
+            ]);
+
+        $response->assertRedirect(route('perfil.completar'));
+        $response->assertSessionHasErrors('telefono');
+    }
+
     public function test_update_requires_unique_dni_except_current_user(): void
     {
         $existingUser = User::factory()->create([

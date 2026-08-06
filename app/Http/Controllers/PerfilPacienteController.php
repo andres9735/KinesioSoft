@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\UpdatePerfilPacienteRequest;
 use App\Models\User;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
@@ -21,25 +20,26 @@ class PerfilPacienteController extends Controller
     /**
      * Actualiza los datos faltantes del perfil del paciente.
      */
-    public function update(Request $request): RedirectResponse
-    {
-        $request->validate([
-            'dni' => ['required', 'string', 'max:20', 'unique:users,dni,' . Auth::id()],
-            'fecha_nacimiento' => ['required', 'date', 'before:today'],
-            'sexo' => ['required', 'in:masculino,femenino,otro,prefiero_no_decir'],
-            'telefono' => ['required', 'string', 'max:20', 'regex:/^[0-9+\-\s()]+$/'],
-        ]);
-
+    public function update(
+        UpdatePerfilPacienteRequest $request
+    ): RedirectResponse {
         /** @var User $user */
-        $user = Auth::user();
+        $user = $request->user();
+
+        $data = $request->validated();
 
         $user->update([
-            'dni' => $request->dni,
-            'fecha_nacimiento' => $request->fecha_nacimiento,
-            'sexo' => $request->sexo,
-            'telefono' => $request->telefono,
+            'dni' => $data['dni'],
+            'fecha_nacimiento' => $data['fecha_nacimiento'],
+            'sexo' => $data['sexo'],
+            'telefono' => $data['telefono'],
         ]);
 
-        return redirect()->route('dashboard')->with('success', 'Perfil completado correctamente.');
+        return redirect()
+            ->route('dashboard')
+            ->with(
+                'success',
+                'Perfil completado correctamente.'
+            );
     }
 }
