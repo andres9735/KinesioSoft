@@ -3,10 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Jurisdiccion;
+use App\Http\Requests\StoreJurisdiccionRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class JurisdiccionController extends Controller
@@ -25,39 +25,13 @@ class JurisdiccionController extends Controller
         return view('catalogos.jurisdicciones.create');
     }
 
-    public function store(Request $request): RedirectResponse
-    {
-        $request->validate([
-            'nombre' => [
-                'required',
-                'string',
-                'max:255',
-                'regex:/^[\pL\s]+$/u',
-            ],
-        ], [
-            'nombre.regex' => 'El nombre solo puede contener letras y espacios.',
-        ]);
+    public function store(
+        StoreJurisdiccionRequest $request
+    ): RedirectResponse {
+        $data = $request->validated();
 
-        $nombre = trim($request->nombre);
+        $nombre = $data['nombre'];
         $slug = Str::slug($nombre);
-
-        $existeNombre = Jurisdiccion::where('nombre', $nombre)->exists();
-        if ($existeNombre) {
-            return back()
-                ->withErrors([
-                    'nombre' => 'Ya existe una jurisdicción con ese nombre.',
-                ])
-                ->withInput();
-        }
-
-        $existeSlug = Jurisdiccion::where('slug', $slug)->exists();
-        if ($existeSlug) {
-            return back()
-                ->withErrors([
-                    'nombre' => 'El nombre ingresado genera un slug que ya existe. Intente con una variante distinta.',
-                ])
-                ->withInput();
-        }
 
         Jurisdiccion::create([
             'nombre' => $nombre,
@@ -67,7 +41,10 @@ class JurisdiccionController extends Controller
 
         return redirect()
             ->route('catalogos.jurisdicciones.index')
-            ->with('success', 'Jurisdicción creada correctamente.');
+            ->with(
+                'success',
+                'Jurisdicción creada correctamente.'
+            );
     }
 
     public function edit(Jurisdiccion $jurisdiccion): View

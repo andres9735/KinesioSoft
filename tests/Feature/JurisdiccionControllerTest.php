@@ -128,6 +128,27 @@ class JurisdiccionControllerTest extends TestCase
         $response->assertSessionHasErrors('nombre');
     }
 
+    public function test_store_rejects_nombre_with_invalid_characters(): void
+    {
+        $admin = $this->adminUser();
+
+        $response = $this
+            ->from(route('catalogos.jurisdicciones.create'))
+            ->actingAs($admin)
+            ->post(route('catalogos.jurisdicciones.store'), [
+                'nombre' => 'Misiones 123',
+            ]);
+
+        $response->assertRedirect(
+            route('catalogos.jurisdicciones.create')
+        );
+
+        $response->assertSessionHasErrors([
+            'nombre' =>
+            'El nombre solo puede contener letras y espacios.',
+        ]);
+    }
+
     public function test_store_rejects_duplicate_nombre(): void
     {
         $admin = $this->adminUser();
@@ -145,7 +166,10 @@ class JurisdiccionControllerTest extends TestCase
             ]);
 
         $response->assertRedirect(route('catalogos.jurisdicciones.create'));
-        $response->assertSessionHasErrors('nombre');
+        $response->assertSessionHasErrors([
+            'nombre' =>
+            'Ya existe una jurisdicción con ese nombre.',
+        ]);
     }
 
     public function test_store_generates_slug_automatically(): void
@@ -179,7 +203,10 @@ class JurisdiccionControllerTest extends TestCase
             ]);
 
         $response->assertRedirect(route('catalogos.jurisdicciones.create'));
-        $response->assertSessionHasErrors('nombre');
+        $response->assertSessionHasErrors([
+            'nombre' =>
+                'El nombre ingresado genera un slug que ya existe. Intente con una variante distinta.',
+        ]);
     }
 
     public function test_admin_can_view_edit_form(): void
