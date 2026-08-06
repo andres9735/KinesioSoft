@@ -170,7 +170,7 @@ class TituloProfesionalControllerTest extends TestCase
         $response->assertRedirect(route('catalogos.titulos.create'));
         $response->assertSessionHasErrors([
             'nombre' =>
-                'Ya existe un título profesional con ese nombre.',
+            'Ya existe un título profesional con ese nombre.',
         ]);
     }
 
@@ -207,7 +207,7 @@ class TituloProfesionalControllerTest extends TestCase
         $response->assertRedirect(route('catalogos.titulos.create'));
         $response->assertSessionHasErrors([
             'nombre' =>
-                'El nombre ingresado genera un slug duplicado.',
+            'El nombre ingresado genera un slug duplicado.',
         ]);
     }
 
@@ -252,6 +252,77 @@ class TituloProfesionalControllerTest extends TestCase
         ]);
     }
 
+    public function test_update_trims_nombre_before_persisting(): void
+    {
+        $admin = $this->adminUser();
+
+        $titulo = TituloProfesional::create([
+            'nombre' => 'Kinesiólogo',
+            'slug' => 'kinesiologo',
+            'activo' => true,
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->put(
+                route('catalogos.titulos.update', $titulo),
+                [
+                    'nombre' => '  Kinesiólogo Fisiatra  ',
+                ]
+            );
+
+        $response->assertRedirect(
+            route('catalogos.titulos.index')
+        );
+
+        $response->assertSessionHas('success');
+
+        $this->assertDatabaseHas('titulos_profesionales', [
+            'id' => $titulo->id,
+            'nombre' => 'Kinesiólogo Fisiatra',
+            'slug' => 'kinesiologo-fisiatra',
+        ]);
+    }
+
+    public function test_update_allows_new_nombre_when_another_different_titulo_exists(): void
+    {
+        $admin = $this->adminUser();
+
+        TituloProfesional::create([
+            'nombre' => 'Fisioterapeuta',
+            'slug' => 'fisioterapeuta',
+            'activo' => true,
+        ]);
+
+        $titulo = TituloProfesional::create([
+            'nombre' => 'Kinesiólogo',
+            'slug' => 'kinesiologo',
+            'activo' => true,
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->put(
+                route('catalogos.titulos.update', $titulo),
+                [
+                    'nombre' => 'Licenciado en Kinesiología',
+                ]
+            );
+
+        $response->assertRedirect(
+            route('catalogos.titulos.index')
+        );
+
+        $response->assertSessionHasNoErrors();
+        $response->assertSessionHas('success');
+
+        $this->assertDatabaseHas('titulos_profesionales', [
+            'id' => $titulo->id,
+            'nombre' => 'Licenciado en Kinesiología',
+            'slug' => 'licenciado-en-kinesiologia',
+        ]);
+    }
+
     public function test_update_allows_same_nombre_for_same_record(): void
     {
         $admin = $this->adminUser();
@@ -293,7 +364,10 @@ class TituloProfesionalControllerTest extends TestCase
             ]);
 
         $response->assertRedirect(route('catalogos.titulos.edit', $titulo2));
-        $response->assertSessionHasErrors('nombre');
+        $response->assertSessionHasErrors([
+            'nombre' =>
+            'Ya existe un título profesional con ese nombre.',
+        ]);
     }
 
     public function test_update_rejects_when_new_nombre_generates_duplicate_slug(): void
@@ -301,7 +375,7 @@ class TituloProfesionalControllerTest extends TestCase
         $admin = $this->adminUser();
 
         TituloProfesional::create([
-            'nombre' => 'Kinesiólogo',
+            'nombre' => 'Kinesiólogo!',
             'slug' => 'kinesiologo',
             'activo' => true,
         ]);
@@ -319,7 +393,10 @@ class TituloProfesionalControllerTest extends TestCase
             ]);
 
         $response->assertRedirect(route('catalogos.titulos.edit', $titulo));
-        $response->assertSessionHasErrors('nombre');
+        $response->assertSessionHasErrors([
+            'nombre' =>
+            'El nombre ingresado genera un slug duplicado.',
+        ]);
     }
 
     public function test_toggle_activo_inactivates_titulo(): void

@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\TituloProfesional;
 use App\Http\Requests\StoreTituloProfesionalRequest;
-use Illuminate\Http\Request;
+use App\Http\Requests\UpdateTituloProfesionalRequest;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -50,26 +50,14 @@ class TituloProfesionalController extends Controller
         return view('catalogos.titulos.edit', compact('titulo'));
     }
 
-    public function update(Request $request, TituloProfesional $titulo): RedirectResponse
-    {
-        $request->validate([
-            'nombre' => ['required', 'string', 'max:255'],
-        ]);
+    public function update(
+        UpdateTituloProfesionalRequest $request,
+        TituloProfesional $titulo
+    ): RedirectResponse {
+        $data = $request->validated();
 
-        $nombre = trim($request->nombre);
+        $nombre = $data['nombre'];
         $slug = Str::slug($nombre);
-
-        if (TituloProfesional::where('nombre', $nombre)->where('id', '!=', $titulo->id)->exists()) {
-            return back()->withErrors([
-                'nombre' => 'Ya existe un título profesional con ese nombre.',
-            ])->withInput();
-        }
-
-        if (TituloProfesional::where('slug', $slug)->where('id', '!=', $titulo->id)->exists()) {
-            return back()->withErrors([
-                'nombre' => 'El nombre ingresado genera un slug duplicado.',
-            ])->withInput();
-        }
 
         $titulo->update([
             'nombre' => $nombre,
@@ -78,7 +66,10 @@ class TituloProfesionalController extends Controller
 
         return redirect()
             ->route('catalogos.titulos.index')
-            ->with('success', 'Título profesional actualizado correctamente.');
+            ->with(
+                'success',
+                'Título profesional actualizado correctamente.'
+            );
     }
 
     public function toggleActivo(TituloProfesional $titulo): RedirectResponse
