@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreEspecialidadKinesiologiaRequest;
 use App\Models\EspecialidadKinesiologia;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,19 +26,29 @@ class EspecialidadKinesiologiaController extends Controller
         return view('catalogos.especialidades.create');
     }
 
-    public function store(Request $request): RedirectResponse
-    {
-        $data = $this->validateData($request);
+    public function store(
+        StoreEspecialidadKinesiologiaRequest $request
+    ): RedirectResponse {
+        $data = $request->validated();
+
+        $nombre = preg_replace(
+            '/\s+/',
+            ' ',
+            trim($data['nombre'])
+        );
 
         EspecialidadKinesiologia::create([
-            'nombre' => $data['nombre'],
-            'slug' => $data['slug'],
+            'nombre' => $nombre,
+            'slug' => Str::slug($nombre),
             'activo' => true,
         ]);
 
         return redirect()
             ->route('catalogos.especialidades.index')
-            ->with('success', 'Especialidad de kinesiología creada correctamente.');
+            ->with(
+                'success',
+                'Especialidad de kinesiología creada correctamente.'
+            );
     }
 
     public function edit(EspecialidadKinesiologia $especialidad): View

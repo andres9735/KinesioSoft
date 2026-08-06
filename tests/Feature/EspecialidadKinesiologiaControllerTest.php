@@ -114,6 +114,57 @@ class EspecialidadKinesiologiaControllerTest extends TestCase
         ]);
     }
 
+    public function test_store_normalizes_nombre_before_persisting(): void
+    {
+        $admin = $this->adminUser();
+
+        $response = $this
+            ->actingAs($admin)
+            ->post(route('catalogos.especialidades.store'), [
+                'nombre' => '  Kinesiología   Deportiva  ',
+            ]);
+
+        $response->assertRedirect(
+            route('catalogos.especialidades.index')
+        );
+
+        $response->assertSessionHas('success');
+
+        $this->assertDatabaseHas('especialidades_kinesiologia', [
+            'nombre' => 'Kinesiología Deportiva',
+            'slug' => 'kinesiologia-deportiva',
+            'activo' => 1,
+        ]);
+    }
+
+    public function test_store_rejects_invalid_nombre_characters(): void
+    {
+        $admin = $this->adminUser();
+
+        $response = $this
+            ->from(route('catalogos.especialidades.create'))
+            ->actingAs($admin)
+            ->post(route('catalogos.especialidades.store'), [
+                'nombre' => 'Kinesiología / Deportiva',
+            ]);
+
+        $response->assertRedirect(
+            route('catalogos.especialidades.create')
+        );
+
+        $response->assertSessionHasErrors([
+            'nombre' =>
+                'El nombre solo puede contener letras y espacios.',
+        ]);
+
+        $this->assertDatabaseMissing(
+            'especialidades_kinesiologia',
+            [
+                'nombre' => 'Kinesiología / Deportiva',
+            ]
+        );
+    }
+
     public function test_store_requires_nombre(): void
     {
         $admin = $this->adminUser();
@@ -124,8 +175,14 @@ class EspecialidadKinesiologiaControllerTest extends TestCase
                 'nombre' => '',
             ]);
 
-        $response->assertRedirect(route('catalogos.especialidades.create'));
-        $response->assertSessionHasErrors('nombre');
+        $response->assertRedirect(
+            route('catalogos.especialidades.create')
+        );
+
+        $response->assertSessionHasErrors([
+            'nombre' =>
+                'Debe ingresar el nombre de la especialidad.',
+        ]);
     }
 
     public function test_store_rejects_duplicate_nombre(): void
@@ -144,8 +201,14 @@ class EspecialidadKinesiologiaControllerTest extends TestCase
                 'nombre' => 'Kinesiología Deportiva',
             ]);
 
-        $response->assertRedirect(route('catalogos.especialidades.create'));
-        $response->assertSessionHasErrors('nombre');
+        $response->assertRedirect(
+            route('catalogos.especialidades.create')
+        );
+
+        $response->assertSessionHasErrors([
+            'nombre' =>
+                'Ya existe una especialidad de kinesiología con ese nombre.',
+        ]);
     }
 
     public function test_store_generates_slug_automatically(): void
@@ -178,10 +241,13 @@ class EspecialidadKinesiologiaControllerTest extends TestCase
                 'nombre' => 'Kinesiologia Deportiva',
             ]);
 
-        $response->assertRedirect(route('catalogos.especialidades.create'));
-        $response->assertSessionHasErrors('nombre');
+        $response->assertRedirect(
+            route('catalogos.especialidades.create')
+        );
+
         $response->assertSessionHasErrors([
-            'nombre' => 'El nombre ingresado genera un slug que ya existe. Intente con una variante distinta.',
+            'nombre' =>
+                'El nombre ingresado genera un slug que ya existe. Intente con una variante distinta.',
         ]);
     }
 
