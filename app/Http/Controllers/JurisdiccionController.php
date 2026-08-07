@@ -6,6 +6,7 @@ use App\Http\Requests\StoreJurisdiccionRequest;
 use App\Http\Requests\UpdateJurisdiccionRequest;
 use App\Models\Jurisdiccion;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -13,6 +14,8 @@ class JurisdiccionController extends Controller
 {
     public function index(): View
     {
+        Gate::authorize('viewAny', Jurisdiccion::class);
+
         $jurisdicciones = Jurisdiccion::query()
             ->orderBy('nombre')
             ->paginate(10);
@@ -25,12 +28,16 @@ class JurisdiccionController extends Controller
 
     public function create(): View
     {
+        Gate::authorize('create', Jurisdiccion::class);
+
         return view('catalogos.jurisdicciones.create');
     }
 
     public function store(
         StoreJurisdiccionRequest $request
     ): RedirectResponse {
+        Gate::authorize('create', Jurisdiccion::class);
+
         $data = $request->validated();
 
         $nombre = $data['nombre'];
@@ -52,6 +59,8 @@ class JurisdiccionController extends Controller
 
     public function edit(Jurisdiccion $jurisdiccion): View
     {
+        Gate::authorize('update', $jurisdiccion);
+
         return view(
             'catalogos.jurisdicciones.edit',
             compact('jurisdiccion')
@@ -62,6 +71,8 @@ class JurisdiccionController extends Controller
         UpdateJurisdiccionRequest $request,
         Jurisdiccion $jurisdiccion
     ): RedirectResponse {
+        Gate::authorize('update', $jurisdiccion);
+
         $data = $request->validated();
 
         $nombre = $data['nombre'];
@@ -83,6 +94,8 @@ class JurisdiccionController extends Controller
     public function toggleActivo(
         Jurisdiccion $jurisdiccion
     ): RedirectResponse {
+        Gate::authorize('toggleActivo', $jurisdiccion);
+
         $jurisdiccion->update([
             'activo' => ! $jurisdiccion->activo,
         ]);
