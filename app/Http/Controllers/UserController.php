@@ -7,6 +7,7 @@ use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Models\Paciente;
 use App\Models\User;
+use App\Services\GeneradorNumeroHistoriaClinica;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,6 +18,10 @@ use Illuminate\View\View;
 
 class UserController extends Controller
 {
+    public function __construct(
+        private readonly GeneradorNumeroHistoriaClinica $generadorNumeroHistoriaClinica
+    ) {}
+
     public function index(Request $request): View
     {
         Gate::authorize('viewAny', User::class);
@@ -106,12 +111,7 @@ class UserController extends Controller
 
                 $paciente->update([
                     'nro_historia_clinica' =>
-                    'HC-' . str_pad(
-                        $paciente->id,
-                        6,
-                        '0',
-                        STR_PAD_LEFT
-                    ),
+                    $this->generadorNumeroHistoriaClinica->generar($paciente),
                 ]);
             }
         });
@@ -190,12 +190,7 @@ class UserController extends Controller
 
                     $paciente->update([
                         'nro_historia_clinica' =>
-                        'HC-' . str_pad(
-                            $paciente->id,
-                            6,
-                            '0',
-                            STR_PAD_LEFT
-                        ),
+                        $this->generadorNumeroHistoriaClinica->generar($paciente),
                     ]);
                 }
             }
