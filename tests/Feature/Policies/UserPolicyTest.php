@@ -88,4 +88,152 @@ class UserPolicyTest extends TestCase
             Gate::forUser($kinesiologo)->allows('create', User::class)
         );
     }
+
+    public function test_admin_can_update_regular_users(): void
+    {
+        $admin = $this->userWithRole(RoleEnum::ADMINISTRADOR);
+        $paciente = $this->userWithRole(RoleEnum::PACIENTE);
+        $kinesiologo = $this->userWithRole(RoleEnum::KINESIOLOGO);
+
+        $this->assertTrue(
+            Gate::forUser($admin)->allows('update', $paciente)
+        );
+
+        $this->assertTrue(
+            Gate::forUser($admin)->allows('update', $kinesiologo)
+        );
+    }
+
+    public function test_admin_cannot_update_admin_or_superadmin(): void
+    {
+        $actor = $this->userWithRole(RoleEnum::ADMINISTRADOR);
+        $admin = $this->userWithRole(RoleEnum::ADMINISTRADOR);
+        $superadmin = $this->userWithRole(RoleEnum::SUPERADMIN);
+
+        $this->assertFalse(
+            Gate::forUser($actor)->allows('update', $admin)
+        );
+
+        $this->assertFalse(
+            Gate::forUser($actor)->allows('update', $superadmin)
+        );
+    }
+
+    public function test_superadmin_can_update_users_of_any_role(): void
+    {
+        $superadmin = $this->userWithRole(RoleEnum::SUPERADMIN);
+        $paciente = $this->userWithRole(RoleEnum::PACIENTE);
+        $kinesiologo = $this->userWithRole(RoleEnum::KINESIOLOGO);
+        $admin = $this->userWithRole(RoleEnum::ADMINISTRADOR);
+        $otherSuperadmin = $this->userWithRole(RoleEnum::SUPERADMIN);
+
+        $this->assertTrue(
+            Gate::forUser($superadmin)->allows('update', $paciente)
+        );
+
+        $this->assertTrue(
+            Gate::forUser($superadmin)->allows('update', $kinesiologo)
+        );
+
+        $this->assertTrue(
+            Gate::forUser($superadmin)->allows('update', $admin)
+        );
+
+        $this->assertTrue(
+            Gate::forUser($superadmin)->allows('update', $otherSuperadmin)
+        );
+    }
+
+    public function test_regular_users_cannot_update_other_users(): void
+    {
+        $paciente = $this->userWithRole(RoleEnum::PACIENTE);
+        $kinesiologo = $this->userWithRole(RoleEnum::KINESIOLOGO);
+        $target = $this->userWithRole(RoleEnum::PACIENTE);
+
+        $this->assertFalse(
+            Gate::forUser($paciente)->allows('update', $target)
+        );
+
+        $this->assertFalse(
+            Gate::forUser($kinesiologo)->allows('update', $target)
+        );
+    }
+
+    public function test_superadmin_role_change_rules_are_preserved(): void
+    {
+        $actor = $this->userWithRole(RoleEnum::SUPERADMIN);
+        $targetSuperadmin = $this->userWithRole(RoleEnum::SUPERADMIN);
+        $targetAdmin = $this->userWithRole(RoleEnum::ADMINISTRADOR);
+
+        $this->assertTrue(
+            Gate::forUser($actor)->allows('changeRole', [
+                $targetSuperadmin,
+                RoleEnum::SUPERADMIN->value,
+            ])
+        );
+
+        $this->assertFalse(
+            Gate::forUser($actor)->allows('changeRole', [
+                $targetSuperadmin,
+                RoleEnum::PACIENTE->value,
+            ])
+        );
+
+        $this->assertTrue(
+            Gate::forUser($actor)->allows('changeRole', [
+                $targetAdmin,
+                RoleEnum::PACIENTE->value,
+            ])
+        );
+    }
+
+    public function test_admin_can_toggle_regular_users_but_not_privileged_users(): void
+    {
+        $actor = $this->userWithRole(RoleEnum::ADMINISTRADOR);
+        $paciente = $this->userWithRole(RoleEnum::PACIENTE);
+        $admin = $this->userWithRole(RoleEnum::ADMINISTRADOR);
+        $superadmin = $this->userWithRole(RoleEnum::SUPERADMIN);
+
+        $this->assertTrue(
+            Gate::forUser($actor)->allows('toggleActivo', $paciente)
+        );
+
+        $this->assertFalse(
+            Gate::forUser($actor)->allows('toggleActivo', $admin)
+        );
+
+        $this->assertFalse(
+            Gate::forUser($actor)->allows('toggleActivo', $superadmin)
+        );
+    }
+
+    public function test_superadmin_can_toggle_privileged_users(): void
+    {
+        $actor = $this->userWithRole(RoleEnum::SUPERADMIN);
+        $admin = $this->userWithRole(RoleEnum::ADMINISTRADOR);
+        $superadmin = $this->userWithRole(RoleEnum::SUPERADMIN);
+
+        $this->assertTrue(
+            Gate::forUser($actor)->allows('toggleActivo', $admin)
+        );
+
+        $this->assertTrue(
+            Gate::forUser($actor)->allows('toggleActivo', $superadmin)
+        );
+    }
+
+    public function test_regular_users_cannot_toggle_users(): void
+    {
+        $paciente = $this->userWithRole(RoleEnum::PACIENTE);
+        $kinesiologo = $this->userWithRole(RoleEnum::KINESIOLOGO);
+        $target = $this->userWithRole(RoleEnum::PACIENTE);
+
+        $this->assertFalse(
+            Gate::forUser($paciente)->allows('toggleActivo', $target)
+        );
+
+        $this->assertFalse(
+            Gate::forUser($kinesiologo)->allows('toggleActivo', $target)
+        );
+    }
 }

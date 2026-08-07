@@ -123,20 +123,10 @@ class UserController extends Controller
 
     public function edit(User $user): View
     {
+        Gate::authorize('update', $user);
+
         /** @var User $usuarioAutenticado */
         $usuarioAutenticado = Auth::user();
-
-        abort_unless(
-            $usuarioAutenticado->hasAnyRole([
-                RoleEnum::ADMINISTRADOR->value,
-                RoleEnum::SUPERADMIN->value,
-            ]),
-            403
-        );
-
-        if ($usuarioAutenticado->esAdministrador() && ($user->esAdministrador() || $user->esSuperadmin())) {
-            abort(403);
-        }
 
         $user->load('roles');
 
@@ -167,35 +157,11 @@ class UserController extends Controller
         UpdateUserRequest $request,
         User $user
     ): RedirectResponse {
-        /** @var User $usuarioAutenticado */
-        $usuarioAutenticado = Auth::user();
-
-        abort_unless(
-            $usuarioAutenticado->hasAnyRole([
-                RoleEnum::ADMINISTRADOR->value,
-                RoleEnum::SUPERADMIN->value,
-            ]),
-            403
-        );
-
-        if (
-            $usuarioAutenticado->esAdministrador()
-            && ($user->esAdministrador() || $user->esSuperadmin())
-        ) {
-            abort(403);
-        }
+        Gate::authorize('update', $user);
 
         $data = $request->validated();
 
-        if (
-            $user->esSuperadmin()
-            && $data['rol'] !== RoleEnum::SUPERADMIN->value
-        ) {
-            abort(
-                403,
-                'No se puede cambiar el rol de un superadmin desde esta pantalla.'
-            );
-        }
+        Gate::authorize('changeRole', [$user, $data['rol']]);
 
         DB::transaction(function () use ($data, $user): void {
             $user->load('roles');
@@ -242,23 +208,7 @@ class UserController extends Controller
 
     public function toggleActivo(User $user): RedirectResponse
     {
-        /** @var User $usuarioAutenticado */
-        $usuarioAutenticado = Auth::user();
-
-        abort_unless(
-            $usuarioAutenticado->hasAnyRole([
-                RoleEnum::ADMINISTRADOR->value,
-                RoleEnum::SUPERADMIN->value,
-            ]),
-            403
-        );
-
-        if (
-            $usuarioAutenticado->esAdministrador()
-            && ($user->esAdministrador() || $user->esSuperadmin())
-        ) {
-            abort(403);
-        }
+        Gate::authorize('toggleActivo', $user);
 
         if ($user->esSuperadmin() && $user->activo) {
             $cantidadSuperadminsActivos = User::query()

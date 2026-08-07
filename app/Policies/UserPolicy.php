@@ -22,4 +22,39 @@ class UserPolicy
             RoleEnum::SUPERADMIN->value,
         ]);
     }
+
+    public function update(User $actor, User $target): bool
+    {
+        if ($actor->esSuperadmin()) {
+            return true;
+        }
+
+        if (! $actor->esAdministrador()) {
+            return false;
+        }
+
+        return ! $target->esAdministrador()
+            && ! $target->esSuperadmin();
+    }
+
+    public function changeRole(
+        User $actor,
+        User $target,
+        string $newRole
+    ): bool {
+        if (! $this->update($actor, $target)) {
+            return false;
+        }
+
+        if ($target->esSuperadmin()) {
+            return $newRole === RoleEnum::SUPERADMIN->value;
+        }
+
+        return true;
+    }
+
+    public function toggleActivo(User $actor, User $target): bool
+    {
+        return $this->update($actor, $target);
+    }
 }
