@@ -6,6 +6,7 @@ use App\Http\Requests\StoreEspecialidadKinesiologiaRequest;
 use App\Http\Requests\UpdateEspecialidadKinesiologiaRequest;
 use App\Models\EspecialidadKinesiologia;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -13,6 +14,8 @@ class EspecialidadKinesiologiaController extends Controller
 {
     public function index(): View
     {
+        Gate::authorize('viewAny', EspecialidadKinesiologia::class);
+
         $especialidades = EspecialidadKinesiologia::query()
             ->orderBy('nombre')
             ->paginate(10);
@@ -25,12 +28,16 @@ class EspecialidadKinesiologiaController extends Controller
 
     public function create(): View
     {
+        Gate::authorize('create', EspecialidadKinesiologia::class);
+
         return view('catalogos.especialidades.create');
     }
 
     public function store(
         StoreEspecialidadKinesiologiaRequest $request
     ): RedirectResponse {
+        Gate::authorize('create', EspecialidadKinesiologia::class);
+
         $data = $request->validated();
 
         $nombre = preg_replace(
@@ -56,6 +63,8 @@ class EspecialidadKinesiologiaController extends Controller
     public function edit(
         EspecialidadKinesiologia $especialidad
     ): View {
+        Gate::authorize('update', $especialidad);
+
         return view(
             'catalogos.especialidades.edit',
             compact('especialidad')
@@ -66,6 +75,8 @@ class EspecialidadKinesiologiaController extends Controller
         UpdateEspecialidadKinesiologiaRequest $request,
         EspecialidadKinesiologia $especialidad
     ): RedirectResponse {
+        Gate::authorize('update', $especialidad);
+
         $data = $request->validated();
 
         $nombre = preg_replace(
@@ -90,6 +101,8 @@ class EspecialidadKinesiologiaController extends Controller
     public function toggleActivo(
         EspecialidadKinesiologia $especialidad
     ): RedirectResponse {
+        Gate::authorize('toggleActivo', $especialidad);
+
         $especialidad->update([
             'activo' => ! $especialidad->activo,
         ]);
