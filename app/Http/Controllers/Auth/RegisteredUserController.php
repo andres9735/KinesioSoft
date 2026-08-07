@@ -6,6 +6,7 @@ use App\Enums\RoleEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Paciente;
 use App\Models\User;
+use App\Services\GeneradorNumeroHistoriaClinica;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,6 +19,10 @@ use Illuminate\View\View;
 
 class RegisteredUserController extends Controller
 {
+    public function __construct(
+        private readonly GeneradorNumeroHistoriaClinica $generadorNumeroHistoriaClinica
+    ) {}
+
     /**
      * Display the registration view.
      */
@@ -36,8 +41,19 @@ class RegisteredUserController extends Controller
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'apellido' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class],
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'email' => [
+                'required',
+                'string',
+                'lowercase',
+                'email',
+                'max:255',
+                'unique:' . User::class,
+            ],
+            'password' => [
+                'required',
+                'confirmed',
+                Rules\Password::defaults(),
+            ],
         ]);
 
         $user = DB::transaction(function () use ($request) {
@@ -58,7 +74,8 @@ class RegisteredUserController extends Controller
             ]);
 
             $paciente->update([
-                'nro_historia_clinica' => 'HC-' . str_pad($paciente->id, 6, '0', STR_PAD_LEFT),
+                'nro_historia_clinica' =>
+                $this->generadorNumeroHistoriaClinica->generar($paciente),
             ]);
 
             return $user;
