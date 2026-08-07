@@ -2,22 +2,27 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\RoleEnum;
+use App\Http\Requests\StoreMatriculaProfesionalRequest;
+use App\Http\Requests\UpdateMatriculaProfesionalRequest;
 use App\Models\ColegioEmisor;
 use App\Models\Jurisdiccion;
 use App\Models\Kinesiologa;
-use App\Http\Requests\StoreMatriculaProfesionalRequest;
-use App\Http\Requests\UpdateMatriculaProfesionalRequest;
 use App\Models\MatriculaProfesionalKinesiologia;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
 class MisMatriculasProfesionalesController extends Controller
 {
     public function index(): View
     {
+        Gate::authorize(
+            'viewAny',
+            MatriculaProfesionalKinesiologia::class
+        );
+
         $kinesiologa = $this->obtenerKinesiologaAutenticada();
 
         $matriculas = $kinesiologa->matriculasProfesionales()
@@ -32,7 +37,10 @@ class MisMatriculasProfesionalesController extends Controller
 
     public function create(): View
     {
-        $this->obtenerKinesiologaAutenticada();
+        Gate::authorize(
+            'create',
+            MatriculaProfesionalKinesiologia::class
+        );
 
         $jurisdicciones = Jurisdiccion::query()
             ->where('activo', true)
@@ -44,28 +52,29 @@ class MisMatriculasProfesionalesController extends Controller
             ->orderBy('nombre')
             ->get();
 
-        return view('perfil.matriculas.create', compact('jurisdicciones', 'colegiosEmisores'));
+        return view(
+            'perfil.matriculas.create',
+            compact('jurisdicciones', 'colegiosEmisores')
+        );
     }
 
     public function store(
         StoreMatriculaProfesionalRequest $request
     ): RedirectResponse {
-        $kinesiologa = $this->obtenerKinesiologaAutenticada();
+        Gate::authorize(
+            'create',
+            MatriculaProfesionalKinesiologia::class
+        );
 
+        $kinesiologa = $this->obtenerKinesiologaAutenticada();
         $data = $request->validated();
 
         MatriculaProfesionalKinesiologia::create([
             'kinesiologa_id' => $kinesiologa->id,
-
             'nro_matricula_profesional' =>
             $data['nro_matricula_profesional'],
-
-            'jurisdiccion_id' =>
-            $data['jurisdiccion_id'],
-
-            'colegio_emisor_id' =>
-            $data['colegio_emisor_id'],
-
+            'jurisdiccion_id' => $data['jurisdiccion_id'],
+            'colegio_emisor_id' => $data['colegio_emisor_id'],
             'activa' => true,
         ]);
 
@@ -77,11 +86,10 @@ class MisMatriculasProfesionalesController extends Controller
             );
     }
 
-    public function edit(MatriculaProfesionalKinesiologia $matricula): View
-    {
-        $kinesiologa = $this->obtenerKinesiologaAutenticada();
-
-        abort_unless($matricula->kinesiologa_id === $kinesiologa->id, 403);
+    public function edit(
+        MatriculaProfesionalKinesiologia $matricula
+    ): View {
+        Gate::authorize('update', $matricula);
 
         $jurisdicciones = Jurisdiccion::query()
             ->where(function ($query) use ($matricula) {
@@ -99,35 +107,25 @@ class MisMatriculasProfesionalesController extends Controller
             ->orderBy('nombre')
             ->get();
 
-        return view('perfil.matriculas.edit', compact('matricula', 'jurisdicciones', 'colegiosEmisores'));
+        return view(
+            'perfil.matriculas.edit',
+            compact('matricula', 'jurisdicciones', 'colegiosEmisores')
+        );
     }
 
     public function update(
         UpdateMatriculaProfesionalRequest $request,
         MatriculaProfesionalKinesiologia $matricula
     ): RedirectResponse {
-        $kinesiologa = $this->obtenerKinesiologaAutenticada();
-
-        /*
-        * Se conserva temporalmente esta comprobación como defensa
-        * adicional hasta incorporar la Policy del Incremento 10.
-        */
-        abort_unless(
-            $matricula->kinesiologa_id === $kinesiologa->id,
-            403
-        );
+        Gate::authorize('update', $matricula);
 
         $data = $request->validated();
 
         $matricula->update([
             'nro_matricula_profesional' =>
             $data['nro_matricula_profesional'],
-
-            'jurisdiccion_id' =>
-            $data['jurisdiccion_id'],
-
-            'colegio_emisor_id' =>
-            $data['colegio_emisor_id'],
+            'jurisdiccion_id' => $data['jurisdiccion_id'],
+            'colegio_emisor_id' => $data['colegio_emisor_id'],
         ]);
 
         return redirect()
@@ -138,11 +136,12 @@ class MisMatriculasProfesionalesController extends Controller
             );
     }
 
-    public function toggleActiva(MatriculaProfesionalKinesiologia $matricula): RedirectResponse
-    {
-        $kinesiologa = $this->obtenerKinesiologaAutenticada();
+    public function toggleActiva(
+        MatriculaProfesionalKinesiologia $matricula
+    ): RedirectResponse {
+        Gate::authorize('toggleActiva', $matricula);
 
-        abort_unless($matricula->kinesiologa_id === $kinesiologa->id, 403);
+        $kinesiologa = $this->obtenerKinesiologaAutenticada();
 
         if ($matricula->activa) {
             $cantidadActivas = $kinesiologa->matriculasProfesionales()
@@ -152,7 +151,10 @@ class MisMatriculasProfesionalesController extends Controller
             if ($cantidadActivas <= 1) {
                 return redirect()
                     ->route('perfil.kinesiologa.matriculas.index')
-                    ->with('warning', 'No puede inactivar su última matrícula activa.');
+                    ->with(
+                        'warning',
+                        'No puede inactivar su última matrícula activa.'
+                    );
             }
         }
 
@@ -174,9 +176,7 @@ class MisMatriculasProfesionalesController extends Controller
         /** @var User $user */
         $user = Auth::user();
 
-        abort_unless($user && $user->hasRole(RoleEnum::KINESIOLOGO->value), 403);
-
-        $kinesiologa = $user->kinesiologa;
+        $kinesiologa = $user?->kinesiologa;
 
         abort_unless($kinesiologa, 403);
 
