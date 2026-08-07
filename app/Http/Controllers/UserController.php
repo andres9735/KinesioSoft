@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Usuarios\CrearUsuarioAction;
 use App\Enums\RoleEnum;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
@@ -13,12 +14,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\View\View;
 
 class UserController extends Controller
 {
     public function __construct(
+        private readonly CrearUsuarioAction $crearUsuarioAction,
         private readonly GeneradorNumeroHistoriaClinica $generadorNumeroHistoriaClinica
     ) {}
 
@@ -91,30 +92,10 @@ class UserController extends Controller
 
         $data = $request->validated();
 
-        DB::transaction(function () use ($data): void {
-            $user = User::create([
-                'name' => $data['name'],
-                'apellido' => $data['apellido'],
-                'email' => $data['email'],
-                'password' => Hash::make($data['password']),
-                'activo' => true,
-            ]);
-
-            $user->assignRole($data['rol']);
-
-            if ($data['rol'] === RoleEnum::PACIENTE->value) {
-                $paciente = Paciente::create([
-                    'user_id' => $user->id,
-                    'nro_historia_clinica' => 'TEMP',
-                    'observaciones' => null,
-                ]);
-
-                $paciente->update([
-                    'nro_historia_clinica' =>
-                    $this->generadorNumeroHistoriaClinica->generar($paciente),
-                ]);
-            }
-        });
+        $this->crearUsuarioAction->ejecutar(
+            $data,
+            RoleEnum::from($data['rol'])
+        );
 
         return redirect()
             ->route('usuarios.index')

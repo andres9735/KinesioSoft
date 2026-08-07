@@ -2,17 +2,14 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Actions\Usuarios\CrearUsuarioAction;
 use App\Enums\RoleEnum;
 use App\Http\Controllers\Controller;
-use App\Models\Paciente;
 use App\Models\User;
-use App\Services\GeneradorNumeroHistoriaClinica;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -20,7 +17,7 @@ use Illuminate\View\View;
 class RegisteredUserController extends Controller
 {
     public function __construct(
-        private readonly GeneradorNumeroHistoriaClinica $generadorNumeroHistoriaClinica
+        private readonly CrearUsuarioAction $crearUsuarioAction
     ) {}
 
     /**
@@ -38,7 +35,7 @@ class RegisteredUserController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $request->validate([
+        $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'apellido' => ['required', 'string', 'max:255'],
             'email' => [
@@ -56,30 +53,10 @@ class RegisteredUserController extends Controller
             ],
         ]);
 
-        $user = DB::transaction(function () use ($request) {
-            $user = User::create([
-                'name' => $request->name,
-                'apellido' => $request->apellido,
-                'email' => $request->email,
-                'password' => Hash::make($request->password),
-                'activo' => true,
-            ]);
-
-            $user->assignRole(RoleEnum::PACIENTE->value);
-
-            $paciente = Paciente::create([
-                'user_id' => $user->id,
-                'nro_historia_clinica' => 'TEMP',
-                'observaciones' => null,
-            ]);
-
-            $paciente->update([
-                'nro_historia_clinica' =>
-                $this->generadorNumeroHistoriaClinica->generar($paciente),
-            ]);
-
-            return $user;
-        });
+        $user = $this->crearUsuarioAction->ejecutar(
+            $data,
+            RoleEnum::PACIENTE
+        );
 
         event(new Registered($user));
 
