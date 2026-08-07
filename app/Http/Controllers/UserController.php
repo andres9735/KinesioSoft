@@ -11,6 +11,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\View\View;
 
@@ -18,16 +19,7 @@ class UserController extends Controller
 {
     public function index(Request $request): View
     {
-        /** @var User $usuarioAutenticado */
-        $usuarioAutenticado = Auth::user();
-
-        abort_unless(
-            $usuarioAutenticado->hasAnyRole([
-                RoleEnum::ADMINISTRADOR->value,
-                RoleEnum::SUPERADMIN->value,
-            ]),
-            403
-        );
+        Gate::authorize('viewAny', User::class);
 
         $usuarios = User::query()
             ->with(['roles', 'paciente', 'kinesiologa'])
@@ -68,16 +60,10 @@ class UserController extends Controller
 
     public function create(): View
     {
+        Gate::authorize('create', User::class);
+
         /** @var User $usuarioAutenticado */
         $usuarioAutenticado = Auth::user();
-
-        abort_unless(
-            $usuarioAutenticado->hasAnyRole([
-                RoleEnum::ADMINISTRADOR->value,
-                RoleEnum::SUPERADMIN->value,
-            ]),
-            403
-        );
 
         $rolesDisponibles = $usuarioAutenticado->esSuperadmin()
             ? [
@@ -96,16 +82,7 @@ class UserController extends Controller
     public function store(
         StoreUserRequest $request
     ): RedirectResponse {
-        /** @var User $usuarioAutenticado */
-        $usuarioAutenticado = Auth::user();
-
-        abort_unless(
-            $usuarioAutenticado->hasAnyRole([
-                RoleEnum::ADMINISTRADOR->value,
-                RoleEnum::SUPERADMIN->value,
-            ]),
-            403
-        );
+        Gate::authorize('create', User::class);
 
         $data = $request->validated();
 
