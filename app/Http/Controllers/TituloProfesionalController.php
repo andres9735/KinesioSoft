@@ -2,17 +2,20 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\TituloProfesional;
 use App\Http\Requests\StoreTituloProfesionalRequest;
 use App\Http\Requests\UpdateTituloProfesionalRequest;
+use App\Models\TituloProfesional;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
-use Illuminate\Http\RedirectResponse;
 
 class TituloProfesionalController extends Controller
 {
     public function index(): View
     {
+        Gate::authorize('viewAny', TituloProfesional::class);
+
         $titulos = TituloProfesional::orderBy('nombre')->paginate(10);
 
         return view('catalogos.titulos.index', compact('titulos'));
@@ -20,12 +23,16 @@ class TituloProfesionalController extends Controller
 
     public function create(): View
     {
+        Gate::authorize('create', TituloProfesional::class);
+
         return view('catalogos.titulos.create');
     }
 
     public function store(
         StoreTituloProfesionalRequest $request
     ): RedirectResponse {
+        Gate::authorize('create', TituloProfesional::class);
+
         $data = $request->validated();
 
         $nombre = $data['nombre'];
@@ -47,6 +54,8 @@ class TituloProfesionalController extends Controller
 
     public function edit(TituloProfesional $titulo): View
     {
+        Gate::authorize('update', $titulo);
+
         return view('catalogos.titulos.edit', compact('titulo'));
     }
 
@@ -54,6 +63,8 @@ class TituloProfesionalController extends Controller
         UpdateTituloProfesionalRequest $request,
         TituloProfesional $titulo
     ): RedirectResponse {
+        Gate::authorize('update', $titulo);
+
         $data = $request->validated();
 
         $nombre = $data['nombre'];
@@ -72,8 +83,11 @@ class TituloProfesionalController extends Controller
             );
     }
 
-    public function toggleActivo(TituloProfesional $titulo): RedirectResponse
-    {
+    public function toggleActivo(
+        TituloProfesional $titulo
+    ): RedirectResponse {
+        Gate::authorize('toggleActivo', $titulo);
+
         $titulo->update([
             'activo' => ! $titulo->activo,
         ]);
