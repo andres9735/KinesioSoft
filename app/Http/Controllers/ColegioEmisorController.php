@@ -2,38 +2,51 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ColegioEmisor;
-use App\Models\Jurisdiccion;
 use App\Http\Requests\StoreColegioEmisorRequest;
 use App\Http\Requests\UpdateColegioEmisorRequest;
+use App\Models\ColegioEmisor;
+use App\Models\Jurisdiccion;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
 class ColegioEmisorController extends Controller
 {
     public function index(): View
     {
+        Gate::authorize('viewAny', ColegioEmisor::class);
+
         $colegios = ColegioEmisor::query()
             ->with('jurisdiccion')
             ->orderBy('nombre')
             ->paginate(10);
 
-        return view('catalogos.colegios-emisores.index', compact('colegios'));
+        return view(
+            'catalogos.colegios-emisores.index',
+            compact('colegios')
+        );
     }
 
     public function create(): View
     {
+        Gate::authorize('create', ColegioEmisor::class);
+
         $jurisdicciones = Jurisdiccion::query()
             ->where('activo', true)
             ->orderBy('nombre')
             ->get();
 
-        return view('catalogos.colegios-emisores.create', compact('jurisdicciones'));
+        return view(
+            'catalogos.colegios-emisores.create',
+            compact('jurisdicciones')
+        );
     }
 
     public function store(
         StoreColegioEmisorRequest $request
     ): RedirectResponse {
+        Gate::authorize('create', ColegioEmisor::class);
+
         $data = $request->validated();
 
         $nombre = preg_replace(
@@ -67,6 +80,8 @@ class ColegioEmisorController extends Controller
 
     public function edit(ColegioEmisor $colegio): View
     {
+        Gate::authorize('update', $colegio);
+
         $jurisdicciones = Jurisdiccion::query()
             ->where(function ($query) use ($colegio) {
                 $query->where('activo', true)
@@ -75,13 +90,18 @@ class ColegioEmisorController extends Controller
             ->orderBy('nombre')
             ->get();
 
-        return view('catalogos.colegios-emisores.edit', compact('colegio', 'jurisdicciones'));
+        return view(
+            'catalogos.colegios-emisores.edit',
+            compact('colegio', 'jurisdicciones')
+        );
     }
 
     public function update(
         UpdateColegioEmisorRequest $request,
         ColegioEmisor $colegio
     ): RedirectResponse {
+        Gate::authorize('update', $colegio);
+
         $data = $request->validated();
 
         $nombre = preg_replace(
@@ -112,8 +132,11 @@ class ColegioEmisorController extends Controller
             );
     }
 
-    public function toggleActivo(ColegioEmisor $colegio): RedirectResponse
-    {
+    public function toggleActivo(
+        ColegioEmisor $colegio
+    ): RedirectResponse {
+        Gate::authorize('toggleActivo', $colegio);
+
         $colegio->update([
             'activo' => ! $colegio->activo,
         ]);
