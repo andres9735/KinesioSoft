@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\RoleEnum;
 use App\Http\Requests\StoreUserRequest;
+use App\Http\Requests\UpdateUserRequest;
 use App\Models\Paciente;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -11,7 +12,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class UserController extends Controller
@@ -186,8 +186,10 @@ class UserController extends Controller
         return view('usuarios.edit', compact('user', 'rolesDisponibles', 'rolActual'));
     }
 
-    public function update(Request $request, User $user): RedirectResponse
-    {
+    public function update(
+        UpdateUserRequest $request,
+        User $user
+    ): RedirectResponse {
         /** @var User $usuarioAutenticado */
         $usuarioAutenticado = Auth::user();
 
@@ -199,49 +201,44 @@ class UserController extends Controller
             403
         );
 
-        if ($usuarioAutenticado->esAdministrador() && ($user->esAdministrador() || $user->esSuperadmin())) {
+        if (
+            $usuarioAutenticado->esAdministrador()
+            && ($user->esAdministrador() || $user->esSuperadmin())
+        ) {
             abort(403);
         }
 
-        $rolesPermitidos = $usuarioAutenticado->esSuperadmin()
-            ? [
-                RoleEnum::PACIENTE->value,
-                RoleEnum::KINESIOLOGO->value,
-                RoleEnum::ADMINISTRADOR->value,
-                RoleEnum::SUPERADMIN->value,
-            ]
-            : [
-                RoleEnum::PACIENTE->value,
-                RoleEnum::KINESIOLOGO->value,
-            ];
+        $data = $request->validated();
 
-        $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'apellido' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
-            'rol' => ['required', Rule::in($rolesPermitidos)],
-        ]);
-
-        if ($user->esSuperadmin() && $request->rol !== RoleEnum::SUPERADMIN->value) {
-            abort(403, 'No se puede cambiar el rol de un superadmin desde esta pantalla.');
+        if (
+            $user->esSuperadmin()
+            && $data['rol'] !== RoleEnum::SUPERADMIN->value
+        ) {
+            abort(
+                403,
+                'No se puede cambiar el rol de un superadmin desde esta pantalla.'
+            );
         }
 
-        DB::transaction(function () use ($request, $user) {
+        DB::transaction(function () use ($data, $user): void {
             $user->load('roles');
 
             $rolAnterior = $user->roles->pluck('name')->first();
-            $rolNuevo = $request->rol;
+            $rolNuevo = $data['rol'];
 
             $user->update([
-                'name' => $request->name,
-                'apellido' => $request->apellido,
-                'email' => $request->email,
+                'name' => $data['name'],
+                'apellido' => $data['apellido'],
+                'email' => $data['email'],
             ]);
 
             if ($rolAnterior !== $rolNuevo) {
                 $user->syncRoles([$rolNuevo]);
 
-                if ($rolNuevo === RoleEnum::PACIENTE->value && ! $user->paciente) {
+                if (
+                    $rolNuevo === RoleEnum::PACIENTE->value
+                    && ! $user->paciente
+                ) {
                     $paciente = Paciente::create([
                         'user_id' => $user->id,
                         'nro_historia_clinica' => 'TEMP',
@@ -249,7 +246,13 @@ class UserController extends Controller
                     ]);
 
                     $paciente->update([
-                        'nro_historia_clinica' => 'HC-' . str_pad($paciente->id, 6, '0', STR_PAD_LEFT),
+                        'nro_historia_clinica' =>
+                        'HC-' . str_pad(
+                            $paciente->id,
+                            6,
+                            '0',
+                            STR_PAD_LEFT
+                        ),
                     ]);
                 }
             }

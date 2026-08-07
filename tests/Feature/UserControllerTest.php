@@ -495,6 +495,169 @@ class UserControllerTest extends TestCase
         ]);
     }
 
+    public function test_update_allows_same_email_for_same_user(): void
+    {
+        $admin = $this->admin();
+        $user = $this->paciente();
+
+        $response = $this
+            ->actingAs($admin)
+            ->put(route('usuarios.update', $user), [
+                'name' => $user->name,
+                'apellido' => $user->apellido,
+                'email' => $user->email,
+                'rol' => RoleEnum::PACIENTE->value,
+            ]);
+
+        $response->assertRedirect(route('usuarios.index'));
+        $response->assertSessionHasNoErrors();
+    }
+
+    public function test_update_requires_name(): void
+    {
+        $admin = $this->admin();
+        $user = $this->paciente();
+
+        $response = $this
+            ->from(route('usuarios.edit', $user))
+            ->actingAs($admin)
+            ->put(route('usuarios.update', $user), [
+                'name' => '',
+                'apellido' => $user->apellido,
+                'email' => $user->email,
+                'rol' => RoleEnum::PACIENTE->value,
+            ]);
+
+        $response->assertRedirect(route('usuarios.edit', $user));
+        $response->assertSessionHasErrors('name');
+    }
+
+    public function test_update_requires_apellido(): void
+    {
+        $admin = $this->admin();
+        $user = $this->paciente();
+
+        $response = $this
+            ->from(route('usuarios.edit', $user))
+            ->actingAs($admin)
+            ->put(route('usuarios.update', $user), [
+                'name' => $user->name,
+                'apellido' => '',
+                'email' => $user->email,
+                'rol' => RoleEnum::PACIENTE->value,
+            ]);
+
+        $response->assertRedirect(route('usuarios.edit', $user));
+        $response->assertSessionHasErrors('apellido');
+    }
+
+    public function test_update_requires_email(): void
+    {
+        $admin = $this->admin();
+        $user = $this->paciente();
+
+        $response = $this
+            ->from(route('usuarios.edit', $user))
+            ->actingAs($admin)
+            ->put(route('usuarios.update', $user), [
+                'name' => $user->name,
+                'apellido' => $user->apellido,
+                'email' => '',
+                'rol' => RoleEnum::PACIENTE->value,
+            ]);
+
+        $response->assertRedirect(route('usuarios.edit', $user));
+        $response->assertSessionHasErrors('email');
+    }
+
+    public function test_update_rejects_invalid_email(): void
+    {
+        $admin = $this->admin();
+        $user = $this->paciente();
+
+        $response = $this
+            ->from(route('usuarios.edit', $user))
+            ->actingAs($admin)
+            ->put(route('usuarios.update', $user), [
+                'name' => $user->name,
+                'apellido' => $user->apellido,
+                'email' => 'correo-no-valido',
+                'rol' => RoleEnum::PACIENTE->value,
+            ]);
+
+        $response->assertRedirect(route('usuarios.edit', $user));
+        $response->assertSessionHasErrors('email');
+    }
+
+    public function test_update_requires_rol(): void
+    {
+        $admin = $this->admin();
+        $user = $this->paciente();
+
+        $response = $this
+            ->from(route('usuarios.edit', $user))
+            ->actingAs($admin)
+            ->put(route('usuarios.update', $user), [
+                'name' => $user->name,
+                'apellido' => $user->apellido,
+                'email' => $user->email,
+                'rol' => '',
+            ]);
+
+        $response->assertRedirect(route('usuarios.edit', $user));
+        $response->assertSessionHasErrors('rol');
+    }
+
+    public function test_admin_cannot_assign_admin_role_to_regular_user(): void
+    {
+        $admin = $this->admin();
+        $user = $this->paciente();
+
+        $response = $this
+            ->from(route('usuarios.edit', $user))
+            ->actingAs($admin)
+            ->put(route('usuarios.update', $user), [
+                'name' => $user->name,
+                'apellido' => $user->apellido,
+                'email' => $user->email,
+                'rol' => RoleEnum::ADMINISTRADOR->value,
+            ]);
+
+        $response->assertRedirect(route('usuarios.edit', $user));
+        $response->assertSessionHasErrors('rol');
+
+        $this->assertTrue(
+            $user->fresh()->hasRole(RoleEnum::PACIENTE->value)
+        );
+    }
+
+    public function test_superadmin_can_keep_superadmin_role_when_updating_own_data(): void
+    {
+        $superadmin = $this->superadmin();
+
+        $response = $this
+            ->actingAs($superadmin)
+            ->put(route('usuarios.update', $superadmin), [
+                'name' => 'Super actualizado',
+                'apellido' => $superadmin->apellido,
+                'email' => $superadmin->email,
+                'rol' => RoleEnum::SUPERADMIN->value,
+            ]);
+
+        $response->assertRedirect(route('usuarios.index'));
+        $response->assertSessionHasNoErrors();
+        $response->assertSessionHas('success');
+
+        $this->assertDatabaseHas('users', [
+            'id' => $superadmin->id,
+            'name' => 'Super actualizado',
+        ]);
+
+        $this->assertTrue(
+            $superadmin->fresh()->hasRole(RoleEnum::SUPERADMIN->value)
+        );
+    }
+
     public function test_admin_can_change_role_from_kinesiologo_to_paciente_and_create_paciente_profile_if_missing(): void
     {
         $admin = $this->admin();
