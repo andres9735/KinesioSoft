@@ -2,21 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Kinesiologas\GuardarPerfilKinesiologaAction;
 use App\Http\Requests\UpdatePerfilKinesiologaRequest;
 use App\Models\ColegioEmisor;
 use App\Models\EspecialidadKinesiologia;
 use App\Models\Jurisdiccion;
-use App\Models\Kinesiologa;
-use App\Models\MatriculaProfesionalKinesiologia;
 use App\Models\TituloProfesional;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class PerfilKinesiologaController extends Controller
 {
+    public function __construct(
+        private readonly GuardarPerfilKinesiologaAction $guardarPerfilKinesiologaAction
+    ) {}
+
     /**
      * Muestra el formulario de perfil profesional.
      */
@@ -95,61 +97,16 @@ class PerfilKinesiologaController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        $kinesiologaActual = $user->kinesiologa;
-
-        $tieneMatriculas = $kinesiologaActual
+        $tieneMatriculas = $user->kinesiologa
             ?->matriculasProfesionales()
             ->exists() ?? false;
 
         $data = $request->validated();
 
-        DB::transaction(function () use (
+        $this->guardarPerfilKinesiologaAction->ejecutar(
             $user,
-            $kinesiologaActual,
-            $tieneMatriculas,
             $data
-        ) {
-            $user->update([
-                'dni' => $data['dni'],
-                'fecha_nacimiento' => $data['fecha_nacimiento'],
-                'sexo' => $data['sexo'],
-                'telefono' => $data['telefono'],
-            ]);
-
-            $kinesiologa = Kinesiologa::updateOrCreate(
-                [
-                    'user_id' => $user->id,
-                ],
-                [
-                    'titulo_profesional_id' =>
-                    $data['titulo_profesional_id'],
-
-                    'consultorio_id' =>
-                    $kinesiologaActual?->consultorio_id,
-                ]
-            );
-
-            if (! $tieneMatriculas) {
-                MatriculaProfesionalKinesiologia::create([
-                    'kinesiologa_id' => $kinesiologa->id,
-
-                    'nro_matricula_profesional' =>
-                    $data['nro_matricula_profesional'],
-
-                    'jurisdiccion_id' =>
-                    $data['jurisdiccion_id'],
-
-                    'colegio_emisor_id' =>
-                    $data['colegio_emisor_id'],
-
-                    'activa' => true,
-                ]);
-            }
-
-            $kinesiologa
-                ->especialidades()
-                ->sync($data['especialidades']);
-        });
+        );
 
         $mensaje = $tieneMatriculas
             ? 'Perfil profesional actualizado correctamente. Para administrar sus matrículas, use el módulo "Mis matrículas profesionales".'
