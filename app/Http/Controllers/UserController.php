@@ -3,15 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Actions\Usuarios\ActualizarUsuarioAction;
+use App\Actions\Usuarios\CambiarEstadoUsuarioAction;
 use App\Actions\Usuarios\CrearUsuarioAction;
 use App\Enums\RoleEnum;
+use App\Exceptions\Usuarios\NoSePuedeDesactivarUnicoSuperadminException;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
@@ -19,7 +20,8 @@ class UserController extends Controller
 {
     public function __construct(
         private readonly CrearUsuarioAction $crearUsuarioAction,
-        private readonly ActualizarUsuarioAction $actualizarUsuarioAction
+        private readonly ActualizarUsuarioAction $actualizarUsuarioAction,
+        private readonly CambiarEstadoUsuarioAction $cambiarEstadoUsuarioAction
     ) {}
 
     public function index(Request $request): View
@@ -158,49 +160,17 @@ class UserController extends Controller
     {
         Gate::authorize('toggleActivo', $user);
 
-        if ($user->esSuperadmin() && $user->activo) {
-            $cantidadSuperadminsActivos = User::query()
-                ->where('activo', true)
-                ->whereHas('roles', function ($query) {
-                    $query->where(
-                        'name',
-                        RoleEnum::SUPERADMIN->value
-                    );
-                })
-                ->count();
-
-            if ($cantidadSuperadminsActivos <= 1) {
-                return redirect()
-                    ->route('usuarios.index')
-                    ->with(
-                        'warning',
-                        'No se puede desactivar al único superadmin activo.'
-                    );
-            }
+        try {
+            $usuarioActualizado = $this
+                ->cambiarEstadoUsuarioAction
+                ->ejecutar($user);
+        } catch (NoSePuedeDesactivarUnicoSuperadminException $exception) {
+            return redirect()
+                ->route('usuarios.index')
+                ->with('warning', $exception->getMessage());
         }
 
-        DB::transaction(function () use ($user) {
-            $user->activo = ! (bool) $user->activo;
-
-            if (! $user->activo) {
-                $user->remember_token = null;
-            }
-
-            $user->save();
-
-            if (
-                ! $user->activo
-                && config('session.driver') === 'database'
-            ) {
-                $sessionTable = config('session.table') ?: 'sessions';
-
-                DB::table($sessionTable)
-                    ->where('user_id', $user->getKey())
-                    ->delete();
-            }
-        });
-
-        $mensaje = $user->activo
+        $mensaje = $usuarioActualizado->activo
             ? 'Usuario activado correctamente.'
             : 'Usuario inactivado correctamente.';
 
