@@ -2,13 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Usuarios\ActualizarUsuarioAction;
 use App\Actions\Usuarios\CrearUsuarioAction;
 use App\Enums\RoleEnum;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
-use App\Models\Paciente;
 use App\Models\User;
-use App\Services\GeneradorNumeroHistoriaClinica;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -20,7 +19,7 @@ class UserController extends Controller
 {
     public function __construct(
         private readonly CrearUsuarioAction $crearUsuarioAction,
-        private readonly GeneradorNumeroHistoriaClinica $generadorNumeroHistoriaClinica
+        private readonly ActualizarUsuarioAction $actualizarUsuarioAction
     ) {}
 
     public function index(Request $request): View
@@ -144,38 +143,11 @@ class UserController extends Controller
 
         Gate::authorize('changeRole', [$user, $data['rol']]);
 
-        DB::transaction(function () use ($data, $user): void {
-            $user->load('roles');
-
-            $rolAnterior = $user->roles->pluck('name')->first();
-            $rolNuevo = $data['rol'];
-
-            $user->update([
-                'name' => $data['name'],
-                'apellido' => $data['apellido'],
-                'email' => $data['email'],
-            ]);
-
-            if ($rolAnterior !== $rolNuevo) {
-                $user->syncRoles([$rolNuevo]);
-
-                if (
-                    $rolNuevo === RoleEnum::PACIENTE->value
-                    && ! $user->paciente
-                ) {
-                    $paciente = Paciente::create([
-                        'user_id' => $user->id,
-                        'nro_historia_clinica' => 'TEMP',
-                        'observaciones' => null,
-                    ]);
-
-                    $paciente->update([
-                        'nro_historia_clinica' =>
-                        $this->generadorNumeroHistoriaClinica->generar($paciente),
-                    ]);
-                }
-            }
-        });
+        $this->actualizarUsuarioAction->ejecutar(
+            $user,
+            $data,
+            RoleEnum::from($data['rol'])
+        );
 
         return redirect()
             ->route('usuarios.index')
