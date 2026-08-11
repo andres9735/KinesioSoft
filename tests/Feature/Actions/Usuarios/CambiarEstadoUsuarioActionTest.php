@@ -5,6 +5,7 @@ namespace Tests\Feature\Actions\Usuarios;
 use App\Actions\Usuarios\CambiarEstadoUsuarioAction;
 use App\Enums\RoleEnum;
 use App\Exceptions\Usuarios\NoSePuedeDesactivarUnicoSuperadminException;
+use App\Models\Auditoria;
 use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -23,10 +24,11 @@ class CambiarEstadoUsuarioActionTest extends TestCase
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
         Role::findOrCreate(RoleEnum::SUPERADMIN->value, 'web');
+        Role::findOrCreate(RoleEnum::ADMINISTRADOR->value, 'web');
         Role::findOrCreate(RoleEnum::PACIENTE->value, 'web');
     }
 
-    public function test_inactivates_regular_user_and_clears_remember_token(): void
+    public function test_inactivates_regular_user_clears_remember_token_and_audits_change(): void
     {
         $user = $this->paciente([
             'activo' => true,
@@ -46,9 +48,27 @@ class CambiarEstadoUsuarioActionTest extends TestCase
             'activo' => false,
             'remember_token' => null,
         ]);
+
+        $auditoria = Auditoria::query()->sole();
+
+        $this->assertSame('usuario_inactivado', $auditoria->evento);
+        $this->assertSame('Usuarios', $auditoria->modulo);
+        $this->assertSame($user->getMorphClass(), $auditoria->auditable_type);
+        $this->assertSame($user->id, $auditoria->auditable_id);
+        $this->assertNull($auditoria->actor_user_id);
+
+        $this->assertSame(
+            ['activo' => true],
+            $auditoria->valores_anteriores
+        );
+
+        $this->assertSame(
+            ['activo' => false],
+            $auditoria->valores_nuevos
+        );
     }
 
-    public function test_activates_inactive_regular_user(): void
+    public function test_activates_inactive_regular_user_and_audits_change(): void
     {
         $user = $this->paciente([
             'activo' => false,
@@ -65,9 +85,23 @@ class CambiarEstadoUsuarioActionTest extends TestCase
             'id' => $user->id,
             'activo' => true,
         ]);
+
+        $auditoria = Auditoria::query()->sole();
+
+        $this->assertSame('usuario_activado', $auditoria->evento);
+
+        $this->assertSame(
+            ['activo' => false],
+            $auditoria->valores_anteriores
+        );
+
+        $this->assertSame(
+            ['activo' => true],
+            $auditoria->valores_nuevos
+        );
     }
 
-    public function test_prevents_deactivating_only_active_superadmin(): void
+    public function test_prevents_deactivating_only_active_superadmin_without_auditing(): void
     {
         $superadmin = $this->superadmin();
 
@@ -93,9 +127,11 @@ class CambiarEstadoUsuarioActionTest extends TestCase
             'id' => $superadmin->id,
             'activo' => true,
         ]);
+
+        $this->assertDatabaseCount('auditorias', 0);
     }
 
-    public function test_allows_deactivating_superadmin_when_another_is_active(): void
+    public function test_allows_deactivating_superadmin_when_another_is_active_and_audits_change(): void
     {
         $superadminObjetivo = $this->superadmin();
         $otroSuperadmin = $this->superadmin();
@@ -118,9 +154,48 @@ class CambiarEstadoUsuarioActionTest extends TestCase
             'id' => $otroSuperadmin->id,
             'activo' => true,
         ]);
+
+        $auditoria = Auditoria::query()->sole();
+
+        $this->assertSame('usuario_inactivado', $auditoria->evento);
+        $this->assertSame(
+            $superadminObjetivo->id,
+            $auditoria->auditable_id
+        );
     }
 
-    public function test_rolls_back_state_change_when_session_revocation_fails(): void
+    public function test_uses_authenticated_administrator_as_audit_actor(): void
+    {
+        $actor = User::factory()->create([
+            'name' => 'Admin',
+            'apellido' => 'Estados',
+            'email' => 'admin.estados@example.com',
+        ]);
+
+        $actor->assignRole(RoleEnum::ADMINISTRADOR->value);
+
+        $this->actingAs($actor);
+
+        $user = $this->paciente([
+            'activo' => true,
+        ]);
+
+        app(CambiarEstadoUsuarioAction::class)
+            ->ejecutar($user);
+
+        $auditoria = Auditoria::query()->sole();
+
+        $this->assertSame($actor->id, $auditoria->actor_user_id);
+        $this->assertSame('Admin Estados', $auditoria->actor_nombre);
+        $this->assertSame(
+            'admin.estados@example.com',
+            $auditoria->actor_email
+        );
+
+        $this->assertSame($user->id, $auditoria->auditable_id);
+    }
+
+    public function test_rolls_back_state_change_and_audit_when_session_revocation_fails(): void
     {
         config([
             'session.driver' => 'database',
@@ -143,6 +218,7 @@ class CambiarEstadoUsuarioActionTest extends TestCase
             $user->refresh();
 
             $this->assertTrue($user->activo);
+
             $this->assertSame(
                 'token-que-debe-conservarse',
                 $user->remember_token
@@ -153,6 +229,8 @@ class CambiarEstadoUsuarioActionTest extends TestCase
                 'activo' => true,
                 'remember_token' => 'token-que-debe-conservarse',
             ]);
+
+            $this->assertDatabaseCount('auditorias', 0);
         }
     }
 

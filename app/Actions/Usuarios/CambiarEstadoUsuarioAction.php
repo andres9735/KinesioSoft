@@ -5,10 +5,15 @@ namespace App\Actions\Usuarios;
 use App\Enums\RoleEnum;
 use App\Exceptions\Usuarios\NoSePuedeDesactivarUnicoSuperadminException;
 use App\Models\User;
+use App\Services\AuditoriaService;
 use Illuminate\Support\Facades\DB;
 
 final class CambiarEstadoUsuarioAction
 {
+    public function __construct(
+        private readonly AuditoriaService $auditoriaService
+    ) {}
+
     public function ejecutar(User $user): User
     {
         return DB::transaction(function () use ($user): User {
@@ -41,15 +46,17 @@ final class CambiarEstadoUsuarioAction
 
             $usuario->load('roles');
 
+            $estadoAnterior = (bool) $usuario->activo;
+
             if (
                 $usuario->esSuperadmin()
-                && $usuario->activo
+                && $estadoAnterior
                 && $superadminsActivos->count() <= 1
             ) {
                 throw new NoSePuedeDesactivarUnicoSuperadminException();
             }
 
-            $usuario->activo = ! (bool) $usuario->activo;
+            $usuario->activo = ! $estadoAnterior;
 
             if (! $usuario->activo) {
                 $usuario->remember_token = null;
@@ -67,6 +74,20 @@ final class CambiarEstadoUsuarioAction
                     ->where('user_id', $usuario->getKey())
                     ->delete();
             }
+
+            $this->auditoriaService->registrar(
+                evento: $usuario->activo
+                    ? 'usuario_activado'
+                    : 'usuario_inactivado',
+                modulo: 'Usuarios',
+                auditable: $usuario,
+                valoresAnteriores: [
+                    'activo' => $estadoAnterior,
+                ],
+                valoresNuevos: [
+                    'activo' => (bool) $usuario->activo,
+                ]
+            );
 
             return $usuario;
         });
