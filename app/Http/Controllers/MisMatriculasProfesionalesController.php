@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Actions\Kinesiologas\ActualizarMatriculaProfesionalAction;
+use App\Actions\Kinesiologas\CambiarEstadoMatriculaProfesionalAction;
 use App\Actions\Kinesiologas\CrearMatriculaProfesionalAction;
+use App\Exceptions\Kinesiologas\NoSePuedeInactivarUltimaMatriculaActivaException;
 use App\Http\Requests\StoreMatriculaProfesionalRequest;
 use App\Http\Requests\UpdateMatriculaProfesionalRequest;
 use App\Models\ColegioEmisor;
@@ -20,7 +22,8 @@ class MisMatriculasProfesionalesController extends Controller
 {
     public function __construct(
         private readonly CrearMatriculaProfesionalAction $crearMatriculaProfesionalAction,
-        private readonly ActualizarMatriculaProfesionalAction $actualizarMatriculaProfesionalAction
+        private readonly ActualizarMatriculaProfesionalAction $actualizarMatriculaProfesionalAction,
+        private readonly CambiarEstadoMatriculaProfesionalAction $cambiarEstadoMatriculaProfesionalAction
     ) {}
 
     public function index(): View
@@ -142,26 +145,15 @@ class MisMatriculasProfesionalesController extends Controller
     ): RedirectResponse {
         Gate::authorize('toggleActiva', $matricula);
 
-        $kinesiologa = $this->obtenerKinesiologaAutenticada();
-
-        if ($matricula->activa) {
-            $cantidadActivas = $kinesiologa->matriculasProfesionales()
-                ->where('activa', true)
-                ->count();
-
-            if ($cantidadActivas <= 1) {
-                return redirect()
-                    ->route('perfil.kinesiologa.matriculas.index')
-                    ->with(
-                        'warning',
-                        'No puede inactivar su última matrícula activa.'
-                    );
-            }
+        try {
+            $matricula = $this
+                ->cambiarEstadoMatriculaProfesionalAction
+                ->ejecutar($matricula);
+        } catch (NoSePuedeInactivarUltimaMatriculaActivaException $e) {
+            return redirect()
+                ->route('perfil.kinesiologa.matriculas.index')
+                ->with('warning', $e->getMessage());
         }
-
-        $matricula->update([
-            'activa' => ! $matricula->activa,
-        ]);
 
         $mensaje = $matricula->activa
             ? 'Matrícula profesional activada correctamente.'
