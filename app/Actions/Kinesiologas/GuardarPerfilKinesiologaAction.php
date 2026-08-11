@@ -3,7 +3,6 @@
 namespace App\Actions\Kinesiologas;
 
 use App\Models\Kinesiologa;
-use App\Models\MatriculaProfesionalKinesiologia;
 use App\Models\User;
 use App\Services\AuditoriaService;
 use Illuminate\Support\Facades\DB;
@@ -11,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 final class GuardarPerfilKinesiologaAction
 {
     public function __construct(
+        private readonly CrearMatriculaProfesionalAction $crearMatriculaProfesionalAction,
         private readonly AuditoriaService $auditoriaService
     ) {}
 
@@ -86,14 +86,15 @@ final class GuardarPerfilKinesiologaAction
             );
 
             if (! $tieneMatriculas) {
-                MatriculaProfesionalKinesiologia::create([
-                    'kinesiologa_id' => $kinesiologa->getKey(),
-                    'nro_matricula_profesional' =>
-                    $data['nro_matricula_profesional'],
-                    'jurisdiccion_id' => $data['jurisdiccion_id'],
-                    'colegio_emisor_id' => $data['colegio_emisor_id'],
-                    'activa' => true,
-                ]);
+                $this->crearMatriculaProfesionalAction->ejecutar(
+                    $kinesiologa,
+                    [
+                        'nro_matricula_profesional' =>
+                        $data['nro_matricula_profesional'],
+                        'jurisdiccion_id' => $data['jurisdiccion_id'],
+                        'colegio_emisor_id' => $data['colegio_emisor_id'],
+                    ]
+                );
             }
 
             $kinesiologa

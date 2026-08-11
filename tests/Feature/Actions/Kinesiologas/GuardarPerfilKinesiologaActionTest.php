@@ -85,17 +85,20 @@ class GuardarPerfilKinesiologaActionTest extends TestCase
             'especialidad_id' => $catalogos['especialidad2']->id,
         ]);
 
-        $auditoria = Auditoria::query()
+        $auditoriaPerfil = Auditoria::query()
             ->where('evento', 'perfil_kinesiologa_creado')
             ->sole();
 
-        $this->assertSame('Perfiles', $auditoria->modulo);
+        $this->assertSame('Perfiles', $auditoriaPerfil->modulo);
         $this->assertSame(
             $kinesiologa->getMorphClass(),
-            $auditoria->auditable_type
+            $auditoriaPerfil->auditable_type
         );
-        $this->assertSame($kinesiologa->id, $auditoria->auditable_id);
-        $this->assertNull($auditoria->valores_anteriores);
+        $this->assertSame(
+            $kinesiologa->id,
+            $auditoriaPerfil->auditable_id
+        );
+        $this->assertNull($auditoriaPerfil->valores_anteriores);
 
         $this->assertSame(
             [
@@ -115,8 +118,41 @@ class GuardarPerfilKinesiologaActionTest extends TestCase
                     ],
                 ],
             ],
-            $auditoria->valores_nuevos
+            $auditoriaPerfil->valores_nuevos
         );
+
+        $matricula = MatriculaProfesionalKinesiologia::query()
+            ->where('kinesiologa_id', $kinesiologa->id)
+            ->sole();
+
+        $auditoriaMatricula = Auditoria::query()
+            ->where('evento', 'matricula_creada')
+            ->sole();
+
+        $this->assertSame(
+            'Matrículas profesionales',
+            $auditoriaMatricula->modulo
+        );
+        $this->assertSame(
+            $matricula->getMorphClass(),
+            $auditoriaMatricula->auditable_type
+        );
+        $this->assertSame(
+            $matricula->id,
+            $auditoriaMatricula->auditable_id
+        );
+
+        $this->assertSame(
+            [
+                'nro_matricula_profesional' => '0763',
+                'jurisdiccion_id' => $catalogos['jurisdiccion']->id,
+                'colegio_emisor_id' => $catalogos['colegio']->id,
+                'activa' => true,
+            ],
+            $auditoriaMatricula->valores_nuevos
+        );
+
+        $this->assertDatabaseCount('auditorias', 2);
     }
 
     public function test_updates_existing_profile_without_creating_another_matricula_and_audits_changes(): void
@@ -362,19 +398,25 @@ class GuardarPerfilKinesiologaActionTest extends TestCase
             ]
         );
 
-        $auditoria = Auditoria::query()
+        $auditoriaPerfil = Auditoria::query()
             ->where('evento', 'perfil_kinesiologa_creado')
             ->sole();
 
-        $this->assertSame($user->id, $auditoria->actor_user_id);
-        $this->assertSame(
-            'Laura Profesional',
-            $auditoria->actor_nombre
-        );
-        $this->assertSame(
-            'laura.profesional@example.com',
-            $auditoria->actor_email
-        );
+        $auditoriaMatricula = Auditoria::query()
+            ->where('evento', 'matricula_creada')
+            ->sole();
+
+        foreach ([$auditoriaPerfil, $auditoriaMatricula] as $auditoria) {
+            $this->assertSame($user->id, $auditoria->actor_user_id);
+            $this->assertSame(
+                'Laura Profesional',
+                $auditoria->actor_nombre
+            );
+            $this->assertSame(
+                'laura.profesional@example.com',
+                $auditoria->actor_email
+            );
+        }
     }
 
     public function test_rolls_back_user_update_and_audit_when_professional_profile_persistence_fails(): void
