@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Kinesiologas\ActualizarMatriculaProfesionalAction;
 use App\Actions\Kinesiologas\CrearMatriculaProfesionalAction;
 use App\Http\Requests\StoreMatriculaProfesionalRequest;
 use App\Http\Requests\UpdateMatriculaProfesionalRequest;
@@ -18,7 +19,8 @@ use Illuminate\View\View;
 class MisMatriculasProfesionalesController extends Controller
 {
     public function __construct(
-        private readonly CrearMatriculaProfesionalAction $crearMatriculaProfesionalAction
+        private readonly CrearMatriculaProfesionalAction $crearMatriculaProfesionalAction,
+        private readonly ActualizarMatriculaProfesionalAction $actualizarMatriculaProfesionalAction
     ) {}
 
     public function index(): View
@@ -122,12 +124,10 @@ class MisMatriculasProfesionalesController extends Controller
 
         $data = $request->validated();
 
-        $matricula->update([
-            'nro_matricula_profesional' =>
-            $data['nro_matricula_profesional'],
-            'jurisdiccion_id' => $data['jurisdiccion_id'],
-            'colegio_emisor_id' => $data['colegio_emisor_id'],
-        ]);
+        $this->actualizarMatriculaProfesionalAction->ejecutar(
+            $matricula,
+            $data
+        );
 
         return redirect()
             ->route('perfil.kinesiologa.matriculas.index')
