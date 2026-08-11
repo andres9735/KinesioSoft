@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Pacientes\GuardarPerfilPacienteAction;
 use App\Http\Requests\UpdatePerfilPacienteRequest;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -9,6 +10,10 @@ use Illuminate\View\View;
 
 class PerfilPacienteController extends Controller
 {
+    public function __construct(
+        private readonly GuardarPerfilPacienteAction $guardarPerfilPacienteAction
+    ) {}
+
     /**
      * Muestra el formulario de completado de perfil.
      */
@@ -28,12 +33,10 @@ class PerfilPacienteController extends Controller
 
         $data = $request->validated();
 
-        $user->update([
-            'dni' => $data['dni'],
-            'fecha_nacimiento' => $data['fecha_nacimiento'],
-            'sexo' => $data['sexo'],
-            'telefono' => $data['telefono'],
-        ]);
+        $this->guardarPerfilPacienteAction->ejecutar(
+            $user,
+            $data
+        );
 
         return redirect()
             ->route('dashboard')
