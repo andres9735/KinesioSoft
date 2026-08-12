@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\Catalogos\ActualizarColegioEmisorAction;
+use App\Actions\Catalogos\CambiarEstadoColegioEmisorAction;
 use App\Actions\Catalogos\CrearColegioEmisorAction;
 use App\Http\Requests\StoreColegioEmisorRequest;
 use App\Http\Requests\UpdateColegioEmisorRequest;
@@ -16,7 +17,8 @@ class ColegioEmisorController extends Controller
 {
     public function __construct(
         private readonly CrearColegioEmisorAction $crearColegioEmisorAction,
-        private readonly ActualizarColegioEmisorAction $actualizarColegioEmisorAction
+        private readonly ActualizarColegioEmisorAction $actualizarColegioEmisorAction,
+        private readonly CambiarEstadoColegioEmisorAction $cambiarEstadoColegioEmisorAction
     ) {}
 
     public function index(): View
@@ -110,11 +112,12 @@ class ColegioEmisorController extends Controller
     ): RedirectResponse {
         Gate::authorize('toggleActivo', $colegio);
 
-        $colegio->update([
-            'activo' => ! $colegio->activo,
-        ]);
+        $colegioActualizado =
+            $this->cambiarEstadoColegioEmisorAction->ejecutar(
+                $colegio
+            );
 
-        $mensaje = $colegio->activo
+        $mensaje = $colegioActualizado->activo
             ? 'Colegio emisor activado correctamente.'
             : 'Colegio emisor inactivado correctamente.';
 
