@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Catalogos\CrearColegioEmisorAction;
 use App\Http\Requests\StoreColegioEmisorRequest;
 use App\Http\Requests\UpdateColegioEmisorRequest;
 use App\Models\ColegioEmisor;
@@ -12,6 +13,10 @@ use Illuminate\View\View;
 
 class ColegioEmisorController extends Controller
 {
+    public function __construct(
+        private readonly CrearColegioEmisorAction $crearColegioEmisorAction
+    ) {}
+
     public function index(): View
     {
         Gate::authorize('viewAny', ColegioEmisor::class);
@@ -49,26 +54,7 @@ class ColegioEmisorController extends Controller
 
         $data = $request->validated();
 
-        $nombre = preg_replace(
-            '/\s+/',
-            ' ',
-            trim($data['nombre'])
-        );
-
-        $sigla = mb_strtoupper(
-            preg_replace(
-                '/\s+/',
-                ' ',
-                trim($data['sigla'])
-            )
-        );
-
-        ColegioEmisor::create([
-            'nombre' => $nombre,
-            'sigla' => $sigla,
-            'jurisdiccion_id' => $data['jurisdiccion_id'],
-            'activo' => true,
-        ]);
+        $this->crearColegioEmisorAction->ejecutar($data);
 
         return redirect()
             ->route('catalogos.colegios.index')
