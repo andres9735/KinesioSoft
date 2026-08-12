@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Catalogos\CrearJurisdiccionAction;
 use App\Http\Requests\StoreJurisdiccionRequest;
 use App\Http\Requests\UpdateJurisdiccionRequest;
 use App\Models\Jurisdiccion;
@@ -12,6 +13,10 @@ use Illuminate\View\View;
 
 class JurisdiccionController extends Controller
 {
+    public function __construct(
+        private readonly CrearJurisdiccionAction $crearJurisdiccionAction
+    ) {}
+
     public function index(): View
     {
         Gate::authorize('viewAny', Jurisdiccion::class);
@@ -40,14 +45,7 @@ class JurisdiccionController extends Controller
 
         $data = $request->validated();
 
-        $nombre = $data['nombre'];
-        $slug = Str::slug($nombre);
-
-        Jurisdiccion::create([
-            'nombre' => $nombre,
-            'slug' => $slug,
-            'activo' => true,
-        ]);
+        $this->crearJurisdiccionAction->ejecutar($data);
 
         return redirect()
             ->route('catalogos.jurisdicciones.index')
