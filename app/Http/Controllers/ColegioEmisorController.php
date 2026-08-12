@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Catalogos\ActualizarColegioEmisorAction;
 use App\Actions\Catalogos\CrearColegioEmisorAction;
 use App\Http\Requests\StoreColegioEmisorRequest;
 use App\Http\Requests\UpdateColegioEmisorRequest;
@@ -14,7 +15,8 @@ use Illuminate\View\View;
 class ColegioEmisorController extends Controller
 {
     public function __construct(
-        private readonly CrearColegioEmisorAction $crearColegioEmisorAction
+        private readonly CrearColegioEmisorAction $crearColegioEmisorAction,
+        private readonly ActualizarColegioEmisorAction $actualizarColegioEmisorAction
     ) {}
 
     public function index(): View
@@ -90,25 +92,10 @@ class ColegioEmisorController extends Controller
 
         $data = $request->validated();
 
-        $nombre = preg_replace(
-            '/\s+/',
-            ' ',
-            trim($data['nombre'])
+        $this->actualizarColegioEmisorAction->ejecutar(
+            $colegio,
+            $data
         );
-
-        $sigla = mb_strtoupper(
-            preg_replace(
-                '/\s+/',
-                ' ',
-                trim($data['sigla'])
-            )
-        );
-
-        $colegio->update([
-            'nombre' => $nombre,
-            'sigla' => $sigla,
-            'jurisdiccion_id' => $data['jurisdiccion_id'],
-        ]);
 
         return redirect()
             ->route('catalogos.colegios.index')
