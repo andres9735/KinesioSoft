@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\Catalogos\ActualizarTituloProfesionalAction;
+use App\Actions\Catalogos\CambiarEstadoTituloProfesionalAction;
 use App\Actions\Catalogos\CrearTituloProfesionalAction;
 use App\Http\Requests\StoreTituloProfesionalRequest;
 use App\Http\Requests\UpdateTituloProfesionalRequest;
@@ -15,7 +16,8 @@ class TituloProfesionalController extends Controller
 {
     public function __construct(
         private readonly CrearTituloProfesionalAction $crearTituloProfesionalAction,
-        private readonly ActualizarTituloProfesionalAction $actualizarTituloProfesionalAction
+        private readonly ActualizarTituloProfesionalAction $actualizarTituloProfesionalAction,
+        private readonly CambiarEstadoTituloProfesionalAction $cambiarEstadoTituloProfesionalAction
     ) {}
 
     public function index(): View
@@ -84,9 +86,9 @@ class TituloProfesionalController extends Controller
     ): RedirectResponse {
         Gate::authorize('toggleActivo', $titulo);
 
-        $titulo->update([
-            'activo' => ! $titulo->activo,
-        ]);
+        $this->cambiarEstadoTituloProfesionalAction->ejecutar(
+            $titulo
+        );
 
         return redirect()
             ->route('catalogos.titulos.index')
