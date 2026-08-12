@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Catalogos\CrearTituloProfesionalAction;
 use App\Http\Requests\StoreTituloProfesionalRequest;
 use App\Http\Requests\UpdateTituloProfesionalRequest;
 use App\Models\TituloProfesional;
@@ -12,6 +13,10 @@ use Illuminate\View\View;
 
 class TituloProfesionalController extends Controller
 {
+    public function __construct(
+        private readonly CrearTituloProfesionalAction $crearTituloProfesionalAction
+    ) {}
+
     public function index(): View
     {
         Gate::authorize('viewAny', TituloProfesional::class);
@@ -35,14 +40,7 @@ class TituloProfesionalController extends Controller
 
         $data = $request->validated();
 
-        $nombre = $data['nombre'];
-        $slug = Str::slug($nombre);
-
-        TituloProfesional::create([
-            'nombre' => $nombre,
-            'slug' => $slug,
-            'activo' => true,
-        ]);
+        $this->crearTituloProfesionalAction->ejecutar($data);
 
         return redirect()
             ->route('catalogos.titulos.index')
