@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\Catalogos\ActualizarJurisdiccionAction;
+use App\Actions\Catalogos\CambiarEstadoJurisdiccionAction;
 use App\Actions\Catalogos\CrearJurisdiccionAction;
 use App\Http\Requests\StoreJurisdiccionRequest;
 use App\Http\Requests\UpdateJurisdiccionRequest;
@@ -15,7 +16,8 @@ class JurisdiccionController extends Controller
 {
     public function __construct(
         private readonly CrearJurisdiccionAction $crearJurisdiccionAction,
-        private readonly ActualizarJurisdiccionAction $actualizarJurisdiccionAction
+        private readonly ActualizarJurisdiccionAction $actualizarJurisdiccionAction,
+        private readonly CambiarEstadoJurisdiccionAction $cambiarEstadoJurisdiccionAction
     ) {}
 
     public function index(): View
@@ -92,11 +94,12 @@ class JurisdiccionController extends Controller
     ): RedirectResponse {
         Gate::authorize('toggleActivo', $jurisdiccion);
 
-        $jurisdiccion->update([
-            'activo' => ! $jurisdiccion->activo,
-        ]);
+        $jurisdiccionActualizada =
+            $this->cambiarEstadoJurisdiccionAction->ejecutar(
+                $jurisdiccion
+            );
 
-        $mensaje = $jurisdiccion->activo
+        $mensaje = $jurisdiccionActualizada->activo
             ? 'Jurisdicción activada correctamente.'
             : 'Jurisdicción inactivada correctamente.';
 
