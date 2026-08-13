@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\Catalogos\ActualizarEspecialidadKinesiologiaAction;
+use App\Actions\Catalogos\CambiarEstadoEspecialidadKinesiologiaAction;
 use App\Actions\Catalogos\CrearEspecialidadKinesiologiaAction;
 use App\Http\Requests\StoreEspecialidadKinesiologiaRequest;
 use App\Http\Requests\UpdateEspecialidadKinesiologiaRequest;
@@ -15,7 +16,8 @@ class EspecialidadKinesiologiaController extends Controller
 {
     public function __construct(
         private readonly CrearEspecialidadKinesiologiaAction $crearEspecialidadKinesiologiaAction,
-        private readonly ActualizarEspecialidadKinesiologiaAction $actualizarEspecialidadKinesiologiaAction
+        private readonly ActualizarEspecialidadKinesiologiaAction $actualizarEspecialidadKinesiologiaAction,
+        private readonly CambiarEstadoEspecialidadKinesiologiaAction $cambiarEstadoEspecialidadKinesiologiaAction
     ) {}
 
     public function index(): View
@@ -93,11 +95,12 @@ class EspecialidadKinesiologiaController extends Controller
     ): RedirectResponse {
         Gate::authorize('toggleActivo', $especialidad);
 
-        $especialidad->update([
-            'activo' => ! $especialidad->activo,
-        ]);
+        $especialidadActualizada =
+            $this->cambiarEstadoEspecialidadKinesiologiaAction->ejecutar(
+                $especialidad
+            );
 
-        $mensaje = $especialidad->activo
+        $mensaje = $especialidadActualizada->activo
             ? 'Especialidad de kinesiología activada correctamente.'
             : 'Especialidad de kinesiología inactivada correctamente.';
 
