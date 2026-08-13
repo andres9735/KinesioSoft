@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Catalogos\CrearEspecialidadKinesiologiaAction;
 use App\Http\Requests\StoreEspecialidadKinesiologiaRequest;
 use App\Http\Requests\UpdateEspecialidadKinesiologiaRequest;
 use App\Models\EspecialidadKinesiologia;
@@ -12,6 +13,10 @@ use Illuminate\View\View;
 
 class EspecialidadKinesiologiaController extends Controller
 {
+    public function __construct(
+        private readonly CrearEspecialidadKinesiologiaAction $crearEspecialidadKinesiologiaAction
+    ) {}
+
     public function index(): View
     {
         Gate::authorize('viewAny', EspecialidadKinesiologia::class);
@@ -40,17 +45,7 @@ class EspecialidadKinesiologiaController extends Controller
 
         $data = $request->validated();
 
-        $nombre = preg_replace(
-            '/\s+/',
-            ' ',
-            trim($data['nombre'])
-        );
-
-        EspecialidadKinesiologia::create([
-            'nombre' => $nombre,
-            'slug' => Str::slug($nombre),
-            'activo' => true,
-        ]);
+        $this->crearEspecialidadKinesiologiaAction->ejecutar($data);
 
         return redirect()
             ->route('catalogos.especialidades.index')
