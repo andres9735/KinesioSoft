@@ -2,19 +2,20 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Catalogos\ActualizarEspecialidadKinesiologiaAction;
 use App\Actions\Catalogos\CrearEspecialidadKinesiologiaAction;
 use App\Http\Requests\StoreEspecialidadKinesiologiaRequest;
 use App\Http\Requests\UpdateEspecialidadKinesiologiaRequest;
 use App\Models\EspecialidadKinesiologia;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class EspecialidadKinesiologiaController extends Controller
 {
     public function __construct(
-        private readonly CrearEspecialidadKinesiologiaAction $crearEspecialidadKinesiologiaAction
+        private readonly CrearEspecialidadKinesiologiaAction $crearEspecialidadKinesiologiaAction,
+        private readonly ActualizarEspecialidadKinesiologiaAction $actualizarEspecialidadKinesiologiaAction
     ) {}
 
     public function index(): View
@@ -74,16 +75,10 @@ class EspecialidadKinesiologiaController extends Controller
 
         $data = $request->validated();
 
-        $nombre = preg_replace(
-            '/\s+/',
-            ' ',
-            trim($data['nombre'])
+        $this->actualizarEspecialidadKinesiologiaAction->ejecutar(
+            $especialidad,
+            $data
         );
-
-        $especialidad->update([
-            'nombre' => $nombre,
-            'slug' => Str::slug($nombre),
-        ]);
 
         return redirect()
             ->route('catalogos.especialidades.index')
