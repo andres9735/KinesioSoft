@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Usuarios\ActualizarCuentaPropiaAction;
 use App\Http\Requests\ProfileUpdateRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -10,6 +11,10 @@ use Illuminate\View\View;
 
 class ProfileController extends Controller
 {
+    public function __construct(
+        private readonly ActualizarCuentaPropiaAction $actualizarCuentaPropiaAction
+    ) {}
+
     /**
      * Display the user's profile form.
      */
@@ -23,15 +28,13 @@ class ProfileController extends Controller
     /**
      * Update the user's profile information.
      */
-    public function update(ProfileUpdateRequest $request): RedirectResponse
-    {
-        $request->user()->fill($request->validated());
-
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
-        }
-
-        $request->user()->save();
+    public function update(
+        ProfileUpdateRequest $request
+    ): RedirectResponse {
+        $this->actualizarCuentaPropiaAction->ejecutar(
+            $request->user(),
+            $request->validated()
+        );
 
         return Redirect::route('profile.edit')
             ->with('status', 'profile-updated');
