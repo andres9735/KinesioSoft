@@ -10,7 +10,8 @@ final class ListarAuditoriasAction
 {
     /**
      * @param  array{
-     *     fecha?: string|null,
+     *     fecha_desde?: string|null,
+     *     fecha_hasta?: string|null,
      *     modulo?: string|null,
      *     evento?: string|null,
      *     actor?: string|null
@@ -20,23 +21,56 @@ final class ListarAuditoriasAction
         array $filtros = [],
         int $pagina = 1
     ): LengthAwarePaginator {
-        $fecha = $this->normalizarFiltro($filtros['fecha'] ?? null);
-        $modulo = $this->normalizarFiltro($filtros['modulo'] ?? null);
-        $evento = $this->normalizarFiltro($filtros['evento'] ?? null);
-        $actor = $this->normalizarFiltro($filtros['actor'] ?? null);
+        $fechaDesde = $this->normalizarFiltro(
+            $filtros['fecha_desde'] ?? null
+        );
+
+        $fechaHasta = $this->normalizarFiltro(
+            $filtros['fecha_hasta'] ?? null
+        );
+
+        $modulo = $this->normalizarFiltro(
+            $filtros['modulo'] ?? null
+        );
+
+        $evento = $this->normalizarFiltro(
+            $filtros['evento'] ?? null
+        );
+
+        $actor = $this->normalizarFiltro(
+            $filtros['actor'] ?? null
+        );
 
         $query = Auditoria::query();
 
-        if ($fecha !== null) {
-            $query->whereDate('created_at', $fecha);
+        if ($fechaDesde !== null) {
+            $query->whereDate(
+                'created_at',
+                '>=',
+                $fechaDesde
+            );
+        }
+
+        if ($fechaHasta !== null) {
+            $query->whereDate(
+                'created_at',
+                '<=',
+                $fechaHasta
+            );
         }
 
         if ($modulo !== null) {
-            $query->where('modulo', $modulo);
+            $query->where(
+                'modulo',
+                $modulo
+            );
         }
 
         if ($evento !== null) {
-            $query->where('evento', $evento);
+            $query->where(
+                'evento',
+                $evento
+            );
         }
 
         if ($actor !== null) {
@@ -59,7 +93,8 @@ final class ListarAuditoriasAction
 
         $filtrosActivos = array_filter(
             [
-                'fecha' => $fecha,
+                'fecha_desde' => $fechaDesde,
+                'fecha_hasta' => $fechaHasta,
                 'modulo' => $modulo,
                 'evento' => $evento,
                 'actor' => $actor,

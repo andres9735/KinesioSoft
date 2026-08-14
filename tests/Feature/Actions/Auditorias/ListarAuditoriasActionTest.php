@@ -76,7 +76,9 @@ class ListarAuditoriasActionTest extends TestCase
 
         $resultado = app(
             ListarAuditoriasAction::class
-        )->ejecutar(pagina: 2);
+        )->ejecutar(
+            pagina: 2
+        );
 
         $this->assertSame(12, $resultado->total());
         $this->assertSame(2, $resultado->currentPage());
@@ -110,7 +112,9 @@ class ListarAuditoriasActionTest extends TestCase
 
         $resultado = app(
             ListarAuditoriasAction::class
-        )->ejecutar(pagina: 0);
+        )->ejecutar(
+            pagina: 0
+        );
 
         $this->assertSame(
             1,
@@ -118,15 +122,77 @@ class ListarAuditoriasActionTest extends TestCase
         );
     }
 
-    public function test_filters_audits_by_date(): void
+    public function test_filters_audits_from_start_date_inclusively(): void
     {
+        Carbon::setTestNow(
+            Carbon::parse('2026-08-09 10:00:00')
+        );
+
+        Auditoria::create([
+            'evento' => 'evento_anterior',
+            'modulo' => 'Pruebas',
+        ]);
+
         Carbon::setTestNow(
             Carbon::parse('2026-08-10 10:00:00')
         );
 
-        $auditoriaEsperada = Auditoria::create([
-            'evento' => 'usuario_creado',
-            'modulo' => 'Usuarios',
+        $auditoriaDesde = Auditoria::create([
+            'evento' => 'evento_desde',
+            'modulo' => 'Pruebas',
+        ]);
+
+        Carbon::setTestNow(
+            Carbon::parse('2026-08-11 10:00:00')
+        );
+
+        $auditoriaPosterior = Auditoria::create([
+            'evento' => 'evento_posterior',
+            'modulo' => 'Pruebas',
+        ]);
+
+        $resultado = app(
+            ListarAuditoriasAction::class
+        )->ejecutar([
+            'fecha_desde' => '2026-08-10',
+        ]);
+
+        $this->assertSame(
+            2,
+            $resultado->total()
+        );
+
+        $this->assertSame(
+            [
+                $auditoriaPosterior->id,
+                $auditoriaDesde->id,
+            ],
+            $resultado
+                ->getCollection()
+                ->pluck('id')
+                ->values()
+                ->all()
+        );
+    }
+
+    public function test_filters_audits_until_end_date_inclusively(): void
+    {
+        Carbon::setTestNow(
+            Carbon::parse('2026-08-09 10:00:00')
+        );
+
+        $auditoriaAnterior = Auditoria::create([
+            'evento' => 'evento_anterior',
+            'modulo' => 'Pruebas',
+        ]);
+
+        Carbon::setTestNow(
+            Carbon::parse('2026-08-10 18:30:00')
+        );
+
+        $auditoriaHasta = Auditoria::create([
+            'evento' => 'evento_hasta',
+            'modulo' => 'Pruebas',
         ]);
 
         Carbon::setTestNow(
@@ -134,21 +200,104 @@ class ListarAuditoriasActionTest extends TestCase
         );
 
         Auditoria::create([
-            'evento' => 'usuario_actualizado',
-            'modulo' => 'Usuarios',
+            'evento' => 'evento_posterior',
+            'modulo' => 'Pruebas',
         ]);
 
         $resultado = app(
             ListarAuditoriasAction::class
         )->ejecutar([
-            'fecha' => '2026-08-10',
+            'fecha_hasta' => '2026-08-10',
         ]);
 
-        $this->assertSame(1, $resultado->total());
+        $this->assertSame(
+            2,
+            $resultado->total()
+        );
 
         $this->assertSame(
-            $auditoriaEsperada->id,
-            $resultado->first()->id
+            [
+                $auditoriaHasta->id,
+                $auditoriaAnterior->id,
+            ],
+            $resultado
+                ->getCollection()
+                ->pluck('id')
+                ->values()
+                ->all()
+        );
+    }
+
+    public function test_filters_audits_by_inclusive_date_range(): void
+    {
+        Carbon::setTestNow(
+            Carbon::parse('2026-08-09 10:00:00')
+        );
+
+        Auditoria::create([
+            'evento' => 'fuera_antes',
+            'modulo' => 'Pruebas',
+        ]);
+
+        Carbon::setTestNow(
+            Carbon::parse('2026-08-10 08:00:00')
+        );
+
+        $auditoriaInicio = Auditoria::create([
+            'evento' => 'inicio',
+            'modulo' => 'Pruebas',
+        ]);
+
+        Carbon::setTestNow(
+            Carbon::parse('2026-08-11 12:00:00')
+        );
+
+        $auditoriaIntermedia = Auditoria::create([
+            'evento' => 'intermedio',
+            'modulo' => 'Pruebas',
+        ]);
+
+        Carbon::setTestNow(
+            Carbon::parse('2026-08-12 23:00:00')
+        );
+
+        $auditoriaFin = Auditoria::create([
+            'evento' => 'fin',
+            'modulo' => 'Pruebas',
+        ]);
+
+        Carbon::setTestNow(
+            Carbon::parse('2026-08-13 10:00:00')
+        );
+
+        Auditoria::create([
+            'evento' => 'fuera_despues',
+            'modulo' => 'Pruebas',
+        ]);
+
+        $resultado = app(
+            ListarAuditoriasAction::class
+        )->ejecutar([
+            'fecha_desde' => '2026-08-10',
+            'fecha_hasta' => '2026-08-12',
+        ]);
+
+        $this->assertSame(
+            3,
+            $resultado->total()
+        );
+
+        $this->assertSame(
+            [
+                $auditoriaFin->id,
+                $auditoriaIntermedia->id,
+                $auditoriaInicio->id,
+            ],
+            $resultado
+                ->getCollection()
+                ->pluck('id')
+                ->values()
+                ->all()
         );
     }
 
@@ -170,7 +319,10 @@ class ListarAuditoriasActionTest extends TestCase
             'modulo' => 'Sistema / Acceso',
         ]);
 
-        $this->assertSame(1, $resultado->total());
+        $this->assertSame(
+            1,
+            $resultado->total()
+        );
 
         $this->assertSame(
             $auditoriaEsperada->id,
@@ -196,7 +348,10 @@ class ListarAuditoriasActionTest extends TestCase
             'evento' => 'email_verificado',
         ]);
 
-        $this->assertSame(1, $resultado->total());
+        $this->assertSame(
+            1,
+            $resultado->total()
+        );
 
         $this->assertSame(
             $auditoriaEsperada->id,
@@ -233,7 +388,10 @@ class ListarAuditoriasActionTest extends TestCase
             'actor' => 'ana paciente',
         ]);
 
-        $this->assertSame(1, $porNombre->total());
+        $this->assertSame(
+            1,
+            $porNombre->total()
+        );
 
         $this->assertSame(
             $auditoriaPorNombre->id,
@@ -246,7 +404,10 @@ class ListarAuditoriasActionTest extends TestCase
             'actor' => 'carlos.admin',
         ]);
 
-        $this->assertSame(1, $porEmail->total());
+        $this->assertSame(
+            1,
+            $porEmail->total()
+        );
 
         $this->assertSame(
             $auditoriaPorEmail->id,
@@ -256,12 +417,20 @@ class ListarAuditoriasActionTest extends TestCase
 
     public function test_combines_multiple_filters(): void
     {
+        Carbon::setTestNow(
+            Carbon::parse('2026-08-10 10:00:00')
+        );
+
         $auditoriaEsperada = Auditoria::create([
             'actor_nombre' => 'Ana Administradora',
             'actor_email' => 'ana.admin@example.com',
             'evento' => 'usuario_creado',
             'modulo' => 'Usuarios',
         ]);
+
+        Carbon::setTestNow(
+            Carbon::parse('2026-08-11 10:00:00')
+        );
 
         Auditoria::create([
             'actor_nombre' => 'Ana Administradora',
@@ -270,6 +439,10 @@ class ListarAuditoriasActionTest extends TestCase
             'modulo' => 'Usuarios',
         ]);
 
+        Carbon::setTestNow(
+            Carbon::parse('2026-08-12 10:00:00')
+        );
+
         Auditoria::create([
             'actor_nombre' => 'Carlos Administrador',
             'actor_email' => 'carlos@example.com',
@@ -277,15 +450,31 @@ class ListarAuditoriasActionTest extends TestCase
             'modulo' => 'Usuarios',
         ]);
 
+        Carbon::setTestNow(
+            Carbon::parse('2026-08-13 10:00:00')
+        );
+
+        Auditoria::create([
+            'actor_nombre' => 'Ana Administradora',
+            'actor_email' => 'ana.admin@example.com',
+            'evento' => 'usuario_creado',
+            'modulo' => 'Usuarios',
+        ]);
+
         $resultado = app(
             ListarAuditoriasAction::class
         )->ejecutar([
+            'fecha_desde' => '2026-08-10',
+            'fecha_hasta' => '2026-08-12',
             'modulo' => 'Usuarios',
             'evento' => 'usuario_creado',
             'actor' => 'Ana',
         ]);
 
-        $this->assertSame(1, $resultado->total());
+        $this->assertSame(
+            1,
+            $resultado->total()
+        );
 
         $this->assertSame(
             $auditoriaEsperada->id,
@@ -307,13 +496,17 @@ class ListarAuditoriasActionTest extends TestCase
         $resultado = app(
             ListarAuditoriasAction::class
         )->ejecutar([
-            'fecha' => '   ',
+            'fecha_desde' => '   ',
+            'fecha_hasta' => '',
             'modulo' => 'Usuarios',
             'evento' => '',
             'actor' => '  Ana  ',
         ]);
 
-        $this->assertSame(11, $resultado->total());
+        $this->assertSame(
+            11,
+            $resultado->total()
+        );
 
         $urlSegundaPagina = $resultado->url(2);
 
@@ -328,12 +521,50 @@ class ListarAuditoriasActionTest extends TestCase
         );
 
         $this->assertStringNotContainsString(
-            'fecha=',
+            'fecha_desde=',
+            $urlSegundaPagina
+        );
+
+        $this->assertStringNotContainsString(
+            'fecha_hasta=',
             $urlSegundaPagina
         );
 
         $this->assertStringNotContainsString(
             'evento=',
+            $urlSegundaPagina
+        );
+    }
+
+    public function test_preserves_date_range_in_pagination(): void
+    {
+        Carbon::setTestNow(
+            Carbon::parse('2026-08-10 10:00:00')
+        );
+
+        for ($i = 1; $i <= 11; $i++) {
+            Auditoria::create([
+                'evento' => 'usuario_creado',
+                'modulo' => 'Usuarios',
+            ]);
+        }
+
+        $resultado = app(
+            ListarAuditoriasAction::class
+        )->ejecutar([
+            'fecha_desde' => '2026-08-01',
+            'fecha_hasta' => '2026-08-31',
+        ]);
+
+        $urlSegundaPagina = $resultado->url(2);
+
+        $this->assertStringContainsString(
+            'fecha_desde=2026-08-01',
+            $urlSegundaPagina
+        );
+
+        $this->assertStringContainsString(
+            'fecha_hasta=2026-08-31',
             $urlSegundaPagina
         );
     }
