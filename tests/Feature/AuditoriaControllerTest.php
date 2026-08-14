@@ -241,6 +241,90 @@ class AuditoriaControllerTest extends TestCase
             );
     }
 
+    public function test_index_renders_trace_detail_with_comparable_values(): void
+    {
+        $admin = $this->userWithRole(
+            RoleEnum::ADMINISTRADOR
+        );
+
+        $usuarioAfectado = User::factory()->create([
+            'name' => 'Andrés',
+            'email' => 'andres@example.com',
+        ]);
+
+        Auditoria::create([
+            'actor_user_id' => $admin->id,
+            'actor_nombre' => 'Admin KinesioSoft',
+            'actor_email' => 'admin@example.com',
+            'evento' => 'usuario_actualizado',
+            'modulo' => 'Usuarios',
+            'auditable_type' => $usuarioAfectado->getMorphClass(),
+            'auditable_id' => $usuarioAfectado->id,
+            'valores_anteriores' => [
+                'name' => 'Andrés',
+                'email' => 'andres@example.com',
+            ],
+            'valores_nuevos' => [
+                'name' => 'Andrés Martín',
+                'email' => 'andres.nuevo@example.com',
+            ],
+            'ip_address' => '192.168.1.100',
+            'user_agent' => 'PHPUnit Browser',
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->get(route('auditorias.index'));
+
+        $response
+            ->assertOk()
+            ->assertSee('Detalle de trazabilidad')
+            ->assertSee('Cambios registrados')
+            ->assertSee('Valor anterior')
+            ->assertSee('Valor nuevo')
+            ->assertSee('Andrés Martín')
+            ->assertSee('andres.nuevo@example.com')
+            ->assertSee('192.168.1.100')
+            ->assertSee('Usuario #' . $usuarioAfectado->id)
+            ->assertSee('PHPUnit Browser');
+    }
+
+    public function test_index_renders_context_when_audit_has_no_comparable_values(): void
+    {
+        $admin = $this->userWithRole(
+            RoleEnum::ADMINISTRADOR
+        );
+
+        Auditoria::create([
+            'actor_user_id' => $admin->id,
+            'actor_nombre' => 'Admin KinesioSoft',
+            'actor_email' => 'admin@example.com',
+            'evento' => 'inicio_sesion',
+            'modulo' => 'Sistema / Acceso',
+            'metadata' => [
+                'resultado' => 'correcto',
+            ],
+            'ip_address' => '127.0.0.1',
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->get(route('auditorias.index'));
+
+        $response
+            ->assertOk()
+            ->assertSee(
+                'Este evento no incluye valores anteriores y posteriores'
+            )
+            ->assertSee(
+                'comparables. Se muestra la información contextual disponible.'
+            )
+            ->assertSee('Información contextual')
+            ->assertSee('Resultado')
+            ->assertSee('correcto')
+            ->assertSee('127.0.0.1');
+    }
+
     private function userWithRole(
         RoleEnum $role
     ): User {

@@ -409,26 +409,31 @@
                                     </td>
 
                                     <td class="whitespace-nowrap px-6 py-4 text-center">
-                                        <button
-                                            type="button"
-                                            disabled
-                                            title="El detalle se implementará en la Sección A"
-                                            class="inline-flex cursor-not-allowed items-center gap-1.5 rounded-full border border-blue-300 px-3 py-1.5 text-xs font-semibold text-blue-500 opacity-60"
-                                        >
-                                            <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                class="h-4 w-4"
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                stroke-width="2"
+                                        @can('view', $auditoria)
+                                            <button
+                                                type="button"
+                                                x-data
+                                                x-on:click.prevent="$dispatch(
+                                                    'open-modal',
+                                                    'auditoria-detalle-{{ $auditoria->id }}'
+                                                )"
+                                                class="inline-flex items-center gap-1.5 rounded-full border border-blue-300 px-3 py-1.5 text-xs font-semibold text-blue-600 transition hover:bg-blue-50"
                                             >
-                                                <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
-                                                <circle cx="12" cy="12" r="3" />
-                                            </svg>
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    class="h-4 w-4"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="2"
+                                                >
+                                                    <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
+                                                    <circle cx="12" cy="12" r="3" />
+                                                </svg>
 
-                                            Ver
-                                        </button>
+                                                Ver
+                                            </button>
+                                        @endcan
                                     </td>
                                 </tr>
                             @empty
@@ -511,6 +516,15 @@
                     </div>
                 </div>
             </section>
+
+            @foreach ($auditorias as $auditoria)
+                @can('view', $auditoria)
+                    @include(
+                        'auditorias.partials.detalle',
+                        ['auditoria' => $auditoria]
+                    )
+                @endcan
+            @endforeach
         </div>
     </div>
 </x-app-layout>
