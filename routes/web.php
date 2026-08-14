@@ -148,6 +148,11 @@ Route::middleware([
         [AuditoriaController::class, 'index']
     )->name('auditorias.index');
 
+    Route::post(
+        '/auditorias/exportar-pdf',
+        [AuditoriaController::class, 'exportarPdf']
+    )->name('auditorias.exportar-pdf');
+
     /*
     |--------------------------------------------------------------------------
     | Usuarios

@@ -250,29 +250,53 @@
                         </span>
 
                         @if ($auditorias->total() > 0)
-                            <button
-                                type="button"
-                                disabled
-                                title="La exportación se habilitará en la Sección B"
-                                class="inline-flex cursor-not-allowed items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white opacity-60"
+                            <form
+                                method="POST"
+                                action="{{ route('auditorias.exportar-pdf') }}"
+                                class="inline-flex"
                             >
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    class="h-4 w-4"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2"
-                                >
-                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                    <path d="M14 2v6h6" />
-                                    <path d="M9 15h6" />
-                                    <path d="M9 11h1" />
-                                    <path d="M9 19h6" />
-                                </svg>
+                                @csrf
 
-                                Exportar a PDF
-                            </button>
+                                @foreach (
+                                    [
+                                        'fecha_desde',
+                                        'fecha_hasta',
+                                        'evento',
+                                        'modulo',
+                                        'actor',
+                                    ] as $filtro
+                                )
+                                    @if (request()->filled($filtro))
+                                        <input
+                                            type="hidden"
+                                            name="{{ $filtro }}"
+                                            value="{{ request($filtro) }}"
+                                        >
+                                    @endif
+                                @endforeach
+
+                                <button
+                                    type="submit"
+                                    class="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                                >
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        class="h-4 w-4"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                    >
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                        <path d="M14 2v6h6" />
+                                        <path d="M9 15h6" />
+                                        <path d="M9 11h1" />
+                                        <path d="M9 19h6" />
+                                    </svg>
+
+                                    Exportar a PDF
+                                </button>
+                            </form>
                         @endif
                     </div>
                 </div>
