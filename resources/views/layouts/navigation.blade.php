@@ -23,6 +23,10 @@
                     @endif
 
                     @if (auth()->user()->esAdministrador() || auth()->user()->esSuperadmin())
+                        <x-nav-link :href="route('auditorias.index')" :active="request()->routeIs('auditorias.*')">
+                            {{ __('Auditoría') }}
+                        </x-nav-link>
+
                         <x-nav-link :href="route('usuarios.index')" :active="request()->routeIs('usuarios.*')">
                             {{ __('Usuarios') }}
                         </x-nav-link>
@@ -101,6 +105,10 @@
             @endif
 
             @if (auth()->user()->esAdministrador() || auth()->user()->esSuperadmin())
+                <x-responsive-nav-link :href="route('auditorias.index')" :active="request()->routeIs('auditorias.*')">
+                    {{ __('Auditoría') }}
+                </x-responsive-nav-link>
+
                 <x-responsive-nav-link :href="route('usuarios.index')" :active="request()->routeIs('usuarios.*')">
                     {{ __('Usuarios') }}
                 </x-responsive-nav-link>

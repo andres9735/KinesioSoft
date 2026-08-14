@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AuditoriaController;
 use App\Http\Controllers\CatalogoController;
 use App\Http\Controllers\ColegioEmisorController;
 use App\Http\Controllers\EspecialidadKinesiologiaController;
@@ -135,6 +136,17 @@ Route::middleware([
     'perfil.completo',
     'admin.or.superadmin',
 ])->group(function () {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Auditoría
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get(
+        '/auditorias',
+        [AuditoriaController::class, 'index']
+    )->name('auditorias.index');
 
     /*
     |--------------------------------------------------------------------------
