@@ -4,13 +4,15 @@ namespace App\Actions\Auditorias;
 
 use App\Enums\RoleEnum;
 use App\Models\User;
+use App\Services\AuditoriaService;
 use App\Services\Auditorias\AuditoriaQueryService;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 final class ExportarAuditoriasPdfAction
 {
     public function __construct(
-        private readonly AuditoriaQueryService $auditoriaQueryService
+        private readonly AuditoriaQueryService $auditoriaQueryService,
+        private readonly AuditoriaService $auditoriaService
     ) {}
 
     /**
@@ -38,6 +40,11 @@ final class ExportarAuditoriasPdfAction
                 $filtros
             );
 
+        /*
+         * El conjunto a exportar se obtiene antes de registrar
+         * la propia exportación. De esta forma, el evento
+         * auditoria_exportada_pdf nunca puede incluirse a sí mismo.
+         */
         $auditorias =
             $this->auditoriaQueryService
             ->consultaFiltrada(
@@ -132,10 +139,30 @@ final class ExportarAuditoriasPdfAction
             }
         );
 
+        /*
+         * Obtenemos primero los bytes definitivos del documento.
+         * Sólo una vez que la generación terminó correctamente
+         * registramos el evento de exportación.
+         */
+        $contenido = $pdf->output();
+
+        $cantidadRegistros = $auditorias->count();
+
+        $this->auditoriaService->registrar(
+            evento: 'auditoria_exportada_pdf',
+            modulo: 'Auditoría',
+            metadata: [
+                'filtros' => $filtrosActivos,
+                'cantidad_registros' => $cantidadRegistros,
+                'nombre_archivo' => $nombreArchivo,
+            ],
+            actor: $exportador
+        );
+
         return [
-            'contenido' => $pdf->output(),
+            'contenido' => $contenido,
             'nombre_archivo' => $nombreArchivo,
-            'cantidad' => $auditorias->count(),
+            'cantidad' => $cantidadRegistros,
         ];
     }
 }
