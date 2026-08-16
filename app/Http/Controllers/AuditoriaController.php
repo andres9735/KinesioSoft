@@ -11,6 +11,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
+use Throwable;
 
 class AuditoriaController extends Controller
 {
@@ -91,12 +92,26 @@ class AuditoriaController extends Controller
         /** @var User $exportador */
         $exportador = $request->user();
 
-        $resultado =
-            $this->exportarAuditoriasPdfAction
-            ->ejecutar(
-                filtros: $filtros,
-                exportador: $exportador
-            );
+        try {
+            $resultado =
+                $this->exportarAuditoriasPdfAction
+                ->ejecutar(
+                    filtros: $filtros,
+                    exportador: $exportador
+                );
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return redirect()
+                ->route(
+                    'auditorias.index',
+                    $filtros
+                )
+                ->with(
+                    'error',
+                    'No fue posible generar el archivo PDF. Intente nuevamente.'
+                );
+        }
 
         if ($resultado === null) {
             return redirect()

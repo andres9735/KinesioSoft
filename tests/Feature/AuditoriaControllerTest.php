@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Enums\RoleEnum;
 use App\Models\Auditoria;
 use App\Models\User;
+use Barryvdh\DomPDF\Facade\Pdf;
+use RuntimeException;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
@@ -63,7 +65,8 @@ class AuditoriaControllerTest extends TestCase
             ->assertSee('Auditoría')
             ->assertSee('Admin KinesioSoft')
             ->assertSee('Usuario creado')
-            ->assertSee('Usuarios');
+            ->assertSee('Usuarios')
+            ->assertSee('Exportar a PDF');
     }
 
     public function test_superadmin_can_view_audit_index(): void
@@ -238,7 +241,8 @@ class AuditoriaControllerTest extends TestCase
             )
             ->assertSee(
                 'Pruebe con otros filtros o limpie la búsqueda.'
-            );
+            )
+            ->assertDontSee('Exportar a PDF');
     }
 
     public function test_index_renders_trace_detail_with_comparable_values(): void
@@ -421,6 +425,214 @@ class AuditoriaControllerTest extends TestCase
                 'warning',
                 'No hay registros de auditoría para exportar con los filtros aplicados.'
             );
+
+        $this->assertDatabaseMissing(
+            'auditorias',
+            [
+                'evento' =>
+                'auditoria_exportada_pdf',
+            ]
+        );
+    }
+
+    public function test_superadmin_can_export_audit_pdf(): void
+    {
+        $superadmin = $this->userWithRole(
+            RoleEnum::SUPERADMIN
+        );
+
+        Auditoria::create([
+            'actor_nombre' =>
+            'Admin KinesioSoft',
+
+            'actor_email' =>
+            'admin@example.com',
+
+            'evento' =>
+            'usuario_creado',
+
+            'modulo' =>
+            'Usuarios',
+        ]);
+
+        $response = $this
+            ->actingAs($superadmin)
+            ->post(
+                route(
+                    'auditorias.exportar-pdf'
+                )
+            );
+
+        $response
+            ->assertOk()
+            ->assertHeader(
+                'Content-Type',
+                'application/pdf'
+            )
+            ->assertHeader(
+                'Content-Disposition'
+            );
+
+        $this->assertDatabaseHas(
+            'auditorias',
+            [
+                'evento' =>
+                'auditoria_exportada_pdf',
+
+                'modulo' =>
+                'Auditoría',
+
+                'actor_user_id' =>
+                $superadmin->id,
+            ]
+        );
+    }
+
+    public function test_paciente_cannot_export_audit_pdf(): void
+    {
+        $paciente = $this->userWithRole(
+            RoleEnum::PACIENTE
+        );
+
+        $response = $this
+            ->actingAs($paciente)
+            ->post(
+                route(
+                    'auditorias.exportar-pdf'
+                )
+            );
+
+        $response->assertRedirect(
+            route('perfil.completar')
+        );
+
+        $this->assertDatabaseMissing(
+            'auditorias',
+            [
+                'evento' =>
+                'auditoria_exportada_pdf',
+            ]
+        );
+    }
+
+    public function test_kinesiologo_cannot_export_audit_pdf(): void
+    {
+        $kinesiologo = $this->userWithRole(
+            RoleEnum::KINESIOLOGO
+        );
+
+        $response = $this
+            ->actingAs($kinesiologo)
+            ->post(
+                route(
+                    'auditorias.exportar-pdf'
+                )
+            );
+
+        $response->assertRedirect(
+            route('perfil.kinesiologa.completar')
+        );
+
+        $this->assertDatabaseMissing(
+            'auditorias',
+            [
+                'evento' =>
+                'auditoria_exportada_pdf',
+            ]
+        );
+    }
+
+    public function test_export_rejects_invalid_date_range_without_auditing(): void
+    {
+        $admin = $this->userWithRole(
+            RoleEnum::ADMINISTRADOR
+        );
+
+        $response = $this
+            ->actingAs($admin)
+            ->from(route('auditorias.index'))
+            ->post(
+                route(
+                    'auditorias.exportar-pdf'
+                ),
+                [
+                    'fecha_desde' =>
+                    '2026-08-12',
+
+                    'fecha_hasta' =>
+                    '2026-08-10',
+                ]
+            );
+
+        $response
+            ->assertRedirect(
+                route('auditorias.index')
+            )
+            ->assertSessionHasErrors(
+                'fecha_hasta'
+            );
+
+        $this->assertDatabaseMissing(
+            'auditorias',
+            [
+                'evento' =>
+                'auditoria_exportada_pdf',
+            ]
+        );
+    }
+
+    public function test_export_does_not_audit_when_pdf_generation_fails(): void
+    {
+        $admin = $this->userWithRole(
+            RoleEnum::ADMINISTRADOR
+        );
+
+        Auditoria::create([
+            'actor_nombre' =>
+            'Admin KinesioSoft',
+
+            'actor_email' =>
+            'admin@example.com',
+
+            'evento' =>
+            'usuario_creado',
+
+            'modulo' =>
+            'Usuarios',
+        ]);
+
+        Pdf::shouldReceive('loadView')
+            ->once()
+            ->andThrow(
+                new RuntimeException(
+                    'Fallo simulado al generar el PDF.'
+                )
+            );
+
+        $response = $this
+            ->actingAs($admin)
+            ->from(
+                route('auditorias.index')
+            )
+            ->post(
+                route(
+                    'auditorias.exportar-pdf'
+                )
+            );
+
+        $response
+            ->assertRedirect(
+                route('auditorias.index')
+            )
+            ->assertSessionHas(
+                'error',
+                'No fue posible generar el archivo PDF. Intente nuevamente.'
+            );
+
+        $this->assertDatabaseCount(
+            'auditorias',
+            1
+        );
 
         $this->assertDatabaseMissing(
             'auditorias',
