@@ -60,6 +60,15 @@
     <div class="py-8">
         <div class="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
 
+            @if (session('warning'))
+                <div
+                    class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+                    role="alert"
+                >
+                    {{ session('warning') }}
+                </div>
+            @endif
+
             {{-- Filtros --}}
             <section class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200">
                 <div class="p-6">

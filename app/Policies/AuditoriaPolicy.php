@@ -20,8 +20,14 @@ class AuditoriaPolicy
         return $this->puedeConsultarAuditoria($user);
     }
 
-    private function puedeConsultarAuditoria(User $user): bool
+    public function export(User $user): bool
     {
+        return $this->puedeConsultarAuditoria($user);
+    }
+
+    private function puedeConsultarAuditoria(
+        User $user
+    ): bool {
         return $user->hasAnyRole([
             RoleEnum::ADMINISTRADOR->value,
             RoleEnum::SUPERADMIN->value,

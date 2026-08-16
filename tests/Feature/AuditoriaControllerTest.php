@@ -325,6 +325,112 @@ class AuditoriaControllerTest extends TestCase
             ->assertSee('127.0.0.1');
     }
 
+    public function test_admin_can_export_audit_pdf(): void
+    {
+        $admin = $this->userWithRole(
+            RoleEnum::ADMINISTRADOR
+        );
+
+        Auditoria::create([
+            'actor_nombre' =>
+            'Admin KinesioSoft',
+
+            'actor_email' =>
+            'admin@example.com',
+
+            'evento' =>
+            'usuario_creado',
+
+            'modulo' =>
+            'Usuarios',
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->post(
+                route(
+                    'auditorias.exportar-pdf'
+                )
+            );
+
+        $response
+            ->assertOk()
+            ->assertHeader(
+                'Content-Type',
+                'application/pdf'
+            );
+
+        $this->assertDatabaseHas(
+            'auditorias',
+            [
+                'evento' =>
+                'auditoria_exportada_pdf',
+
+                'modulo' =>
+                'Auditoría',
+
+                'actor_user_id' =>
+                $admin->id,
+            ]
+        );
+    }
+
+    public function test_export_returns_to_filtered_index_without_auditing_when_there_are_no_results(): void
+    {
+        $admin = $this->userWithRole(
+            RoleEnum::ADMINISTRADOR
+        );
+
+        Auditoria::create([
+            'actor_nombre' =>
+            'Admin KinesioSoft',
+
+            'actor_email' =>
+            'admin@example.com',
+
+            'evento' =>
+            'usuario_creado',
+
+            'modulo' =>
+            'Usuarios',
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->post(
+                route(
+                    'auditorias.exportar-pdf'
+                ),
+                [
+                    'modulo' =>
+                    'Modulo inexistente',
+                ]
+            );
+
+        $response
+            ->assertRedirect(
+                route(
+                    'auditorias.index',
+                    [
+                        'modulo' =>
+                        'Modulo inexistente',
+                    ]
+                )
+            )
+            ->assertSessionHas(
+                'warning',
+                'No hay registros de auditoría para exportar con los filtros aplicados.'
+            );
+
+        $this->assertDatabaseMissing(
+            'auditorias',
+            [
+                'evento' =>
+                'auditoria_exportada_pdf',
+            ]
+        );
+    }
+
     private function userWithRole(
         RoleEnum $role
     ): User {

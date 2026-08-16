@@ -400,4 +400,59 @@ class ExportarAuditoriasPdfActionTest extends TestCase
             ]
         );
     }
+
+    public function test_does_not_generate_or_audit_export_when_filters_have_no_results(): void
+    {
+        Auditoria::create([
+            'actor_nombre' =>
+            'Administrador Existente',
+
+            'actor_email' =>
+            'existente@example.com',
+
+            'evento' =>
+            'usuario_actualizado',
+
+            'modulo' =>
+            'Usuarios',
+        ]);
+
+        $exportador = User::factory()->create([
+            'name' =>
+            'Administrador',
+
+            'apellido' =>
+            'Principal',
+
+            'email' =>
+            'admin@kinesiosoft.com',
+        ]);
+
+        $resultado = app(
+            ExportarAuditoriasPdfAction::class
+        )->ejecutar(
+            [
+                'modulo' =>
+                'Modulo inexistente',
+            ],
+            $exportador
+        );
+
+        $this->assertNull(
+            $resultado
+        );
+
+        $this->assertDatabaseCount(
+            'auditorias',
+            1
+        );
+
+        $this->assertDatabaseMissing(
+            'auditorias',
+            [
+                'evento' =>
+                'auditoria_exportada_pdf',
+            ]
+        );
+    }
 }

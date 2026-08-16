@@ -7,6 +7,7 @@ use App\Actions\Auditorias\ListarAuditoriasAction;
 use App\Http\Requests\FiltrarAuditoriasRequest;
 use App\Models\Auditoria;
 use App\Models\User;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
@@ -34,10 +35,15 @@ class AuditoriaController extends Controller
             'actor',
         ]);
 
-        $auditorias = $this->listarAuditoriasAction->ejecutar(
-            filtros: $filtros,
-            pagina: $request->integer('page', 1)
-        );
+        $auditorias =
+            $this->listarAuditoriasAction
+            ->ejecutar(
+                filtros: $filtros,
+                pagina: $request->integer(
+                    'page',
+                    1
+                )
+            );
 
         $eventos = Auditoria::query()
             ->whereNotNull('evento')
@@ -66,23 +72,21 @@ class AuditoriaController extends Controller
 
     public function exportarPdf(
         FiltrarAuditoriasRequest $request
-    ): Response {
-        /*
-         * En 14.10e se reemplazará por la capacidad
-         * específica AuditoriaPolicy::export().
-         */
+    ): Response|RedirectResponse {
         Gate::authorize(
-            'viewAny',
+            'export',
             Auditoria::class
         );
 
-        $filtros = $request->safe()->only([
-            'fecha_desde',
-            'fecha_hasta',
-            'evento',
-            'modulo',
-            'actor',
-        ]);
+        $filtros = $request
+            ->safe()
+            ->only([
+                'fecha_desde',
+                'fecha_hasta',
+                'evento',
+                'modulo',
+                'actor',
+            ]);
 
         /** @var User $exportador */
         $exportador = $request->user();
@@ -93,6 +97,18 @@ class AuditoriaController extends Controller
                 filtros: $filtros,
                 exportador: $exportador
             );
+
+        if ($resultado === null) {
+            return redirect()
+                ->route(
+                    'auditorias.index',
+                    $filtros
+                )
+                ->with(
+                    'warning',
+                    'No hay registros de auditoría para exportar con los filtros aplicados.'
+                );
+        }
 
         return response(
             $resultado['contenido'],

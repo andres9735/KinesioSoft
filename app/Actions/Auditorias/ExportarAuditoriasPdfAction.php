@@ -28,12 +28,12 @@ final class ExportarAuditoriasPdfAction
      *     contenido: string,
      *     nombre_archivo: string,
      *     cantidad: int
-     * }
+     * }|null
      */
     public function ejecutar(
         array $filtros,
         User $exportador
-    ): array {
+    ): ?array {
         $filtrosActivos =
             $this->auditoriaQueryService
             ->filtrosActivos(
@@ -41,9 +41,9 @@ final class ExportarAuditoriasPdfAction
             );
 
         /*
-         * El conjunto a exportar se obtiene antes de registrar
-         * la propia exportación. De esta forma, el evento
-         * auditoria_exportada_pdf nunca puede incluirse a sí mismo.
+         * El conjunto se fija antes de registrar la propia
+         * exportación para impedir que el evento generado
+         * pueda incluirse a sí mismo en el reporte.
          */
         $auditorias =
             $this->auditoriaQueryService
@@ -53,6 +53,17 @@ final class ExportarAuditoriasPdfAction
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->get();
+
+        /*
+         * No existe una exportación válida si no hay
+         * registros coincidentes.
+         *
+         * No generamos PDF y tampoco registramos
+         * auditoria_exportada_pdf.
+         */
+        if ($auditorias->isEmpty()) {
+            return null;
+        }
 
         $generadoEn = now();
 
@@ -115,11 +126,12 @@ final class ExportarAuditoriasPdfAction
                     $cantidadPaginas
                 );
 
-                $anchoTexto = $fontMetrics->getTextWidth(
-                    $texto,
-                    $fuente,
-                    $tamano
-                );
+                $anchoTexto =
+                    $fontMetrics->getTextWidth(
+                        $texto,
+                        $fuente,
+                        $tamano
+                    );
 
                 $x = $canvas->get_width()
                     - $anchoTexto
@@ -140,21 +152,23 @@ final class ExportarAuditoriasPdfAction
         );
 
         /*
-         * Obtenemos primero los bytes definitivos del documento.
-         * Sólo una vez que la generación terminó correctamente
-         * registramos el evento de exportación.
+         * Los bytes se obtienen antes de registrar
+         * la exportación.
          */
         $contenido = $pdf->output();
 
-        $cantidadRegistros = $auditorias->count();
+        $cantidadRegistros =
+            $auditorias->count();
 
         $this->auditoriaService->registrar(
             evento: 'auditoria_exportada_pdf',
             modulo: 'Auditoría',
             metadata: [
                 'filtros' => $filtrosActivos,
-                'cantidad_registros' => $cantidadRegistros,
-                'nombre_archivo' => $nombreArchivo,
+                'cantidad_registros' =>
+                $cantidadRegistros,
+                'nombre_archivo' =>
+                $nombreArchivo,
             ],
             actor: $exportador
         );
