@@ -34,18 +34,18 @@ final class ExportarAuditoriasPdfAction
     ): array {
         $filtrosActivos =
             $this->auditoriaQueryService
-                ->filtrosActivos(
-                    $filtros
-                );
+            ->filtrosActivos(
+                $filtros
+            );
 
         $auditorias =
             $this->auditoriaQueryService
-                ->consultaFiltrada(
-                    $filtrosActivos
-                )
-                ->orderByDesc('created_at')
-                ->orderByDesc('id')
-                ->get();
+            ->consultaFiltrada(
+                $filtrosActivos
+            )
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get();
 
         $generadoEn = now();
 
@@ -54,17 +54,15 @@ final class ExportarAuditoriasPdfAction
             $generadoEn->format('Ymd_His')
         );
 
-        $rolExportador = match (
-            $exportador->getRoleNames()->first()
-        ) {
+        $rolExportador = match ($exportador->getRoleNames()->first()) {
             RoleEnum::SUPERADMIN->value =>
-                'Superadministrador',
+            'Superadministrador',
 
             RoleEnum::ADMINISTRADOR->value =>
-                'Administrador',
+            'Administrador',
 
             default =>
-                'Sin rol administrativo',
+            'Sin rol administrativo',
         };
 
         $pdf = Pdf::loadView(
@@ -79,6 +77,59 @@ final class ExportarAuditoriasPdfAction
         )->setPaper(
             'a4',
             'landscape'
+        );
+
+        /*
+         * Renderizamos primero para que Dompdf conozca
+         * la cantidad definitiva de páginas.
+         */
+        $pdf->render();
+
+        $dompdf = $pdf->getDomPDF();
+        $canvas = $dompdf->getCanvas();
+
+        $canvas->page_script(
+            function (
+                int $numeroPagina,
+                int $cantidadPaginas,
+                $canvas,
+                $fontMetrics
+            ): void {
+                $fuente = $fontMetrics->getFont(
+                    'DejaVu Sans',
+                    'normal'
+                );
+
+                $tamano = 7;
+
+                $texto = sprintf(
+                    'Página %d de %d',
+                    $numeroPagina,
+                    $cantidadPaginas
+                );
+
+                $anchoTexto = $fontMetrics->getTextWidth(
+                    $texto,
+                    $fuente,
+                    $tamano
+                );
+
+                $x = $canvas->get_width()
+                    - $anchoTexto
+                    - 28;
+
+                $y = $canvas->get_height()
+                    - 22;
+
+                $canvas->text(
+                    $x,
+                    $y,
+                    $texto,
+                    $fuente,
+                    $tamano,
+                    [0.42, 0.45, 0.50]
+                );
+            }
         );
 
         return [
