@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuditoriaController;
 use App\Http\Controllers\CatalogoController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ColegioEmisorController;
 use App\Http\Controllers\EspecialidadKinesiologiaController;
 use App\Http\Controllers\JurisdiccionController;
@@ -17,9 +18,7 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})
+Route::get('/dashboard', DashboardController::class)
     ->middleware(['auth', 'verified', 'perfil.completo'])
     ->name('dashboard');
 

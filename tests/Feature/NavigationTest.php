@@ -235,6 +235,6 @@ class NavigationTest extends TestCase
 
         $this->actingAs($user);
 
-        return view('dashboard')->render();
+        return view('layouts.navigation')->render();
     }
 }
