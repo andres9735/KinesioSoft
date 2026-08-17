@@ -19,7 +19,7 @@ Route::get('/', function () {
 });
 
 Route::get('/dashboard', DashboardController::class)
-    ->middleware(['auth', 'verified', 'perfil.completo'])
+    ->middleware(['auth', 'perfil.completo', 'verified'])
     ->name('dashboard');
 
 /*
@@ -74,11 +74,9 @@ Route::middleware(['auth', 'perfil.kinesiologo'])->group(function () {
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])
-        ->middleware('perfil.completo')
         ->name('profile.edit');
 
     Route::patch('/profile', [ProfileController::class, 'update'])
-        ->middleware('perfil.completo')
         ->name('profile.update');
 });
 
@@ -88,7 +86,11 @@ Route::middleware('auth')->group(function () {
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['auth', 'perfil.completo'])->group(function () {
+Route::middleware([
+    'auth',
+    'perfil.completo',
+    'verified',
+])->group(function () {
     Route::prefix('perfil-profesional/matriculas')
         ->name('perfil.kinesiologa.matriculas.')
         ->group(function () {
@@ -134,6 +136,7 @@ Route::middleware([
     'auth',
     'perfil.completo',
     'admin.or.superadmin',
+    'verified',
 ])->group(function () {
 
     /*

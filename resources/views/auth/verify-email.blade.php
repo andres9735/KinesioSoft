@@ -1,31 +1,75 @@
 <x-guest-layout>
-    <div class="mb-4 text-sm text-gray-600">
-        {{ __('Thanks for signing up! Before getting started, could you verify your email address by clicking on the link we just emailed to you? If you didn\'t receive the email, we will gladly send you another.') }}
-    </div>
+    <div class="space-y-6">
+        <div class="text-center">
+            <h1 class="text-xl font-semibold text-gray-900">
+                Verifique su correo electrónico
+            </h1>
 
-    @if (session('status') == 'verification-link-sent')
-        <div class="mb-4 font-medium text-sm text-green-600">
-            {{ __('A new verification link has been sent to the email address you provided during registration.') }}
+            <p class="mt-2 text-sm leading-6 text-gray-600">
+                Para continuar utilizando KinesioSoft, debe verificar
+                la dirección de correo electrónico asociada a su cuenta.
+            </p>
         </div>
-    @endif
 
-    <div class="mt-4 flex items-center justify-between">
-        <form method="POST" action="{{ route('verification.send') }}">
-            @csrf
+        <div class="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3">
+            <p class="text-sm text-indigo-900">
+                Enviamos un enlace de verificación a:
+            </p>
 
-            <div>
-                <x-primary-button>
-                    {{ __('Resend Verification Email') }}
-                </x-primary-button>
+            <p class="mt-1 break-all text-sm font-semibold text-indigo-900">
+                {{ auth()->user()->email }}
+            </p>
+        </div>
+
+        @if (session('status') === 'verification-link-sent')
+            <div
+                class="rounded-xl border border-green-200 bg-green-50 px-4 py-3"
+                role="status"
+            >
+                <p class="text-sm font-medium text-green-800">
+                    Se envió un nuevo enlace de verificación a su correo electrónico.
+                </p>
             </div>
-        </form>
+        @endif
 
-        <form method="POST" action="{{ route('logout') }}">
+        <p class="text-sm leading-6 text-gray-600">
+            Revise su bandeja de entrada y siga el enlace recibido.
+            Si no encuentra el mensaje, también puede revisar la carpeta
+            de correo no deseado o solicitar un nuevo envío.
+        </p>
+
+        <form
+            method="POST"
+            action="{{ route('verification.send') }}"
+        >
             @csrf
 
-            <button type="submit" class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                {{ __('Log Out') }}
-            </button>
+            <x-primary-button class="w-full justify-center">
+                Reenviar correo de verificación
+            </x-primary-button>
         </form>
+
+        <div class="flex items-center justify-between border-t border-gray-200 pt-4">
+            <a
+                href="{{ route('profile.edit') }}"
+                class="text-sm font-medium text-indigo-600 underline decoration-indigo-300 underline-offset-4 transition hover:text-indigo-800"
+            >
+                Mi cuenta
+            </a>
+
+            <form
+                method="POST"
+                action="{{ route('logout') }}"
+            >
+                @csrf
+
+                <button
+                    type="submit"
+                    class="text-sm font-medium text-gray-600 underline decoration-gray-300 underline-offset-4 transition hover:text-gray-900"
+                >
+                    Cerrar sesión
+                </button>
+            </form>
+        </div>
     </div>
 </x-guest-layout>
