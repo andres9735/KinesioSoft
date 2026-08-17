@@ -13,7 +13,11 @@ final class ActualizarCuentaPropiaAction
     ) {}
 
     /**
-     * @param  array{name: string, email: string}  $data
+     * @param  array{
+     *     name: string,
+     *     apellido: string,
+     *     email: string
+     * }  $data
      */
     public function ejecutar(
         User $user,
@@ -22,9 +26,11 @@ final class ActualizarCuentaPropiaAction
         return DB::transaction(
             function () use ($user, $data): User {
                 $nombreAnterior = (string) $user->getRawOriginal('name');
+                $apellidoAnterior = (string) $user->getRawOriginal('apellido');
                 $emailAnterior = (string) $user->getRawOriginal('email');
 
                 $nombreNuevo = $data['name'];
+                $apellidoNuevo = $data['apellido'];
                 $emailNuevo = $data['email'];
 
                 $valoresAnteriores = [];
@@ -33,6 +39,11 @@ final class ActualizarCuentaPropiaAction
                 if ($nombreAnterior !== $nombreNuevo) {
                     $valoresAnteriores['name'] = $nombreAnterior;
                     $valoresNuevos['name'] = $nombreNuevo;
+                }
+
+                if ($apellidoAnterior !== $apellidoNuevo) {
+                    $valoresAnteriores['apellido'] = $apellidoAnterior;
+                    $valoresNuevos['apellido'] = $apellidoNuevo;
                 }
 
                 if ($emailAnterior !== $emailNuevo) {
@@ -46,6 +57,7 @@ final class ActualizarCuentaPropiaAction
 
                 $user->fill([
                     'name' => $nombreNuevo,
+                    'apellido' => $apellidoNuevo,
                     'email' => $emailNuevo,
                 ]);
 

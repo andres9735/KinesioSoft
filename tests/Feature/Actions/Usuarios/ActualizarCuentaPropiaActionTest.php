@@ -14,7 +14,7 @@ class ActualizarCuentaPropiaActionTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_updates_name_and_email_and_audits_changed_fields(): void
+    public function test_updates_account_data_and_audits_changed_fields(): void
     {
         $user = User::factory()->create([
             'name' => 'Ana',
@@ -31,6 +31,7 @@ class ActualizarCuentaPropiaActionTest extends TestCase
             $user,
             [
                 'name' => 'Ana María',
+                'apellido' => 'González',
                 'email' => 'ana.nueva@example.com',
             ]
         );
@@ -40,6 +41,11 @@ class ActualizarCuentaPropiaActionTest extends TestCase
         $this->assertSame(
             'Ana María',
             $actualizado->name
+        );
+
+        $this->assertSame(
+            'González',
+            $actualizado->apellido
         );
 
         $this->assertSame(
@@ -81,6 +87,7 @@ class ActualizarCuentaPropiaActionTest extends TestCase
         $this->assertSame(
             [
                 'name' => 'Ana',
+                'apellido' => 'Paciente',
                 'email' => 'ana@example.com',
             ],
             $auditoria->valores_anteriores
@@ -89,6 +96,7 @@ class ActualizarCuentaPropiaActionTest extends TestCase
         $this->assertSame(
             [
                 'name' => 'Ana María',
+                'apellido' => 'González',
                 'email' => 'ana.nueva@example.com',
             ],
             $auditoria->valores_nuevos
@@ -99,6 +107,7 @@ class ActualizarCuentaPropiaActionTest extends TestCase
     {
         $user = User::factory()->create([
             'name' => 'Ana',
+            'apellido' => 'Paciente',
             'email' => 'ana@example.com',
             'email_verified_at' => now(),
         ]);
@@ -109,7 +118,8 @@ class ActualizarCuentaPropiaActionTest extends TestCase
             ->ejecutar(
                 $user,
                 [
-                    'name' => 'Ana Actualizada',
+                    'name' => 'Ana',
+                    'apellido' => 'González',
                     'email' => 'ana@example.com',
                 ]
             );
@@ -117,8 +127,18 @@ class ActualizarCuentaPropiaActionTest extends TestCase
         $user->refresh();
 
         $this->assertSame(
-            'Ana Actualizada',
+            'Ana',
             $user->name
+        );
+
+        $this->assertSame(
+            'González',
+            $user->apellido
+        );
+
+        $this->assertSame(
+            'ana@example.com',
+            $user->email
         );
 
         $this->assertTrue(
@@ -128,12 +148,16 @@ class ActualizarCuentaPropiaActionTest extends TestCase
         $auditoria = Auditoria::query()->sole();
 
         $this->assertSame(
-            ['name' => 'Ana'],
+            [
+                'apellido' => 'Paciente',
+            ],
             $auditoria->valores_anteriores
         );
 
         $this->assertSame(
-            ['name' => 'Ana Actualizada'],
+            [
+                'apellido' => 'González',
+            ],
             $auditoria->valores_nuevos
         );
     }
@@ -142,6 +166,7 @@ class ActualizarCuentaPropiaActionTest extends TestCase
     {
         $user = User::factory()->create([
             'name' => 'Ana',
+            'apellido' => 'Paciente',
             'email' => 'ana@example.com',
         ]);
 
@@ -153,6 +178,7 @@ class ActualizarCuentaPropiaActionTest extends TestCase
             $user,
             [
                 'name' => 'Ana',
+                'apellido' => 'Paciente',
                 'email' => 'ana@example.com',
             ]
         );
@@ -172,6 +198,7 @@ class ActualizarCuentaPropiaActionTest extends TestCase
     {
         $user = User::factory()->create([
             'name' => 'Ana',
+            'apellido' => 'Paciente',
             'email' => 'ana@example.com',
             'email_verified_at' => now(),
         ]);
@@ -194,6 +221,7 @@ class ActualizarCuentaPropiaActionTest extends TestCase
                     $user,
                     [
                         'name' => 'Ana Modificada',
+                        'apellido' => 'González',
                         'email' => 'ana.modificada@example.com',
                     ]
                 );
@@ -207,6 +235,11 @@ class ActualizarCuentaPropiaActionTest extends TestCase
             $this->assertSame(
                 'Ana',
                 $user->name
+            );
+
+            $this->assertSame(
+                'Paciente',
+                $user->apellido
             );
 
             $this->assertSame(
