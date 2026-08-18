@@ -66,6 +66,9 @@ class TituloProfesionalControllerTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Títulos profesionales');
+        $response->assertSee('No hay títulos profesionales registrados');
+        $response->assertSee('Aún no se cargaron títulos profesionales en el sistema.');
+        $response->assertSee('Crear primer título profesional');
     }
 
     public function test_superadmin_can_view_titulos_index(): void

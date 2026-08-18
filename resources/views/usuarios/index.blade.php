@@ -205,9 +205,66 @@
                                     </td>
                                 </tr>
                             @empty
+                                @php
+                                    $hayFiltrosActivos =
+                                        request()->filled('buscar') ||
+                                        request()->filled('rol') ||
+                                        request()->filled('activo');
+                                @endphp
+
                                 <tr>
-                                    <td colspan="9" class="px-4 py-10 text-center text-gray-500">
-                                        No se encontraron usuarios.
+                                    <td colspan="9" class="px-6 py-12">
+                                        <div class="mx-auto max-w-lg rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-6 py-10 text-center">
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                class="mx-auto h-12 w-12 text-gray-400"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="1.5"
+                                            >
+                                                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                                                <circle cx="9" cy="7" r="4" />
+                                                <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                                                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                                            </svg>
+
+                                            @if ($hayFiltrosActivos)
+                                                <h4 class="mt-4 text-base font-semibold text-gray-900">
+                                                    No se encontraron usuarios
+                                                </h4>
+
+                                                <p class="mt-2 text-sm text-gray-500">
+                                                    No hay usuarios que coincidan con los filtros aplicados.
+                                                </p>
+
+                                                <div class="mt-6">
+                                                    <a
+                                                        href="{{ route('usuarios.index') }}"
+                                                        class="inline-flex items-center justify-center rounded-xl bg-gray-200 px-5 py-2.5 text-sm font-semibold uppercase tracking-widest text-gray-800 transition hover:bg-gray-300"
+                                                    >
+                                                        Limpiar filtros
+                                                    </a>
+                                                </div>
+                                            @else
+                                                <h4 class="mt-4 text-base font-semibold text-gray-900">
+                                                    No hay usuarios registrados
+                                                </h4>
+
+                                                <p class="mt-2 text-sm text-gray-500">
+                                                    Aún no hay usuarios disponibles en el sistema.
+                                                </p>
+
+                                                <div class="mt-6">
+                                                    <a
+                                                        href="{{ route('usuarios.create') }}"
+                                                        class="inline-flex items-center justify-center rounded-xl bg-green-600 px-5 py-2.5 text-sm font-semibold uppercase tracking-widest text-white shadow-sm transition hover:bg-green-700"
+                                                    >
+                                                        Crear primer usuario
+                                                    </a>
+                                                </div>
+                                            @endif
+                                        </div>
                                     </td>
                                 </tr>
                             @endforelse

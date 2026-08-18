@@ -98,8 +98,25 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="px-6 py-6 text-center text-sm text-gray-500">
-                                    No hay títulos profesionales registrados.
+                                <td colspan="5" class="px-6 py-12">
+                                    <div class="mx-auto max-w-lg rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-6 py-10 text-center">
+                                        <h4 class="text-base font-semibold text-gray-900">
+                                            No hay títulos profesionales registrados
+                                        </h4>
+
+                                        <p class="mt-2 text-sm text-gray-500">
+                                            Aún no se cargaron títulos profesionales en el sistema.
+                                        </p>
+
+                                        <div class="mt-6">
+                                            <a
+                                                href="{{ route('catalogos.titulos.create') }}"
+                                                class="inline-flex items-center justify-center rounded-xl bg-green-600 px-5 py-2.5 text-sm font-semibold uppercase tracking-widest text-white shadow-sm transition hover:bg-green-700"
+                                            >
+                                                Crear primer título profesional
+                                            </a>
+                                        </div>
+                                    </div>
                                 </td>
                             </tr>
                         @endforelse

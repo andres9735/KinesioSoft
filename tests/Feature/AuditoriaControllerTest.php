@@ -240,8 +240,31 @@ class AuditoriaControllerTest extends TestCase
                 'No se encontraron registros'
             )
             ->assertSee(
-                'Pruebe con otros filtros o limpie la búsqueda.'
+                'No hay registros de auditoría que coincidan con los filtros aplicados.'
             )
+            ->assertSee('Limpiar filtros')
+            ->assertDontSee('Exportar a PDF');
+    }
+
+    public function test_index_shows_initial_empty_state_when_audit_log_has_no_records(): void
+    {
+        $admin = $this->userWithRole(
+            RoleEnum::ADMINISTRADOR
+        );
+
+        $response = $this
+            ->actingAs($admin)
+            ->get(route('auditorias.index'));
+
+        $response
+            ->assertOk()
+            ->assertSee(
+                'Aún no hay registros de auditoría'
+            )
+            ->assertSee(
+                'Los eventos auditables aparecerán aquí a medida que se registren acciones en el sistema.'
+            )
+            ->assertDontSee('Limpiar filtros')
             ->assertDontSee('Exportar a PDF');
     }
 

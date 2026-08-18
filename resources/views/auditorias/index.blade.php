@@ -60,24 +60,6 @@
     <div class="py-8">
         <div class="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
 
-            @if (session('warning'))
-                <div
-                    class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
-                    role="alert"
-                >
-                    {{ session('warning') }}
-                </div>
-            @endif
-
-            @if (session('error'))
-                <div
-                    class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
-                    role="alert"
-                >
-                    {{ session('error') }}
-                </div>
-            @endif
-
             {{-- Filtros --}}
             <section class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200">
                 <div class="p-6">
@@ -479,15 +461,24 @@
                                     </td>
                                 </tr>
                             @empty
+                                @php
+                                    $hayFiltrosActivos =
+                                        request()->filled('fecha_desde') ||
+                                        request()->filled('fecha_hasta') ||
+                                        request()->filled('evento') ||
+                                        request()->filled('modulo') ||
+                                        request()->filled('actor');
+                                @endphp
+
                                 <tr>
                                     <td
                                         colspan="5"
-                                        class="px-6 py-16 text-center"
+                                        class="px-6 py-12"
                                     >
-                                        <div class="mx-auto flex max-w-md flex-col items-center">
+                                        <div class="mx-auto max-w-lg rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-6 py-10 text-center">
                                             <svg
                                                 xmlns="http://www.w3.org/2000/svg"
-                                                class="h-12 w-12 text-gray-400"
+                                                class="mx-auto h-12 w-12 text-gray-400"
                                                 viewBox="0 0 24 24"
                                                 fill="none"
                                                 stroke="currentColor"
@@ -498,13 +489,32 @@
                                                 <path d="M10 12h4" />
                                             </svg>
 
-                                            <h4 class="mt-4 text-base font-semibold text-gray-700">
-                                                No se encontraron registros
-                                            </h4>
+                                            @if ($hayFiltrosActivos)
+                                                <h4 class="mt-4 text-base font-semibold text-gray-900">
+                                                    No se encontraron registros
+                                                </h4>
 
-                                            <p class="mt-2 text-sm text-gray-500">
-                                                Pruebe con otros filtros o limpie la búsqueda.
-                                            </p>
+                                                <p class="mt-2 text-sm text-gray-500">
+                                                    No hay registros de auditoría que coincidan con los filtros aplicados.
+                                                </p>
+
+                                                <div class="mt-6">
+                                                    <a
+                                                        href="{{ route('auditorias.index') }}"
+                                                        class="inline-flex items-center justify-center rounded-xl bg-gray-200 px-5 py-2.5 text-sm font-semibold uppercase tracking-widest text-gray-800 transition hover:bg-gray-300"
+                                                    >
+                                                        Limpiar filtros
+                                                    </a>
+                                                </div>
+                                            @else
+                                                <h4 class="mt-4 text-base font-semibold text-gray-900">
+                                                    Aún no hay registros de auditoría
+                                                </h4>
+
+                                                <p class="mt-2 text-sm text-gray-500">
+                                                    Los eventos auditables aparecerán aquí a medida que se registren acciones en el sistema.
+                                                </p>
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>

@@ -66,6 +66,9 @@ class JurisdiccionControllerTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Jurisdicciones');
+        $response->assertSee('No hay jurisdicciones registradas');
+        $response->assertSee('Aún no se cargaron jurisdicciones en el sistema.');
+        $response->assertSee('Crear primera jurisdicción');
     }
 
     public function test_superadmin_can_view_jurisdicciones_index(): void

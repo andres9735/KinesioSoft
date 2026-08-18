@@ -87,8 +87,25 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="5" class="px-4 py-10 text-center text-gray-500">
-                                        No se encontraron jurisdicciones.
+                                    <td colspan="5" class="px-6 py-12">
+                                        <div class="mx-auto max-w-lg rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-6 py-10 text-center">
+                                            <h4 class="text-base font-semibold text-gray-900">
+                                                No hay jurisdicciones registradas
+                                            </h4>
+
+                                            <p class="mt-2 text-sm text-gray-500">
+                                                Aún no se cargaron jurisdicciones en el sistema.
+                                            </p>
+
+                                            <div class="mt-6">
+                                                <a
+                                                    href="{{ route('catalogos.jurisdicciones.create') }}"
+                                                    class="inline-flex items-center justify-center rounded-xl bg-green-600 px-5 py-2.5 text-sm font-semibold uppercase tracking-widest text-white shadow-sm transition hover:bg-green-700"
+                                                >
+                                                    Crear primera jurisdicción
+                                                </a>
+                                            </div>
+                                        </div>
                                     </td>
                                 </tr>
                             @endforelse

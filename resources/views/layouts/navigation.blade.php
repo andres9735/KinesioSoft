@@ -6,16 +6,23 @@
         $user->esSuperadmin();
 @endphp
 
-<nav x-data="{ open: false }" class="bg-white border-b border-gray-100">
+<nav
+    x-data="{ open: false }"
+    class="bg-white border-b border-gray-100"
+    aria-label="Navegación principal"
+    @keydown.escape.window="open = false"
+>
     <!-- Primary Navigation Menu -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16">
             <div class="flex">
                 <!-- Logo -->
                 <div class="shrink-0 flex items-center">
-                    <a href="{{ route('dashboard') }}">
+                    <a href="{{ route('dashboard') }}" aria-label="Ir al dashboard">
                         <x-application-logo
                             class="block h-9 w-auto fill-current text-gray-800"
+                            aria-hidden="true"
+                            focusable="false"
                         />
                     </a>
                 </div>
@@ -89,11 +96,13 @@
 
             <!-- Settings Dropdown -->
             <div class="hidden sm:flex sm:items-center sm:ms-6">
-                <x-dropdown align="right" width="48">
+                <x-dropdown align="right" width="48" id="user-account-menu">
                     <x-slot name="trigger">
                         <button
                             type="button"
-                            class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 bg-white hover:text-gray-700 focus:outline-none transition ease-in-out duration-150"
+                            class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 bg-white hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150"
+                            aria-controls="user-account-menu"
+                            :aria-expanded="open.toString()"
                         >
                             <div>
                                 {{ $user->name }}
@@ -104,6 +113,7 @@
                                     class="fill-current h-4 w-4"
                                     xmlns="http://www.w3.org/2000/svg"
                                     viewBox="0 0 20 20"
+                                    aria-hidden="true"
                                 >
                                     <path
                                         fill-rule="evenodd"
@@ -116,7 +126,10 @@
                     </x-slot>
 
                     <x-slot name="content">
-                        <x-dropdown-link :href="route('profile.edit')">
+                        <x-dropdown-link
+                            :href="route('profile.edit')"
+                            :active="request()->routeIs('profile.*')"
+                        >
                             Mi cuenta
                         </x-dropdown-link>
 
@@ -148,13 +161,17 @@
                 <button
                     type="button"
                     @click="open = ! open"
-                    class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:text-gray-500 transition duration-150 ease-in-out"
+                    class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:text-gray-500 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-150 ease-in-out"
+                    aria-label="Abrir o cerrar menú de navegación"
+                    aria-controls="responsive-navigation-menu"
+                    :aria-expanded="open.toString()"
                 >
                     <svg
                         class="h-6 w-6"
                         stroke="currentColor"
                         fill="none"
                         viewBox="0 0 24 24"
+                        aria-hidden="true"
                     >
                         <path
                             :class="{'hidden': open, 'inline-flex': ! open }"
@@ -181,6 +198,7 @@
 
     <!-- Responsive Navigation Menu -->
     <div
+        id="responsive-navigation-menu"
         :class="{'block': open, 'hidden': ! open}"
         class="hidden sm:hidden"
     >
@@ -262,7 +280,10 @@
             </div>
 
             <div class="mt-3 space-y-1">
-                <x-responsive-nav-link :href="route('profile.edit')">
+                <x-responsive-nav-link
+                    :href="route('profile.edit')"
+                    :active="request()->routeIs('profile.*')"
+                >
                     Mi cuenta
                 </x-responsive-nav-link>
 

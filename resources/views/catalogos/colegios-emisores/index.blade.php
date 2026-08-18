@@ -98,26 +98,31 @@
 
                                                     <form action="{{ route('catalogos.colegios.toggle-activo', $colegio) }}"
                                                           method="POST"
-                                                          class="inline">
+                                                          class="inline js-confirm-action"
+                                                          @if ($colegio->activo)
+                                                              data-confirm-title="¿Inactivar colegio emisor?"
+                                                              data-confirm-text="El colegio emisor dejará de estar disponible para nuevas asignaciones, pero se conservará el historial relacionado."
+                                                              data-confirm-button="Sí, inactivar"
+                                                              data-cancel-button="Cancelar"
+                                                              data-confirm-icon="warning"
+                                                          @else
+                                                              data-confirm-title="¿Activar colegio emisor?"
+                                                              data-confirm-text="El colegio emisor volverá a estar disponible para su uso en el sistema."
+                                                              data-confirm-button="Sí, activar"
+                                                              data-cancel-button="Cancelar"
+                                                              data-confirm-icon="question"
+                                                          @endif>
                                                         @csrf
                                                         @method('PATCH')
 
                                                         @if ($colegio->activo)
                                                             <button type="submit"
-                                                                    class="js-confirm-action inline-flex items-center rounded-lg bg-red-50 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-red-700 transition hover:bg-red-100"
-                                                                    data-confirm-title="¿Inactivar colegio emisor?"
-                                                                    data-confirm-text="El colegio emisor dejará de estar disponible para nuevas asignaciones, pero se conservará el historial relacionado."
-                                                                    data-confirm-button-text="Sí, inactivar"
-                                                                    data-cancel-button-text="Cancelar">
+                                                                    class="inline-flex items-center rounded-lg bg-red-50 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-red-700 transition hover:bg-red-100">
                                                                 Inactivar
                                                             </button>
                                                         @else
                                                             <button type="submit"
-                                                                    class="js-confirm-action inline-flex items-center rounded-lg bg-green-50 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-green-700 transition hover:bg-green-100"
-                                                                    data-confirm-title="¿Activar colegio emisor?"
-                                                                    data-confirm-text="El colegio emisor volverá a estar disponible para su uso en el sistema."
-                                                                    data-confirm-button-text="Sí, activar"
-                                                                    data-cancel-button-text="Cancelar">
+                                                                    class="inline-flex items-center rounded-lg bg-green-50 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-green-700 transition hover:bg-green-100">
                                                                 Activar
                                                             </button>
                                                         @endif

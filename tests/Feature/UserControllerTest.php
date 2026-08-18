@@ -93,6 +93,30 @@ class UserControllerTest extends TestCase
         $response->assertSee('Usuarios');
     }
 
+    public function test_users_index_shows_filtered_empty_state_with_clear_action(): void
+    {
+        $admin = $this->admin();
+
+        $response = $this
+            ->actingAs($admin)
+            ->get(
+                route(
+                    'usuarios.index',
+                    [
+                        'buscar' => 'usuario-inexistente-155c',
+                    ]
+                )
+            );
+
+        $response
+            ->assertOk()
+            ->assertSee('No se encontraron usuarios')
+            ->assertSee(
+                'No hay usuarios que coincidan con los filtros aplicados.'
+            )
+            ->assertSee('Limpiar filtros');
+    }
+
     public function test_superadmin_can_view_users_index(): void
     {
         $superadmin = $this->superadmin();
