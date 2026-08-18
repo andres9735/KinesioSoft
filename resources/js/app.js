@@ -1,11 +1,13 @@
 import './bootstrap';
 import Alpine from 'alpinejs';
 import Swal from 'sweetalert2';
-import TomSelect from 'tom-select';
-import 'tom-select/dist/css/tom-select.css';
+import { inicializarTomSelects } from './components/tom-select';
+import { inicializarRelacionesJurisdiccionColegio } from './components/jurisdiccion-colegio';
 
 window.Alpine = Alpine;
 window.Swal = Swal;
-window.TomSelect = TomSelect;
+
+inicializarTomSelects();
+inicializarRelacionesJurisdiccionColegio();
 
 Alpine.start();

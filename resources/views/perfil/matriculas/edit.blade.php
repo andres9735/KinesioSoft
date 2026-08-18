@@ -60,6 +60,9 @@
                             <select
                                 id="jurisdiccion_id"
                                 name="jurisdiccion_id"
+                                data-tom-select="simple"
+                                data-tom-select-placeholder="Seleccione una jurisdicción"
+                                data-jurisdiccion-colegio-target="#colegio_emisor_id"
                                 class="block mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                 required
                             >
@@ -81,6 +84,10 @@
                             <select
                                 id="colegio_emisor_id"
                                 name="colegio_emisor_id"
+                                data-tom-select="simple"
+                                data-tom-select-placeholder="Primero seleccione una jurisdicción"
+                                data-colegio-placeholder-sin-jurisdiccion="Primero seleccione una jurisdicción"
+                                data-colegio-placeholder-con-jurisdiccion="Seleccione un colegio emisor"
                                 class="block mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                 required
                             >
@@ -123,115 +130,4 @@
             </div>
         </div>
     </div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const jurisdiccionSelect = document.getElementById('jurisdiccion_id');
-            const colegioSelect = document.getElementById('colegio_emisor_id');
-
-            const colegiosOriginales = Array.from(colegioSelect.options)
-                .filter(option => option.value !== '')
-                .map(option => ({
-                    value: option.value,
-                    text: option.text,
-                    jurisdiccion: option.dataset.jurisdiccion,
-                }));
-
-            let jurisdiccionTom = null;
-            let colegioTom = null;
-
-            if (window.TomSelect && jurisdiccionSelect) {
-                jurisdiccionTom = new TomSelect('#jurisdiccion_id', {
-                    create: false,
-                    maxItems: 1,
-                    allowEmptyOption: true,
-                    placeholder: 'Seleccione una jurisdicción'
-                });
-            }
-
-            if (window.TomSelect && colegioSelect) {
-                colegioTom = new TomSelect('#colegio_emisor_id', {
-                    create: false,
-                    maxItems: 1,
-                    allowEmptyOption: true,
-                    placeholder: 'Primero seleccione una jurisdicción'
-                });
-            }
-
-            function actualizarColegiosPorJurisdiccion() {
-                const jurisdiccionSeleccionada = jurisdiccionTom
-                    ? jurisdiccionTom.getValue()
-                    : jurisdiccionSelect.value;
-
-                if (!colegioTom) {
-                    colegioSelect.disabled = !jurisdiccionSeleccionada;
-
-                    Array.from(colegioSelect.options).forEach(option => {
-                        if (option.value === '') {
-                            option.hidden = false;
-                            option.text = jurisdiccionSeleccionada
-                                ? 'Seleccione un colegio emisor'
-                                : 'Primero seleccione una jurisdicción';
-                            return;
-                        }
-
-                        option.hidden = option.dataset.jurisdiccion !== jurisdiccionSeleccionada;
-                    });
-
-                    const opcionActual = colegioSelect.options[colegioSelect.selectedIndex];
-                    if (opcionActual && opcionActual.value !== '' && opcionActual.hidden) {
-                        colegioSelect.value = '';
-                    }
-
-                    if (!jurisdiccionSeleccionada) {
-                        colegioSelect.value = '';
-                    }
-
-                    return;
-                }
-
-                const valorActual = colegioTom.getValue();
-
-                colegioTom.clear(true);
-                colegioTom.clearOptions();
-
-                colegioTom.addOption({
-                    value: '',
-                    text: jurisdiccionSeleccionada
-                        ? 'Seleccione un colegio emisor'
-                        : 'Primero seleccione una jurisdicción'
-                });
-
-                if (jurisdiccionSeleccionada) {
-                    const colegiosFiltrados = colegiosOriginales
-                        .filter(colegio => colegio.jurisdiccion === jurisdiccionSeleccionada)
-                        .map(colegio => ({
-                            value: colegio.value,
-                            text: colegio.text
-                        }));
-
-                    colegioTom.addOptions(colegiosFiltrados);
-                    colegioTom.enable();
-
-                    const opcionValida = colegiosFiltrados.find(colegio => colegio.value == valorActual);
-                    if (opcionValida) {
-                        colegioTom.setValue(valorActual, true);
-                    }
-                } else {
-                    colegioTom.clear(true);
-                    colegioTom.disable();
-                }
-
-                colegioTom.refreshOptions(false);
-            }
-
-            if (jurisdiccionTom) {
-                jurisdiccionTom.on('change', actualizarColegiosPorJurisdiccion);
-            } else {
-                jurisdiccionSelect.addEventListener('change', actualizarColegiosPorJurisdiccion);
-            }
-
-            actualizarColegiosPorJurisdiccion();
-        });
-    </script>
 </x-app-layout>
