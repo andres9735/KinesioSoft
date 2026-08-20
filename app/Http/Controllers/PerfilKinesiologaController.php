@@ -12,6 +12,7 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
+use Throwable;
 
 class PerfilKinesiologaController extends Controller
 {
@@ -103,13 +104,28 @@ class PerfilKinesiologaController extends Controller
 
         $data = $request->validated();
 
-        $this->guardarPerfilKinesiologaAction->ejecutar(
-            $user,
-            $data
-        );
+        try {
+            $this->guardarPerfilKinesiologaAction->ejecutar(
+                $user,
+                $data
+            );
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return back()
+                ->withInput()
+                ->with(
+                    'error',
+                    'No se pudo guardar el perfil profesional por un '
+                        . 'inconveniente técnico. Los cambios no fueron '
+                        . 'aplicados. Intente nuevamente.'
+                );
+        }
 
         $mensaje = $tieneMatriculas
-            ? 'Perfil profesional actualizado correctamente. Para administrar sus matrículas, use el módulo "Mis matrículas profesionales".'
+            ? 'Perfil profesional actualizado correctamente. '
+            . 'Para administrar sus matrículas, use el módulo '
+            . '"Mis matrículas profesionales".'
             : 'Perfil profesional completado correctamente.';
 
         return redirect()

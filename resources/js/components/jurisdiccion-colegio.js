@@ -10,7 +10,9 @@ function obtenerColegiosOriginales(colegioSelect) {
         }));
 }
 
-function obtenerJurisdiccionSeleccionada(jurisdiccionSelect) {
+function obtenerJurisdiccionSeleccionada(
+    jurisdiccionSelect
+) {
     return jurisdiccionSelect.tomselect
         ? jurisdiccionSelect.tomselect.getValue()
         : jurisdiccionSelect.value;
@@ -22,15 +24,40 @@ function obtenerTextoPlaceholder(
 ) {
     if (jurisdiccionSeleccionada) {
         return (
-            colegioSelect.dataset.colegioPlaceholderConJurisdiccion ||
+            colegioSelect.dataset
+                .colegioPlaceholderConJurisdiccion ||
             'Seleccione un colegio emisor'
         );
     }
 
     return (
-        colegioSelect.dataset.colegioPlaceholderSinJurisdiccion ||
+        colegioSelect.dataset
+            .colegioPlaceholderSinJurisdiccion ||
         'Primero seleccione una jurisdicción'
     );
+}
+
+function actualizarPlaceholderTomSelect(
+    colegioTom,
+    placeholder
+) {
+    colegioTom.settings.placeholder = placeholder;
+
+    if (colegioTom.control_input) {
+        colegioTom.control_input.setAttribute(
+            'placeholder',
+            placeholder
+        );
+    }
+
+    /*
+     * Tom Select recalcula internamente el estado visual
+     * del campo. Se ejecuta cuando la versión instalada
+     * expone este método.
+     */
+    if (typeof colegioTom.inputState === 'function') {
+        colegioTom.inputState();
+    }
 }
 
 function actualizarSelectNativo(
@@ -39,23 +66,27 @@ function actualizarSelectNativo(
 ) {
     colegioSelect.disabled = !jurisdiccionSeleccionada;
 
-    Array.from(colegioSelect.options).forEach(option => {
-        if (option.value === '') {
-            option.hidden = false;
-            option.text = obtenerTextoPlaceholder(
-                colegioSelect,
-                jurisdiccionSeleccionada
-            );
-            return;
-        }
+    Array.from(colegioSelect.options).forEach(
+        option => {
+            if (option.value === '') {
+                option.hidden = false;
+                option.text = obtenerTextoPlaceholder(
+                    colegioSelect,
+                    jurisdiccionSeleccionada
+                );
+                return;
+            }
 
-        option.hidden =
-            option.dataset.jurisdiccion !==
-            jurisdiccionSeleccionada;
-    });
+            option.hidden =
+                option.dataset.jurisdiccion !==
+                jurisdiccionSeleccionada;
+        }
+    );
 
     const opcionActual =
-        colegioSelect.options[colegioSelect.selectedIndex];
+        colegioSelect.options[
+            colegioSelect.selectedIndex
+        ];
 
     if (
         opcionActual &&
@@ -78,20 +109,33 @@ function actualizarTomSelect(
     const colegioTom = colegioSelect.tomselect;
     const valorActual = colegioTom.getValue();
 
+    const placeholder = obtenerTextoPlaceholder(
+        colegioSelect,
+        jurisdiccionSeleccionada
+    );
+
     colegioTom.clear(true);
     colegioTom.clearOptions();
 
     colegioTom.addOption({
         value: '',
-        text: obtenerTextoPlaceholder(
-            colegioSelect,
-            jurisdiccionSeleccionada
-        ),
+        text: placeholder,
     });
+
+    actualizarPlaceholderTomSelect(
+        colegioTom,
+        placeholder
+    );
 
     if (!jurisdiccionSeleccionada) {
         colegioTom.disable();
         colegioTom.refreshOptions(false);
+
+        actualizarPlaceholderTomSelect(
+            colegioTom,
+            placeholder
+        );
+
         return;
     }
 
@@ -118,6 +162,11 @@ function actualizarTomSelect(
     }
 
     colegioTom.refreshOptions(false);
+
+    actualizarPlaceholderTomSelect(
+        colegioTom,
+        placeholder
+    );
 }
 
 export function inicializarRelacionJurisdiccionColegio(
@@ -126,7 +175,9 @@ export function inicializarRelacionJurisdiccionColegio(
 ) {
     if (
         !jurisdiccionSelect ||
-        relacionesInicializadas.has(jurisdiccionSelect)
+        relacionesInicializadas.has(
+            jurisdiccionSelect
+        )
     ) {
         return;
     }
@@ -148,7 +199,9 @@ export function inicializarRelacionJurisdiccionColegio(
     }
 
     const colegiosOriginales =
-        obtenerColegiosOriginales(colegioSelect);
+        obtenerColegiosOriginales(
+            colegioSelect
+        );
 
     const actualizar = () => {
         const jurisdiccionSeleccionada =
@@ -162,6 +215,7 @@ export function inicializarRelacionJurisdiccionColegio(
                 colegiosOriginales,
                 jurisdiccionSeleccionada
             );
+
             return;
         }
 

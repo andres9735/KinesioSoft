@@ -11,6 +11,7 @@ use App\Models\MatriculaProfesionalKinesiologia;
 use App\Models\TituloProfesional;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use RuntimeException;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -210,6 +211,119 @@ class PerfilKinesiologaControllerTest extends TestCase
             'kinesiologa_id' => $kinesiologa->id,
             'especialidad_id' => $catalogos['especialidad2']->id,
         ]);
+    }
+
+    public function test_persistence_failure_redirects_back_with_input_and_friendly_error(): void
+    {
+        $user = $this->kinesiologaIncompleta();
+        $catalogos = $this->catalogos();
+
+        /*
+        * Se fuerza un fallo técnico después de insertar la kinesióloga.
+        * Como la operación se ejecuta dentro de DB::transaction(),
+        * también debe revertirse la actualización previa del usuario.
+        */
+        Kinesiologa::created(function (): void {
+            throw new RuntimeException(
+                'Falla técnica simulada durante la persistencia.'
+            );
+        });
+
+        $response = $this
+            ->from(route('perfil.kinesiologa.completar'))
+            ->actingAs($user)
+            ->post(route('perfil.kinesiologa.actualizar'), [
+                'dni' => '30456321',
+                'fecha_nacimiento' => '1993-08-09',
+                'sexo' => 'femenino',
+                'telefono' => '3758-451963',
+                'titulo_profesional_id' => $catalogos['titulo']->id,
+                'jurisdiccion_id' => $catalogos['jurisdiccion1']->id,
+                'colegio_emisor_id' => $catalogos['colegio1']->id,
+                'nro_matricula_profesional' => '0763',
+                'especialidades' => [
+                    $catalogos['especialidad1']->id,
+                    $catalogos['especialidad2']->id,
+                ],
+            ]);
+
+        $response
+            ->assertRedirect(route('perfil.kinesiologa.completar'))
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas(
+                'error',
+                'No se pudo guardar el perfil profesional por un '
+                    . 'inconveniente técnico. Los cambios no fueron '
+                    . 'aplicados. Intente nuevamente.'
+            );
+
+        $response->assertSessionHasInput(
+            'dni',
+            '30456321'
+        );
+
+        $response->assertSessionHasInput(
+            'fecha_nacimiento',
+            '1993-08-09'
+        );
+
+        $response->assertSessionHasInput(
+            'sexo',
+            'femenino'
+        );
+
+        $response->assertSessionHasInput(
+            'telefono',
+            '3758-451963'
+        );
+
+        $response->assertSessionHasInput(
+            'titulo_profesional_id',
+            $catalogos['titulo']->id
+        );
+
+        $response->assertSessionHasInput(
+            'jurisdiccion_id',
+            $catalogos['jurisdiccion1']->id
+        );
+
+        $response->assertSessionHasInput(
+            'colegio_emisor_id',
+            $catalogos['colegio1']->id
+        );
+
+        $response->assertSessionHasInput(
+            'nro_matricula_profesional',
+            '0763'
+        );
+
+        $response->assertSessionHasInput(
+            'especialidades',
+            [
+                $catalogos['especialidad1']->id,
+                $catalogos['especialidad2']->id,
+            ]
+        );
+
+        $user->refresh();
+
+        $this->assertNull($user->dni);
+        $this->assertNull($user->fecha_nacimiento);
+        $this->assertNull($user->sexo);
+        $this->assertNull($user->telefono);
+
+        $this->assertDatabaseMissing('kinesiologas', [
+            'user_id' => $user->id,
+        ]);
+
+        $this->assertDatabaseMissing(
+            'matriculas_profesionales_kinesiologia',
+            [
+                'nro_matricula_profesional' => '0763',
+            ]
+        );
+
+        $this->assertDatabaseCount('auditorias', 0);
     }
 
     public function test_initial_profile_rejects_license_number_already_used_in_same_jurisdiction(): void

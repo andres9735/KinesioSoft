@@ -21,7 +21,8 @@ function configuracionEspecialidades(select) {
         placeholder:
             select.dataset.tomSelectPlaceholder ||
             'Seleccione una o más especialidades',
-        dropdownClass: 'ts-dropdown-especialidades',
+        dropdownClass:
+            'ts-dropdown ts-dropdown-especialidades',
         render: {
             no_results(data, escape) {
                 return (
