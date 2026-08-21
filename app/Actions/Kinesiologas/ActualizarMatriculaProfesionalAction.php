@@ -8,21 +8,18 @@ use Illuminate\Support\Facades\DB;
 
 final class ActualizarMatriculaProfesionalAction
 {
-    private const CAMPOS_AUDITABLES = [
-        'nro_matricula_profesional',
-        'jurisdiccion_id',
-        'colegio_emisor_id',
-    ];
-
     public function __construct(
         private readonly AuditoriaService $auditoriaService
     ) {}
 
     /**
+     * Actualiza únicamente el número de matrícula profesional.
+     *
+     * La Jurisdicción y el Colegio emisor son datos inmutables
+     * y no forman parte del contrato de esta operación.
+     *
      * @param  array{
-     *     nro_matricula_profesional: string,
-     *     jurisdiccion_id: int,
-     *     colegio_emisor_id: int
+     *     nro_matricula_profesional: string
      * }  $data
      */
     public function ejecutar(
@@ -30,49 +27,51 @@ final class ActualizarMatriculaProfesionalAction
         array $data
     ): MatriculaProfesionalKinesiologia {
         return DB::transaction(
-            function () use ($matricula, $data): MatriculaProfesionalKinesiologia {
-                $valoresAnteriores = [];
-                $valoresNuevos = [];
+            function () use (
+                $matricula,
+                $data
+            ): MatriculaProfesionalKinesiologia {
+                /*
+                 * Se vuelve a obtener y bloquear el registro para trabajar
+                 * con sus valores persistidos más recientes durante toda
+                 * la actualización y su correspondiente auditoría.
+                 */
+                $matriculaActual = MatriculaProfesionalKinesiologia::query()
+                    ->whereKey($matricula->getKey())
+                    ->lockForUpdate()
+                    ->firstOrFail();
 
-                foreach (self::CAMPOS_AUDITABLES as $campo) {
-                    $valorAnterior = $matricula->getRawOriginal($campo);
-                    $valorNuevo = $data[$campo];
+                $valorAnterior = (string) $matriculaActual
+                    ->getRawOriginal('nro_matricula_profesional');
 
-                    if (in_array(
-                        $campo,
-                        ['jurisdiccion_id', 'colegio_emisor_id'],
-                        true
-                    )) {
-                        $valorAnterior = (int) $valorAnterior;
-                        $valorNuevo = (int) $valorNuevo;
-                    }
+                $valorNuevo = $data['nro_matricula_profesional'];
 
-                    if ($valorAnterior !== $valorNuevo) {
-                        $valoresAnteriores[$campo] = $valorAnterior;
-                        $valoresNuevos[$campo] = $valorNuevo;
-                    }
+                /*
+                 * Si el número no cambió, no se modifica el registro
+                 * ni se genera un evento de auditoría.
+                 */
+                if ($valorAnterior === $valorNuevo) {
+                    return $matriculaActual;
                 }
 
-                if ($valoresAnteriores === []) {
-                    return $matricula;
-                }
-
-                $matricula->update([
-                    'nro_matricula_profesional' =>
-                    $data['nro_matricula_profesional'],
-                    'jurisdiccion_id' => $data['jurisdiccion_id'],
-                    'colegio_emisor_id' => $data['colegio_emisor_id'],
+                $matriculaActual->update([
+                    'nro_matricula_profesional' => $valorNuevo,
                 ]);
 
                 $this->auditoriaService->registrar(
                     evento: 'matricula_actualizada',
                     modulo: 'Matrículas profesionales',
-                    auditable: $matricula,
-                    valoresAnteriores: $valoresAnteriores,
-                    valoresNuevos: $valoresNuevos
+                    auditable: $matriculaActual,
+                    valoresAnteriores: [
+                        'nro_matricula_profesional' => $valorAnterior,
+                    ],
+                    valoresNuevos: [
+                        'nro_matricula_profesional' =>
+                        $matriculaActual->nro_matricula_profesional,
+                    ]
                 );
 
-                return $matricula;
+                return $matriculaActual;
             }
         );
     }

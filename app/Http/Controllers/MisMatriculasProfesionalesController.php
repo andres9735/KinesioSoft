@@ -6,6 +6,8 @@ use App\Actions\Kinesiologas\ActualizarMatriculaProfesionalAction;
 use App\Actions\Kinesiologas\CambiarEstadoMatriculaProfesionalAction;
 use App\Actions\Kinesiologas\CrearMatriculaProfesionalAction;
 use App\Exceptions\Kinesiologas\NoSePuedeInactivarUltimaMatriculaActivaException;
+use App\Exceptions\Kinesiologas\NoSePuedeReactivarMatriculaConCatalogoInactivoException;
+use App\Http\Requests\CambiarEstadoMatriculaProfesionalRequest;
 use App\Http\Requests\StoreMatriculaProfesionalRequest;
 use App\Http\Requests\UpdateMatriculaProfesionalRequest;
 use App\Models\ColegioEmisor;
@@ -97,25 +99,14 @@ class MisMatriculasProfesionalesController extends Controller
     ): View {
         Gate::authorize('update', $matricula);
 
-        $jurisdicciones = Jurisdiccion::query()
-            ->where(function ($query) use ($matricula) {
-                $query->where('activo', true)
-                    ->orWhere('id', $matricula->jurisdiccion_id);
-            })
-            ->orderBy('nombre')
-            ->get();
-
-        $colegiosEmisores = ColegioEmisor::query()
-            ->where(function ($query) use ($matricula) {
-                $query->where('activo', true)
-                    ->orWhere('id', $matricula->colegio_emisor_id);
-            })
-            ->orderBy('nombre')
-            ->get();
+        $matricula->loadMissing([
+            'jurisdiccion',
+            'colegioEmisor',
+        ]);
 
         return view(
             'perfil.matriculas.edit',
-            compact('matricula', 'jurisdicciones', 'colegiosEmisores')
+            compact('matricula')
         );
     }
 
@@ -141,22 +132,48 @@ class MisMatriculasProfesionalesController extends Controller
     }
 
     public function toggleActiva(
+        CambiarEstadoMatriculaProfesionalRequest $request,
         MatriculaProfesionalKinesiologia $matricula
     ): RedirectResponse {
         Gate::authorize('toggleActiva', $matricula);
 
+        $data = $request->validated();
+
+        $activar = (bool) $data['activar'];
+
         try {
-            $matricula = $this
+            $matriculaActualizada = $this
                 ->cambiarEstadoMatriculaProfesionalAction
-                ->ejecutar($matricula);
-        } catch (NoSePuedeInactivarUltimaMatriculaActivaException $e) {
+                ->ejecutar(
+                    $matricula,
+                    $activar
+                );
+        } catch (
+            NoSePuedeInactivarUltimaMatriculaActivaException
+            | NoSePuedeReactivarMatriculaConCatalogoInactivoException $e
+        ) {
             return redirect()
                 ->route('perfil.kinesiologa.matriculas.index')
                 ->with('warning', $e->getMessage());
         }
 
-        $mensaje = $matricula->activa
-            ? 'Matrícula profesional activada correctamente.'
+        /*
+         * La operación es idempotente. Si otra solicitud ya había
+         * dejado la matrícula en el estado solicitado, se informa
+         * su estado actual sin generar una auditoría duplicada.
+         */
+        if (! $matriculaActualizada->wasChanged('activa')) {
+            $mensaje = $activar
+                ? 'La matrícula profesional ya se encontraba activa.'
+                : 'La matrícula profesional ya se encontraba inactiva.';
+
+            return redirect()
+                ->route('perfil.kinesiologa.matriculas.index')
+                ->with('warning', $mensaje);
+        }
+
+        $mensaje = $activar
+            ? 'Matrícula profesional reactivada correctamente.'
             : 'Matrícula profesional inactivada correctamente.';
 
         return redirect()

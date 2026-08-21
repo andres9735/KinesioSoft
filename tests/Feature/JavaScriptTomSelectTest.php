@@ -84,9 +84,6 @@ class JavaScriptTomSelectTest extends TestCase
                 'views/perfil/matriculas/create.blade.php'
             ),
             resource_path(
-                'views/perfil/matriculas/edit.blade.php'
-            ),
-            resource_path(
                 'views/perfil/completar-kinesiologa.blade.php'
             ),
         ];
@@ -132,6 +129,30 @@ class JavaScriptTomSelectTest extends TestCase
         $this->assertStringNotContainsString(
             'ts-dropdown-especialidades',
             $this->extractScriptBlocks($perfil)
+        );
+    }
+
+    public function test_edit_matricula_does_not_use_tom_select(): void
+    {
+        $view = resource_path(
+            'views/perfil/matriculas/edit.blade.php'
+        );
+
+        $contenido = file_get_contents($view);
+
+        $this->assertStringNotContainsString(
+            'data-tom-select=',
+            $contenido
+        );
+
+        $this->assertStringNotContainsString(
+            'new TomSelect',
+            $contenido
+        );
+
+        $this->assertStringNotContainsString(
+            'window.TomSelect',
+            $contenido
         );
     }
 

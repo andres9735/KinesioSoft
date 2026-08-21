@@ -19,12 +19,18 @@ class ActualizarMatriculaProfesionalActionTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_updates_matricula_and_audits_only_changed_fields(): void
+    public function test_updates_only_license_number_preserves_immutable_fields_and_audits_change(): void
     {
         $contexto = $this->contexto();
 
         $this->actingAs($contexto['user']);
 
+        /*
+         * Se incluyen deliberadamente valores diferentes para
+         * jurisdicción y colegio a fin de comprobar que la Action
+         * no puede modificar esos datos aunque fueran recibidos
+         * directamente por error desde otro punto de la aplicación.
+         */
         $actualizada = app(
             ActualizarMatriculaProfesionalAction::class
         )->ejecutar(
@@ -42,12 +48,17 @@ class ActualizarMatriculaProfesionalActionTest extends TestCase
             '0999',
             $actualizada->nro_matricula_profesional
         );
+
+        /*
+         * Jurisdicción y Colegio emisor son inmutables.
+         */
         $this->assertSame(
-            $contexto['jurisdiccion2']->id,
+            $contexto['jurisdiccion1']->id,
             $actualizada->jurisdiccion_id
         );
+
         $this->assertSame(
-            $contexto['colegio2']->id,
+            $contexto['colegio1']->id,
             $actualizada->colegio_emisor_id
         );
 
@@ -57,14 +68,17 @@ class ActualizarMatriculaProfesionalActionTest extends TestCase
             'matricula_actualizada',
             $auditoria->evento
         );
+
         $this->assertSame(
             'Matrículas profesionales',
             $auditoria->modulo
         );
+
         $this->assertSame(
             $actualizada->getMorphClass(),
             $auditoria->auditable_type
         );
+
         $this->assertSame(
             $actualizada->id,
             $auditoria->auditable_id
@@ -73,8 +87,6 @@ class ActualizarMatriculaProfesionalActionTest extends TestCase
         $this->assertSame(
             [
                 'nro_matricula_profesional' => '0755',
-                'jurisdiccion_id' => $contexto['jurisdiccion1']->id,
-                'colegio_emisor_id' => $contexto['colegio1']->id,
             ],
             $auditoria->valores_anteriores
         );
@@ -82,8 +94,6 @@ class ActualizarMatriculaProfesionalActionTest extends TestCase
         $this->assertSame(
             [
                 'nro_matricula_profesional' => '0999',
-                'jurisdiccion_id' => $contexto['jurisdiccion2']->id,
-                'colegio_emisor_id' => $contexto['colegio2']->id,
             ],
             $auditoria->valores_nuevos
         );

@@ -518,8 +518,6 @@ class MisMatriculasProfesionalesControllerTest extends TestCase
                     $matricula
                 ),
                 [
-                    'jurisdiccion_id' => $jurisdiccion2->id,
-                    'colegio_emisor_id' => $colegio2->id,
                     'nro_matricula_profesional' => '0999',
                 ]
             );
@@ -539,63 +537,110 @@ class MisMatriculasProfesionalesControllerTest extends TestCase
         );
     }
 
-    public function test_update_rejects_moving_matricula_to_existing_jurisdiccion(): void
+    public function test_update_rejects_changing_jurisdiccion_even_when_destination_is_free(): void
     {
         $user = $this->kinesiologaCompleta();
 
-        $jurisdiccion1 = Jurisdiccion::where('slug', 'misiones')
+        $matricula = $user->kinesiologa
+            ->matriculasProfesionales()
             ->firstOrFail();
 
         $jurisdiccion2 = Jurisdiccion::where('slug', 'corrientes')
-            ->firstOrFail();
-
-        $colegio1 = ColegioEmisor::where('sigla', 'CKFM')
-            ->firstOrFail();
-
-        $colegio2 = ColegioEmisor::where('sigla', 'CKC')
-            ->firstOrFail();
-
-        MatriculaProfesionalKinesiologia::create([
-            'kinesiologa_id' => $user->kinesiologa->id,
-            'nro_matricula_profesional' => '0955',
-            'jurisdiccion_id' => $jurisdiccion2->id,
-            'colegio_emisor_id' => $colegio2->id,
-            'activa' => true,
-        ]);
-
-        $matriculaCorrientes = $user->kinesiologa
-            ->matriculasProfesionales()
-            ->where('jurisdiccion_id', $jurisdiccion2->id)
             ->firstOrFail();
 
         $response = $this
             ->from(
                 route(
                     'perfil.kinesiologa.matriculas.edit',
-                    $matriculaCorrientes
+                    $matricula
                 )
             )
             ->actingAs($user)
             ->put(
                 route(
                     'perfil.kinesiologa.matriculas.update',
-                    $matriculaCorrientes
+                    $matricula
                 ),
                 [
-                    'jurisdiccion_id' => $jurisdiccion1->id,
-                    'colegio_emisor_id' => $colegio1->id,
+                    'jurisdiccion_id' => $jurisdiccion2->id,
                     'nro_matricula_profesional' => '0999',
                 ]
             );
 
-        $response->assertRedirect(
-            route(
-                'perfil.kinesiologa.matriculas.edit',
-                $matriculaCorrientes
+        $response
+            ->assertRedirect(
+                route(
+                    'perfil.kinesiologa.matriculas.edit',
+                    $matricula
+                )
             )
-        );
+            ->assertSessionHasErrors('jurisdiccion_id');
 
-        $response->assertSessionHasErrors('jurisdiccion_id');
+        $this->assertDatabaseHas(
+            'matriculas_profesionales_kinesiologia',
+            [
+                'id' => $matricula->id,
+                'jurisdiccion_id' => $matricula->jurisdiccion_id,
+                'colegio_emisor_id' => $matricula->colegio_emisor_id,
+                'nro_matricula_profesional' => '0755',
+            ]
+        );
+    }
+
+    public function test_update_rejects_changing_colegio_within_same_jurisdiccion(): void
+    {
+        $user = $this->kinesiologaCompleta();
+
+        $matricula = $user->kinesiologa
+            ->matriculasProfesionales()
+            ->firstOrFail();
+
+        $jurisdiccion = Jurisdiccion::where('slug', 'misiones')
+            ->firstOrFail();
+
+        $otroColegio = ColegioEmisor::create([
+            'nombre' => 'Otro Colegio Profesional de Misiones',
+            'sigla' => 'OCPM',
+            'jurisdiccion_id' => $jurisdiccion->id,
+            'activo' => true,
+        ]);
+
+        $response = $this
+            ->from(
+                route(
+                    'perfil.kinesiologa.matriculas.edit',
+                    $matricula
+                )
+            )
+            ->actingAs($user)
+            ->put(
+                route(
+                    'perfil.kinesiologa.matriculas.update',
+                    $matricula
+                ),
+                [
+                    'colegio_emisor_id' => $otroColegio->id,
+                    'nro_matricula_profesional' => '0999',
+                ]
+            );
+
+        $response
+            ->assertRedirect(
+                route(
+                    'perfil.kinesiologa.matriculas.edit',
+                    $matricula
+                )
+            )
+            ->assertSessionHasErrors('colegio_emisor_id');
+
+        $this->assertDatabaseHas(
+            'matriculas_profesionales_kinesiologia',
+            [
+                'id' => $matricula->id,
+                'colegio_emisor_id' => $matricula->colegio_emisor_id,
+                'nro_matricula_profesional' => '0755',
+            ]
+        );
     }
 
     public function test_update_rejects_license_number_used_by_another_kinesiologist_in_same_jurisdiction(): void
@@ -664,6 +709,74 @@ class MisMatriculasProfesionalesControllerTest extends TestCase
         );
     }
 
+    public function test_update_uses_persisted_jurisdiccion_for_license_number_uniqueness(): void
+    {
+        $this->kinesiologaCompleta(
+            'titular',
+            '0755',
+            'misiones',
+            'CKFM'
+        );
+
+        $user = $this->kinesiologaCompleta(
+            'editora',
+            '0855',
+            'misiones',
+            'CKFM'
+        );
+
+        $matricula = $user->kinesiologa
+            ->matriculasProfesionales()
+            ->firstOrFail();
+
+        $jurisdiccion2 = Jurisdiccion::where('slug', 'corrientes')
+            ->firstOrFail();
+
+        $response = $this
+            ->from(
+                route(
+                    'perfil.kinesiologa.matriculas.edit',
+                    $matricula
+                )
+            )
+            ->actingAs($user)
+            ->put(
+                route(
+                    'perfil.kinesiologa.matriculas.update',
+                    $matricula
+                ),
+                [
+                    /*
+                     * Se intenta falsear la jurisdicción para que el
+                     * número 0755 parezca libre en Corrientes.
+                     */
+                    'jurisdiccion_id' => $jurisdiccion2->id,
+                    'nro_matricula_profesional' => '0755',
+                ]
+            );
+
+        $response
+            ->assertRedirect(
+                route(
+                    'perfil.kinesiologa.matriculas.edit',
+                    $matricula
+                )
+            )
+            ->assertSessionHasErrors([
+                'jurisdiccion_id',
+                'nro_matricula_profesional',
+            ]);
+
+        $this->assertDatabaseHas(
+            'matriculas_profesionales_kinesiologia',
+            [
+                'id' => $matricula->id,
+                'jurisdiccion_id' => $matricula->jurisdiccion_id,
+                'nro_matricula_profesional' => '0855',
+            ]
+        );
+    }
+
     public function test_update_allows_keeping_own_license_number(): void
     {
         $user = $this->kinesiologaCompleta(
@@ -685,8 +798,6 @@ class MisMatriculasProfesionalesControllerTest extends TestCase
                     $matricula
                 ),
                 [
-                    'jurisdiccion_id' => $matricula->jurisdiccion_id,
-                    'colegio_emisor_id' => $matricula->colegio_emisor_id,
                     'nro_matricula_profesional' => '0755',
                 ]
             );
@@ -753,7 +864,10 @@ class MisMatriculasProfesionalesControllerTest extends TestCase
                 route(
                     'perfil.kinesiologa.matriculas.toggle-activa',
                     $matricula
-                )
+                ),
+                [
+                    'activar' => false,
+                ]
             );
 
         $response->assertRedirect(
@@ -803,7 +917,10 @@ class MisMatriculasProfesionalesControllerTest extends TestCase
                 route(
                     'perfil.kinesiologa.matriculas.toggle-activa',
                     $primera
-                )
+                ),
+                [
+                    'activar' => false,
+                ]
             );
 
         $response->assertRedirect(
@@ -853,7 +970,10 @@ class MisMatriculasProfesionalesControllerTest extends TestCase
                 route(
                     'perfil.kinesiologa.matriculas.toggle-activa',
                     $segunda
-                )
+                ),
+                [
+                    'activar' => true,
+                ]
             );
 
         $response->assertRedirect(
@@ -867,6 +987,143 @@ class MisMatriculasProfesionalesControllerTest extends TestCase
             [
                 'id' => $segunda->id,
                 'activa' => 1,
+            ]
+        );
+    }
+
+    public function test_cannot_reactivate_matricula_when_jurisdiccion_is_inactive(): void
+    {
+        $user = $this->kinesiologaCompleta();
+
+        $jurisdiccion2 = Jurisdiccion::where('slug', 'corrientes')
+            ->firstOrFail();
+
+        $colegio2 = ColegioEmisor::where('sigla', 'CKC')
+            ->firstOrFail();
+
+        $matricula = MatriculaProfesionalKinesiologia::create([
+            'kinesiologa_id' => $user->kinesiologa->id,
+            'nro_matricula_profesional' => '0955',
+            'jurisdiccion_id' => $jurisdiccion2->id,
+            'colegio_emisor_id' => $colegio2->id,
+            'activa' => false,
+        ]);
+
+        $jurisdiccion2->update([
+            'activo' => false,
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->patch(
+                route(
+                    'perfil.kinesiologa.matriculas.toggle-activa',
+                    $matricula
+                ),
+                [
+                    'activar' => true,
+                ]
+            );
+
+        $response
+            ->assertRedirect(
+                route('perfil.kinesiologa.matriculas.index')
+            )
+            ->assertSessionHas(
+                'warning',
+                'No puede reactivar la matrícula profesional mientras su jurisdicción o colegio emisor se encuentren inactivos.'
+            );
+
+        $this->assertDatabaseHas(
+            'matriculas_profesionales_kinesiologia',
+            [
+                'id' => $matricula->id,
+                'activa' => false,
+            ]
+        );
+    }
+
+    public function test_cannot_reactivate_matricula_when_colegio_is_inactive(): void
+    {
+        $user = $this->kinesiologaCompleta();
+
+        $jurisdiccion2 = Jurisdiccion::where('slug', 'corrientes')
+            ->firstOrFail();
+
+        $colegio2 = ColegioEmisor::where('sigla', 'CKC')
+            ->firstOrFail();
+
+        $matricula = MatriculaProfesionalKinesiologia::create([
+            'kinesiologa_id' => $user->kinesiologa->id,
+            'nro_matricula_profesional' => '0955',
+            'jurisdiccion_id' => $jurisdiccion2->id,
+            'colegio_emisor_id' => $colegio2->id,
+            'activa' => false,
+        ]);
+
+        $colegio2->update([
+            'activo' => false,
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->patch(
+                route(
+                    'perfil.kinesiologa.matriculas.toggle-activa',
+                    $matricula
+                ),
+                [
+                    'activar' => true,
+                ]
+            );
+
+        $response
+            ->assertRedirect(
+                route('perfil.kinesiologa.matriculas.index')
+            )
+            ->assertSessionHas(
+                'warning',
+                'No puede reactivar la matrícula profesional mientras su jurisdicción o colegio emisor se encuentren inactivos.'
+            );
+
+        $this->assertDatabaseHas(
+            'matriculas_profesionales_kinesiologia',
+            [
+                'id' => $matricula->id,
+                'activa' => false,
+            ]
+        );
+    }
+
+    public function test_change_state_requires_explicit_requested_state(): void
+    {
+        $user = $this->kinesiologaCompleta();
+
+        $matricula = $user->kinesiologa
+            ->matriculasProfesionales()
+            ->firstOrFail();
+
+        $response = $this
+            ->from(route('perfil.kinesiologa.matriculas.index'))
+            ->actingAs($user)
+            ->patch(
+                route(
+                    'perfil.kinesiologa.matriculas.toggle-activa',
+                    $matricula
+                )
+            );
+
+        $response
+            ->assertRedirect(
+                route('perfil.kinesiologa.matriculas.index')
+            )
+            ->assertSessionHasErrors('activar');
+
+        $this->assertDatabaseHas(
+            'matriculas_profesionales_kinesiologia',
+            [
+                'id' => $matricula->id,
+                'activa' => true,
             ]
         );
     }

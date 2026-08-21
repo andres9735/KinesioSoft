@@ -4,6 +4,7 @@ namespace Tests\Feature\Actions\Kinesiologas;
 
 use App\Actions\Kinesiologas\CambiarEstadoMatriculaProfesionalAction;
 use App\Exceptions\Kinesiologas\NoSePuedeInactivarUltimaMatriculaActivaException;
+use App\Exceptions\Kinesiologas\NoSePuedeReactivarMatriculaConCatalogoInactivoException;
 use App\Models\Auditoria;
 use App\Models\ColegioEmisor;
 use App\Models\Jurisdiccion;
@@ -36,7 +37,10 @@ class CambiarEstadoMatriculaProfesionalActionTest extends TestCase
 
         $actualizada = app(
             CambiarEstadoMatriculaProfesionalAction::class
-        )->ejecutar($contexto['matricula']);
+        )->ejecutar(
+            $contexto['matricula'],
+            false
+        );
 
         $this->assertFalse((bool) $actualizada->activa);
 
@@ -96,7 +100,10 @@ class CambiarEstadoMatriculaProfesionalActionTest extends TestCase
 
         $actualizada = app(
             CambiarEstadoMatriculaProfesionalAction::class
-        )->ejecutar($contexto['matricula']);
+        )->ejecutar(
+            $contexto['matricula'],
+            true
+        );
 
         $this->assertTrue((bool) $actualizada->activa);
 
@@ -122,7 +129,10 @@ class CambiarEstadoMatriculaProfesionalActionTest extends TestCase
 
         try {
             app(CambiarEstadoMatriculaProfesionalAction::class)
-                ->ejecutar($contexto['matricula']);
+                ->ejecutar(
+                    $contexto['matricula'],
+                    false
+                );
 
             $this->fail(
                 'Se esperaba que se impidiera inactivar la última matrícula activa.'
@@ -160,7 +170,10 @@ class CambiarEstadoMatriculaProfesionalActionTest extends TestCase
         $this->actingAs($contexto['user']);
 
         app(CambiarEstadoMatriculaProfesionalAction::class)
-            ->ejecutar($contexto['matricula']);
+            ->ejecutar(
+                $contexto['matricula'],
+                false
+            );
 
         $auditoria = Auditoria::query()->sole();
 
@@ -204,7 +217,10 @@ class CambiarEstadoMatriculaProfesionalActionTest extends TestCase
 
         try {
             app(CambiarEstadoMatriculaProfesionalAction::class)
-                ->ejecutar($contexto['matricula']);
+                ->ejecutar(
+                    $contexto['matricula'],
+                    false
+                );
 
             $this->fail(
                 'Se esperaba una QueryException al persistir la auditoría.'
@@ -220,6 +236,146 @@ class CambiarEstadoMatriculaProfesionalActionTest extends TestCase
 
             $this->assertDatabaseCount('auditorias', 0);
         }
+    }
+
+    public function test_prevents_reactivating_matricula_when_jurisdiccion_is_inactive_without_auditing(): void
+    {
+        $contexto = $this->contexto();
+
+        $contexto['matricula']->update([
+            'activa' => false,
+        ]);
+
+        $contexto['jurisdiccion1']->update([
+            'activo' => false,
+        ]);
+
+        $this->actingAs($contexto['user']);
+
+        try {
+            app(CambiarEstadoMatriculaProfesionalAction::class)
+                ->ejecutar(
+                    $contexto['matricula'],
+                    true
+                );
+
+            $this->fail(
+                'Se esperaba que se impidiera reactivar una matrícula cuya jurisdicción está inactiva.'
+            );
+        } catch (NoSePuedeReactivarMatriculaConCatalogoInactivoException $e) {
+            $this->assertSame(
+                'No puede reactivar la matrícula profesional mientras su jurisdicción o colegio emisor se encuentren inactivos.',
+                $e->getMessage()
+            );
+
+            $this->assertDatabaseHas(
+                'matriculas_profesionales_kinesiologia',
+                [
+                    'id' => $contexto['matricula']->id,
+                    'activa' => false,
+                ]
+            );
+
+            $this->assertDatabaseCount('auditorias', 0);
+        }
+    }
+
+    public function test_prevents_reactivating_matricula_when_colegio_is_inactive_without_auditing(): void
+    {
+        $contexto = $this->contexto();
+
+        $contexto['matricula']->update([
+            'activa' => false,
+        ]);
+
+        $contexto['colegio1']->update([
+            'activo' => false,
+        ]);
+
+        $this->actingAs($contexto['user']);
+
+        try {
+            app(CambiarEstadoMatriculaProfesionalAction::class)
+                ->ejecutar(
+                    $contexto['matricula'],
+                    true
+                );
+
+            $this->fail(
+                'Se esperaba que se impidiera reactivar una matrícula cuyo colegio emisor está inactivo.'
+            );
+        } catch (NoSePuedeReactivarMatriculaConCatalogoInactivoException $e) {
+            $this->assertSame(
+                'No puede reactivar la matrícula profesional mientras su jurisdicción o colegio emisor se encuentren inactivos.',
+                $e->getMessage()
+            );
+
+            $this->assertDatabaseHas(
+                'matriculas_profesionales_kinesiologia',
+                [
+                    'id' => $contexto['matricula']->id,
+                    'activa' => false,
+                ]
+            );
+
+            $this->assertDatabaseCount('auditorias', 0);
+        }
+    }
+
+    public function test_reactivating_already_active_matricula_is_idempotent_without_auditing(): void
+    {
+        $contexto = $this->contexto();
+
+        $this->actingAs($contexto['user']);
+
+        $actualizada = app(
+            CambiarEstadoMatriculaProfesionalAction::class
+        )->ejecutar(
+            $contexto['matricula'],
+            true
+        );
+
+        $this->assertTrue((bool) $actualizada->activa);
+
+        $this->assertDatabaseHas(
+            'matriculas_profesionales_kinesiologia',
+            [
+                'id' => $contexto['matricula']->id,
+                'activa' => true,
+            ]
+        );
+
+        $this->assertDatabaseCount('auditorias', 0);
+    }
+
+    public function test_inactivating_already_inactive_matricula_is_idempotent_without_auditing(): void
+    {
+        $contexto = $this->contexto();
+
+        $contexto['matricula']->update([
+            'activa' => false,
+        ]);
+
+        $this->actingAs($contexto['user']);
+
+        $actualizada = app(
+            CambiarEstadoMatriculaProfesionalAction::class
+        )->ejecutar(
+            $contexto['matricula'],
+            false
+        );
+
+        $this->assertFalse((bool) $actualizada->activa);
+
+        $this->assertDatabaseHas(
+            'matriculas_profesionales_kinesiologia',
+            [
+                'id' => $contexto['matricula']->id,
+                'activa' => false,
+            ]
+        );
+
+        $this->assertDatabaseCount('auditorias', 0);
     }
 
     /**

@@ -8,14 +8,13 @@ use App\Models\User;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class UpdateMatriculaProfesionalRequest extends FormRequest
 {
     /**
-     * Conserva temporalmente la autorización actual.
-     *
-     * Esta comprobación será reemplazada por una Policy
-     * en el Incremento 10.
+     * Autoriza únicamente a la kinesióloga propietaria
+     * de la matrícula profesional.
      */
     public function authorize(): bool
     {
@@ -32,85 +31,20 @@ class UpdateMatriculaProfesionalRequest extends FormRequest
     /**
      * Reglas para actualizar una matrícula profesional.
      *
+     * La edición ordinaria permite modificar únicamente
+     * el número de matrícula profesional.
+     *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
-        /** @var User $user */
-        $user = $this->user();
-
-        /** @var MatriculaProfesionalKinesiologia $matricula */
         $matricula = $this->route('matricula');
 
-        $kinesiologa = $user->kinesiologa;
+        if (! $matricula instanceof MatriculaProfesionalKinesiologia) {
+            return [];
+        }
 
         return [
-            'jurisdiccion_id' => [
-                'required',
-                'integer',
-
-                /*
-                 * Puede seleccionarse una jurisdicción activa o
-                 * conservarse la jurisdicción histórica actual.
-                 */
-                Rule::exists('jurisdicciones', 'id')
-                    ->where(function ($query) use ($matricula) {
-                        $query->where(
-                            function ($subquery) use ($matricula) {
-                                $subquery->where('activo', true)
-                                    ->orWhere(
-                                        'id',
-                                        $matricula->jurisdiccion_id
-                                    );
-                            }
-                        );
-                    }),
-
-                /*
-                 * Una kinesióloga solo puede tener una matrícula
-                 * por jurisdicción. Se ignora la matrícula editada.
-                 */
-                Rule::unique(
-                    'matriculas_profesionales_kinesiologia',
-                    'jurisdiccion_id'
-                )
-                    ->where(function ($query) use ($kinesiologa) {
-                        $query->where(
-                            'kinesiologa_id',
-                            $kinesiologa->id
-                        );
-                    })
-                    ->ignore($matricula->id),
-            ],
-
-            'colegio_emisor_id' => [
-                'required',
-                'integer',
-
-                /*
-                 * El colegio debe pertenecer a la jurisdicción
-                 * seleccionada y encontrarse activo, salvo que sea
-                 * el colegio histórico de la matrícula.
-                 */
-                Rule::exists('colegios_emisores', 'id')
-                    ->where(function ($query) use ($matricula) {
-                        $query
-                            ->where(
-                                'jurisdiccion_id',
-                                $this->input('jurisdiccion_id')
-                            )
-                            ->where(
-                                function ($subquery) use ($matricula) {
-                                    $subquery->where('activo', true)
-                                        ->orWhere(
-                                            'id',
-                                            $matricula->colegio_emisor_id
-                                        );
-                                }
-                            );
-                    }),
-            ],
-
             'nro_matricula_profesional' => [
                 'required',
                 'string',
@@ -118,22 +52,66 @@ class UpdateMatriculaProfesionalRequest extends FormRequest
                 'regex:/^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9\s\-\.\/]+$/',
 
                 /*
-                 * El número debe ser único dentro de la jurisdicción.
-                 * Se ignora el registro que se está actualizando.
+                 * El número debe ser único dentro de la jurisdicción
+                 * propia de la matrícula.
+                 *
+                 * La jurisdicción utilizada para esta validación se
+                 * obtiene del registro persistido y nunca del request.
                  */
                 Rule::unique(
                     'matriculas_profesionales_kinesiologia',
                     'nro_matricula_profesional'
                 )
-                    ->where(function ($query) {
+                    ->where(function ($query) use ($matricula) {
                         $query->where(
                             'jurisdiccion_id',
-                            $this->input('jurisdiccion_id')
+                            $matricula->jurisdiccion_id
                         );
                     })
                     ->ignore($matricula->id),
             ],
         ];
+    }
+
+    /**
+     * Rechaza cualquier intento de modificar los datos
+     * inmutables de identificación y procedencia de la matrícula.
+     *
+     * Se tolera que la interfaz envíe temporalmente sus valores
+     * actuales, pero cualquier valor diferente al persistido
+     * invalida la operación completa.
+     */
+    public function withValidator(Validator $validator): void
+    {
+        $matricula = $this->route('matricula');
+
+        if (! $matricula instanceof MatriculaProfesionalKinesiologia) {
+            return;
+        }
+
+        $validator->after(function (Validator $validator) use ($matricula): void {
+            if (
+                $this->has('jurisdiccion_id')
+                && (string) $this->input('jurisdiccion_id')
+                !== (string) $matricula->jurisdiccion_id
+            ) {
+                $validator->errors()->add(
+                    'jurisdiccion_id',
+                    'La jurisdicción de una matrícula profesional no puede modificarse.'
+                );
+            }
+
+            if (
+                $this->has('colegio_emisor_id')
+                && (string) $this->input('colegio_emisor_id')
+                !== (string) $matricula->colegio_emisor_id
+            ) {
+                $validator->errors()->add(
+                    'colegio_emisor_id',
+                    'El colegio emisor de una matrícula profesional no puede modificarse.'
+                );
+            }
+        });
     }
 
     /**
@@ -144,21 +122,6 @@ class UpdateMatriculaProfesionalRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'jurisdiccion_id.required' =>
-            'Debe seleccionar una jurisdicción.',
-
-            'jurisdiccion_id.exists' =>
-            'La jurisdicción seleccionada no existe o se encuentra inactiva.',
-
-            'jurisdiccion_id.unique' =>
-            'Ya tiene una matrícula registrada para la jurisdicción seleccionada.',
-
-            'colegio_emisor_id.required' =>
-            'Debe seleccionar un colegio emisor.',
-
-            'colegio_emisor_id.exists' =>
-            'El colegio emisor seleccionado no pertenece a la jurisdicción elegida o se encuentra inactivo.',
-
             'nro_matricula_profesional.required' =>
             'Debe ingresar el número de matrícula profesional.',
 
@@ -169,7 +132,7 @@ class UpdateMatriculaProfesionalRequest extends FormRequest
             'El número de matrícula contiene caracteres no permitidos.',
 
             'nro_matricula_profesional.unique' =>
-            'Ya existe una matrícula profesional con ese número en la jurisdicción seleccionada.',
+            'Ya existe una matrícula profesional con ese número en la jurisdicción correspondiente.',
         ];
     }
 }

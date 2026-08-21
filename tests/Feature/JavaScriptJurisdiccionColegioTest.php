@@ -75,9 +75,6 @@ class JavaScriptJurisdiccionColegioTest extends TestCase
                 'views/perfil/matriculas/create.blade.php'
             ),
             resource_path(
-                'views/perfil/matriculas/edit.blade.php'
-            ),
-            resource_path(
                 'views/perfil/completar-kinesiologa.blade.php'
             ),
         ];
@@ -124,9 +121,6 @@ class JavaScriptJurisdiccionColegioTest extends TestCase
                 'views/perfil/matriculas/create.blade.php'
             ),
             resource_path(
-                'views/perfil/matriculas/edit.blade.php'
-            ),
-            resource_path(
                 'views/perfil/completar-kinesiologa.blade.php'
             ),
         ];
@@ -140,6 +134,40 @@ class JavaScriptJurisdiccionColegioTest extends TestCase
                 $view
             );
         }
+    }
+
+    public function test_edit_matricula_does_not_declare_jurisdiccion_colegio_dependency(): void
+    {
+        $view = resource_path(
+            'views/perfil/matriculas/edit.blade.php'
+        );
+
+        $contenido = file_get_contents($view);
+
+        $this->assertStringNotContainsString(
+            'data-jurisdiccion-colegio-target=',
+            $contenido
+        );
+
+        $this->assertStringNotContainsString(
+            'data-colegio-placeholder-sin-jurisdiccion=',
+            $contenido
+        );
+
+        $this->assertStringNotContainsString(
+            'data-colegio-placeholder-con-jurisdiccion=',
+            $contenido
+        );
+
+        $this->assertStringNotContainsString(
+            'name="jurisdiccion_id"',
+            $contenido
+        );
+
+        $this->assertStringNotContainsString(
+            'name="colegio_emisor_id"',
+            $contenido
+        );
     }
 
     public function test_professional_profile_has_no_inline_javascript(): void
