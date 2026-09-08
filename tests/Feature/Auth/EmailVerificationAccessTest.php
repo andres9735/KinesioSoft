@@ -167,6 +167,8 @@ class EmailVerificationAccessTest extends TestCase
     {
         $routeNames = [
             'perfil.completar',
+            'perfil.validar-paso-1',
+            'perfil.validar-paso-2',
             'perfil.actualizar',
             'perfil.kinesiologa.completar',
             'perfil.kinesiologa.actualizar',

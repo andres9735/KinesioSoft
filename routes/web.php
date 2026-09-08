@@ -39,6 +39,16 @@ Route::middleware(['auth', 'perfil.paciente'])->group(function () {
     )->name('perfil.completar');
 
     Route::post(
+        '/completar-perfil/validar-paso-1',
+        [PerfilPacienteController::class, 'validarPaso1']
+    )->name('perfil.validar-paso-1');
+
+    Route::post(
+        '/completar-perfil/validar-paso-2',
+        [PerfilPacienteController::class, 'validarPaso2']
+    )->name('perfil.validar-paso-2');
+
+    Route::post(
         '/completar-perfil',
         [PerfilPacienteController::class, 'update']
     )->name('perfil.actualizar');

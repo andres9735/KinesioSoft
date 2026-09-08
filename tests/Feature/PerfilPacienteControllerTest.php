@@ -88,6 +88,233 @@ class PerfilPacienteControllerTest extends TestCase
         $response->assertOk();
     }
 
+    public function test_step_1_validation_accepts_valid_data_without_persisting(): void
+    {
+        $user = $this->pacienteIncompleto();
+
+        $response = $this
+            ->actingAs($user)
+            ->postJson(
+                route('perfil.validar-paso-1'),
+                [
+                    'dni' => '43122015',
+                    'fecha_nacimiento' => '2001-02-06',
+                    'sexo' => 'masculino',
+                    'telefono' => '3758-409036',
+                    'direccion' => 'Av. Mitre 1234',
+                    'contacto_emergencia_nombre' => 'María Pérez',
+                    'contacto_emergencia_telefono' => '3764123456',
+                ]
+            );
+
+        $response->assertNoContent();
+
+        $user->refresh();
+        $user->paciente->refresh();
+
+        $this->assertNull($user->dni);
+        $this->assertNull($user->fecha_nacimiento);
+        $this->assertNull($user->sexo);
+        $this->assertNull($user->telefono);
+
+        $this->assertNull($user->paciente->direccion);
+        $this->assertNull(
+            $user->paciente->contacto_emergencia_nombre
+        );
+        $this->assertNull(
+            $user->paciente->contacto_emergencia_telefono
+        );
+
+        $this->assertDatabaseCount(
+            'declaraciones_salud_paciente',
+            0
+        );
+
+        $this->assertDatabaseCount(
+            'items_declaracion_salud',
+            0
+        );
+    }
+
+    public function test_step_1_validation_rejects_invalid_data(): void
+    {
+        $user = $this->pacienteIncompleto();
+
+        $response = $this
+            ->actingAs($user)
+            ->postJson(
+                route('perfil.validar-paso-1'),
+                [
+                    'dni' => '',
+                    'fecha_nacimiento' => now()
+                        ->addDay()
+                        ->format('Y-m-d'),
+                    'sexo' => 'invalido',
+                    'telefono' => 'telefono!',
+                    'direccion' => '',
+                    'contacto_emergencia_nombre' => '',
+                    'contacto_emergencia_telefono' => 'telefono!',
+                ]
+            );
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'dni',
+                'fecha_nacimiento',
+                'sexo',
+                'telefono',
+                'direccion',
+                'contacto_emergencia_nombre',
+                'contacto_emergencia_telefono',
+            ]);
+    }
+
+    public function test_step_2_validation_accepts_valid_data_without_persisting(): void
+    {
+        $user = $this->pacienteIncompleto();
+
+        $response = $this
+            ->actingAs($user)
+            ->postJson(
+                route('perfil.validar-paso-2'),
+                [
+                    'objetivo_salud' =>
+                    'Mejorar movilidad y reducir molestias.',
+                    'peso_kg' => 72.50,
+                    'altura_cm' => 175.00,
+                    'ocupacion' => 'Docente',
+                    'nivel_actividad_fisica' => 'MODERADO',
+                    'detalle_actividad_fisica' =>
+                    'Caminatas tres veces por semana.',
+
+                    'antecedentes_respuesta' => 'si',
+                    'antecedentes' => [
+                        'Hipertensión controlada',
+                    ],
+
+                    'cirugias_respuesta' => 'no',
+                    'cirugias' => [],
+
+                    'alergias_respuesta' => 'no',
+                    'alergias' => [],
+
+                    'medicacion_respuesta' => 'si',
+                    'medicaciones' => [
+                        'Losartán',
+                    ],
+                ]
+            );
+
+        $response->assertNoContent();
+
+        $this->assertDatabaseCount(
+            'declaraciones_salud_paciente',
+            0
+        );
+
+        $this->assertDatabaseCount(
+            'items_declaracion_salud',
+            0
+        );
+
+        $user->refresh();
+        $user->paciente->refresh();
+
+        $this->assertNull($user->dni);
+        $this->assertNull($user->paciente->direccion);
+    }
+
+    public function test_step_2_validation_requires_detail_when_answer_is_yes(): void
+    {
+        $user = $this->pacienteIncompleto();
+
+        $response = $this
+            ->actingAs($user)
+            ->postJson(
+                route('perfil.validar-paso-2'),
+                [
+                    'objetivo_salud' => 'Mejorar movilidad',
+                    'peso_kg' => 72.50,
+                    'altura_cm' => 175.00,
+                    'ocupacion' => 'Docente',
+                    'nivel_actividad_fisica' => 'MODERADO',
+                    'detalle_actividad_fisica' =>
+                    'Caminatas tres veces por semana.',
+
+                    'antecedentes_respuesta' => 'si',
+                    'antecedentes' => [
+                        '   ',
+                    ],
+
+                    'cirugias_respuesta' => 'no',
+                    'cirugias' => [],
+
+                    'alergias_respuesta' => 'no',
+                    'alergias' => [],
+
+                    'medicacion_respuesta' => 'no',
+                    'medicaciones' => [],
+                ]
+            );
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'antecedentes',
+            ]);
+
+        $this->assertDatabaseCount(
+            'declaraciones_salud_paciente',
+            0
+        );
+    }
+
+    public function test_step_2_validation_rejects_details_when_answer_is_no(): void
+    {
+        $user = $this->pacienteIncompleto();
+
+        $response = $this
+            ->actingAs($user)
+            ->postJson(
+                route('perfil.validar-paso-2'),
+                [
+                    'objetivo_salud' => 'Mejorar movilidad',
+                    'peso_kg' => 72.50,
+                    'altura_cm' => 175.00,
+                    'ocupacion' => 'Docente',
+                    'nivel_actividad_fisica' => 'MODERADO',
+                    'detalle_actividad_fisica' =>
+                    'Caminatas tres veces por semana.',
+
+                    'antecedentes_respuesta' => 'no',
+                    'antecedentes' => [
+                        'Hipertensión',
+                    ],
+
+                    'cirugias_respuesta' => 'no',
+                    'cirugias' => [],
+
+                    'alergias_respuesta' => 'no',
+                    'alergias' => [],
+
+                    'medicacion_respuesta' => 'no',
+                    'medicaciones' => [],
+                ]
+            );
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'antecedentes',
+            ]);
+
+        $this->assertDatabaseCount(
+            'items_declaracion_salud',
+            0
+        );
+    }
+
     public function test_paciente_can_update_profile_with_valid_data(): void
     {
         $user = $this->pacienteIncompleto();

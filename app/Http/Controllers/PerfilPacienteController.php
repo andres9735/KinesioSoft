@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\PerfilPaciente\ValidarPaso1PerfilPacienteRequest;
+use App\Http\Requests\PerfilPaciente\ValidarPaso2PerfilPacienteRequest;
 use App\Actions\Pacientes\GuardarPerfilPacienteAction;
 use App\Http\Requests\UpdatePerfilPacienteRequest;
 use App\Models\User;
+use Illuminate\Http\Response;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
@@ -20,6 +23,22 @@ class PerfilPacienteController extends Controller
     public function edit(): View
     {
         return view('perfil.completar-paciente');
+    }
+
+    public function validarPaso1(
+        ValidarPaso1PerfilPacienteRequest $request
+    ): Response {
+        $request->validated();
+
+        return response()->noContent();
+    }
+
+    public function validarPaso2(
+        ValidarPaso2PerfilPacienteRequest $request
+    ): Response {
+        $request->validated();
+
+        return response()->noContent();
     }
 
     /**
