@@ -54,7 +54,13 @@ class RegistrationTest extends TestCase
 
         $this->assertNotNull($paciente);
         $this->assertSame($user->id, $paciente->user_id);
-        $this->assertMatchesRegularExpression('/^HC-\d{6}$/', $paciente->nro_historia_clinica);
+
+        $this->assertNull($paciente->direccion);
+        $this->assertNull($paciente->contacto_emergencia_nombre);
+        $this->assertNull($paciente->contacto_emergencia_telefono);
+        $this->assertTrue($paciente->activo);
+
+        $this->assertDatabaseCount('historias_clinicas', 0);
     }
 
     public function test_registration_creates_paciente_profile_for_user(): void
@@ -70,12 +76,13 @@ class RegistrationTest extends TestCase
         $user = User::where('email', 'maria@example.com')->first();
 
         $this->assertNotNull($user);
+
         $this->assertDatabaseHas('pacientes', [
             'user_id' => $user->id,
         ]);
     }
 
-    public function test_registration_generates_historia_clinica_with_expected_format(): void
+    public function test_registration_creates_patient_without_historia_clinica(): void
     {
         $this->post('/register', [
             'name' => 'Lucas',
@@ -86,10 +93,16 @@ class RegistrationTest extends TestCase
         ]);
 
         $user = User::where('email', 'lucas@example.com')->first();
+
+        $this->assertNotNull($user);
+
         $paciente = Paciente::where('user_id', $user->id)->first();
 
         $this->assertNotNull($paciente);
-        $this->assertMatchesRegularExpression('/^HC-\d{6}$/', $paciente->nro_historia_clinica);
+
+        $this->assertDatabaseMissing('historias_clinicas', [
+            'paciente_id' => $paciente->id,
+        ]);
     }
 
     public function test_registration_requires_apellido(): void

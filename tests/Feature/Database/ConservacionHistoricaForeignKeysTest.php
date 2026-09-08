@@ -25,8 +25,7 @@ class ConservacionHistoricaForeignKeysTest extends TestCase
 
         $paciente = Paciente::create([
             'user_id' => $user->id,
-            'nro_historia_clinica' => 'HC-900001',
-            'observaciones' => null,
+            'activo' => true,
         ]);
 
         $this->assertDeleteIsRestricted(

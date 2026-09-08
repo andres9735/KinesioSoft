@@ -46,11 +46,6 @@ class CrearUsuarioActionTest extends TestCase
         $this->assertNotNull($user->paciente);
         $this->assertSame($user->id, $user->paciente->user_id);
 
-        $this->assertMatchesRegularExpression(
-            '/^HC-\d{6}$/',
-            $user->paciente->nro_historia_clinica
-        );
-
         $this->assertDatabaseHas('users', [
             'id' => $user->id,
             'name' => $data['name'],
@@ -61,9 +56,13 @@ class CrearUsuarioActionTest extends TestCase
 
         $this->assertDatabaseHas('pacientes', [
             'user_id' => $user->id,
-            'nro_historia_clinica' =>
-            $user->paciente->nro_historia_clinica,
+            'direccion' => null,
+            'contacto_emergencia_nombre' => null,
+            'contacto_emergencia_telefono' => null,
+            'activo' => true,
         ]);
+
+        $this->assertDatabaseCount('historias_clinicas', 0);
 
         $auditoria = Auditoria::query()->sole();
 

@@ -4,15 +4,10 @@ namespace App\Actions\Pacientes;
 
 use App\Models\Paciente;
 use App\Models\User;
-use App\Services\GeneradorNumeroHistoriaClinica;
 use LogicException;
 
 final class CrearPerfilPacienteAction
 {
-    public function __construct(
-        private readonly GeneradorNumeroHistoriaClinica $generadorNumeroHistoriaClinica
-    ) {}
-
     public function ejecutar(User $user): Paciente
     {
         if (! $user->exists || $user->getKey() === null) {
@@ -27,17 +22,12 @@ final class CrearPerfilPacienteAction
             );
         }
 
-        $paciente = Paciente::create([
+        return Paciente::create([
             'user_id' => $user->getKey(),
-            'nro_historia_clinica' => 'TEMP-' . $user->getKey(),
-            'observaciones' => null,
+            'direccion' => null,
+            'contacto_emergencia_nombre' => null,
+            'contacto_emergencia_telefono' => null,
+            'activo' => true,
         ]);
-
-        $paciente->update([
-            'nro_historia_clinica' =>
-            $this->generadorNumeroHistoriaClinica->generar($paciente),
-        ]);
-
-        return $paciente;
     }
 }

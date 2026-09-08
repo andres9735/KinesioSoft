@@ -3,7 +3,6 @@
 namespace Tests\Feature\Actions\Pacientes;
 
 use App\Actions\Pacientes\CrearPerfilPacienteAction;
-use App\Models\Paciente;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use LogicException;
@@ -13,7 +12,7 @@ class CrearPerfilPacienteActionTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_creates_paciente_profile_with_generated_historia_clinica(): void
+    public function test_creates_administrative_patient_profile_without_historia_clinica(): void
     {
         $user = User::factory()->create();
 
@@ -21,27 +20,21 @@ class CrearPerfilPacienteActionTest extends TestCase
 
         $this->assertTrue($paciente->exists);
         $this->assertSame($user->id, $paciente->user_id);
-        $this->assertNull($paciente->observaciones);
-        $this->assertMatchesRegularExpression(
-            '/^HC-\d{6}$/',
-            $paciente->nro_historia_clinica
-        );
-        $this->assertSame(
-            'HC-' . str_pad(
-                (string) $paciente->id,
-                6,
-                '0',
-                STR_PAD_LEFT
-            ),
-            $paciente->nro_historia_clinica
-        );
+        $this->assertNull($paciente->direccion);
+        $this->assertNull($paciente->contacto_emergencia_nombre);
+        $this->assertNull($paciente->contacto_emergencia_telefono);
+        $this->assertTrue($paciente->activo);
 
         $this->assertDatabaseHas('pacientes', [
             'id' => $paciente->id,
             'user_id' => $user->id,
-            'nro_historia_clinica' => $paciente->nro_historia_clinica,
-            'observaciones' => null,
+            'direccion' => null,
+            'contacto_emergencia_nombre' => null,
+            'contacto_emergencia_telefono' => null,
+            'activo' => true,
         ]);
+
+        $this->assertDatabaseCount('historias_clinicas', 0);
     }
 
     public function test_throws_when_user_is_not_persisted(): void

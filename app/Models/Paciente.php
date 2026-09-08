@@ -11,9 +11,18 @@ class Paciente extends Model
 
     protected $fillable = [
         'user_id',
-        'nro_historia_clinica',
-        'observaciones',
+        'direccion',
+        'contacto_emergencia_nombre',
+        'contacto_emergencia_telefono',
+        'activo',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'activo' => 'boolean',
+        ];
+    }
 
     public function user()
     {

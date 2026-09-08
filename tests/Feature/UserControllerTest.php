@@ -183,7 +183,12 @@ class UserControllerTest extends TestCase
         $paciente = Paciente::where('user_id', $user->id)->first();
 
         $this->assertNotNull($paciente);
-        $this->assertMatchesRegularExpression('/^HC-\d{6}$/', $paciente->nro_historia_clinica);
+        $this->assertNull($paciente->direccion);
+        $this->assertNull($paciente->contacto_emergencia_nombre);
+        $this->assertNull($paciente->contacto_emergencia_telefono);
+        $this->assertTrue($paciente->activo);
+
+        $this->assertDatabaseCount('historias_clinicas', 0);
     }
 
     public function test_admin_can_store_valid_kinesiologo_user_without_creating_paciente_profile(): void
@@ -703,7 +708,12 @@ class UserControllerTest extends TestCase
 
         $this->assertTrue($user->hasRole(RoleEnum::PACIENTE->value));
         $this->assertNotNull($user->paciente);
-        $this->assertMatchesRegularExpression('/^HC-\d{6}$/', $user->paciente->nro_historia_clinica);
+        $this->assertNull($user->paciente->direccion);
+        $this->assertNull($user->paciente->contacto_emergencia_nombre);
+        $this->assertNull($user->paciente->contacto_emergencia_telefono);
+        $this->assertTrue($user->paciente->activo);
+
+        $this->assertDatabaseCount('historias_clinicas', 0);
     }
 
     public function test_superadmin_can_change_role_of_admin_to_paciente(): void
