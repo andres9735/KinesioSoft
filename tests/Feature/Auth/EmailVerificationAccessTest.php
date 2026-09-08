@@ -3,6 +3,8 @@
 namespace Tests\Feature\Auth;
 
 use App\Enums\RoleEnum;
+use App\Models\DeclaracionSaludPaciente;
+use App\Models\Paciente;
 use App\Models\User;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -211,6 +213,26 @@ class EmailVerificationAccessTest extends TestCase
             RoleEnum::PACIENTE->value
         );
 
+        $paciente = Paciente::create([
+            'user_id' => $user->id,
+            'direccion' => 'Av. Mitre 1234',
+            'contacto_emergencia_nombre' => 'María Pérez',
+            'contacto_emergencia_telefono' => '3764123457',
+            'activo' => true,
+        ]);
+
+        DeclaracionSaludPaciente::create([
+            'paciente_id' => $paciente->id,
+            'objetivo_salud' => 'Mejorar movilidad',
+            'peso_kg' => 62.50,
+            'altura_cm' => 165.00,
+            'ocupacion' => 'Docente',
+            'nivel_actividad_fisica' => 'MODERADO',
+            'detalle_actividad_fisica' =>
+            'Caminatas tres veces por semana.',
+            'estado' => 'PENDIENTE_REVISION',
+        ]);
+
         $response = $this
             ->actingAs($user)
             ->patch(
@@ -294,6 +316,34 @@ class EmailVerificationAccessTest extends TestCase
             RoleEnum::PACIENTE->value
         );
 
-        return $user;
+        $paciente = Paciente::create([
+            'user_id' => $user->id,
+            'direccion' => $completo
+                ? 'Av. Mitre 1234'
+                : null,
+            'contacto_emergencia_nombre' => $completo
+                ? 'María Pérez'
+                : null,
+            'contacto_emergencia_telefono' => $completo
+                ? '3764123457'
+                : null,
+            'activo' => true,
+        ]);
+
+        if ($completo) {
+            DeclaracionSaludPaciente::create([
+                'paciente_id' => $paciente->id,
+                'objetivo_salud' => 'Mejorar movilidad',
+                'peso_kg' => 72.50,
+                'altura_cm' => 165.00,
+                'ocupacion' => 'Docente',
+                'nivel_actividad_fisica' => 'MODERADO',
+                'detalle_actividad_fisica' =>
+                'Caminatas tres veces por semana.',
+                'estado' => 'PENDIENTE_REVISION',
+            ]);
+        }
+
+        return $user->fresh();
     }
 }

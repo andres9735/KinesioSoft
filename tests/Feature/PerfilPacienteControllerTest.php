@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Enums\RoleEnum;
+use App\Models\DeclaracionSaludPaciente;
+use App\Models\Paciente;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
@@ -34,6 +36,11 @@ class PerfilPacienteControllerTest extends TestCase
 
         $user->assignRole(RoleEnum::PACIENTE->value);
 
+        Paciente::create([
+            'user_id' => $user->id,
+            'activo' => true,
+        ]);
+
         return $user;
     }
 
@@ -49,7 +56,27 @@ class PerfilPacienteControllerTest extends TestCase
 
         $user->assignRole(RoleEnum::PACIENTE->value);
 
-        return $user;
+        $paciente = Paciente::create([
+            'user_id' => $user->id,
+            'direccion' => 'Av. Mitre 1234',
+            'contacto_emergencia_nombre' => 'María Pérez',
+            'contacto_emergencia_telefono' => '3764123457',
+            'activo' => true,
+        ]);
+
+        DeclaracionSaludPaciente::create([
+            'paciente_id' => $paciente->id,
+            'objetivo_salud' => 'Mejorar movilidad',
+            'peso_kg' => 72.50,
+            'altura_cm' => 175.00,
+            'ocupacion' => 'Docente',
+            'nivel_actividad_fisica' => 'MODERADO',
+            'detalle_actividad_fisica' =>
+            'Caminatas tres veces por semana.',
+            'estado' => 'PENDIENTE_REVISION',
+        ]);
+
+        return $user->fresh();
     }
 
     public function test_paciente_can_view_completar_perfil_screen(): void
@@ -193,6 +220,7 @@ class PerfilPacienteControllerTest extends TestCase
             'dni' => '43122015',
             'activo' => true,
         ]);
+
         $existingUser->assignRole(RoleEnum::PACIENTE->value);
 
         $user = $this->pacienteIncompleto();

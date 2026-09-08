@@ -94,6 +94,30 @@ class User extends Authenticatable implements MustVerifyEmail
             && ! empty($this->telefono);
     }
 
+    public function tienePerfilPacienteCompleto(): bool
+    {
+        if (! $this->tieneDatosPersonalesCompletos()) {
+            return false;
+        }
+
+        $paciente = $this->paciente;
+
+        if (! $paciente) {
+            return false;
+        }
+
+        $tieneDatosAdministrativosCompletos =
+            trim((string) $paciente->direccion) !== ''
+            && trim((string) $paciente->contacto_emergencia_nombre) !== ''
+            && trim((string) $paciente->contacto_emergencia_telefono) !== '';
+
+        if (! $tieneDatosAdministrativosCompletos) {
+            return false;
+        }
+
+        return $paciente->declaracionesSalud()->exists();
+    }
+
     public function tienePerfilProfesionalKinesiologiaCompleto(): bool
     {
         if (! $this->kinesiologa) {
@@ -108,7 +132,7 @@ class User extends Authenticatable implements MustVerifyEmail
     public function perfilCompleto(): ?bool
     {
         if ($this->esPaciente()) {
-            return $this->tieneDatosPersonalesCompletos();
+            return $this->tienePerfilPacienteCompleto();
         }
 
         if ($this->esKinesiologo()) {

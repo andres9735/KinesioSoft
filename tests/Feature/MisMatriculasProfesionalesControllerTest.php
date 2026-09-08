@@ -4,10 +4,12 @@ namespace Tests\Feature;
 
 use App\Enums\RoleEnum;
 use App\Models\ColegioEmisor;
+use App\Models\DeclaracionSaludPaciente;
 use App\Models\EspecialidadKinesiologia;
 use App\Models\Jurisdiccion;
 use App\Models\Kinesiologa;
 use App\Models\MatriculaProfesionalKinesiologia;
+use App\Models\Paciente;
 use App\Models\TituloProfesional;
 use App\Models\User;
 use Illuminate\Database\QueryException;
@@ -153,7 +155,27 @@ class MisMatriculasProfesionalesControllerTest extends TestCase
 
         $user->assignRole(RoleEnum::PACIENTE->value);
 
-        return $user;
+        $paciente = Paciente::create([
+            'user_id' => $user->id,
+            'direccion' => 'Av. Mitre 1234',
+            'contacto_emergencia_nombre' => 'María Pérez',
+            'contacto_emergencia_telefono' => '3764000001',
+            'activo' => true,
+        ]);
+
+        DeclaracionSaludPaciente::create([
+            'paciente_id' => $paciente->id,
+            'objetivo_salud' => 'Mejorar movilidad',
+            'peso_kg' => 72.50,
+            'altura_cm' => 175.00,
+            'ocupacion' => 'Docente',
+            'nivel_actividad_fisica' => 'MODERADO',
+            'detalle_actividad_fisica' =>
+            'Caminatas tres veces por semana.',
+            'estado' => 'PENDIENTE_REVISION',
+        ]);
+
+        return $user->fresh();
     }
 
     public function test_kinesiologa_can_view_matriculas_index(): void
@@ -465,10 +487,10 @@ class MisMatriculasProfesionalesControllerTest extends TestCase
                 ),
                 [
                     /*
-                    * Los datos son deliberadamente inválidos para
-                    * comprobar que la autorización se evalúa antes
-                    * que la validación.
-                    */
+                     * Los datos son deliberadamente inválidos para
+                     * comprobar que la autorización se evalúa antes
+                     * que la validación.
+                     */
                     'jurisdiccion_id' => 999,
                     'colegio_emisor_id' => 999,
                     'nro_matricula_profesional' => '',

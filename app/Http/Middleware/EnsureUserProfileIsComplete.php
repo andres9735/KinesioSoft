@@ -23,6 +23,8 @@ class EnsureUserProfileIsComplete
         if ($user->hasRole(RoleEnum::PACIENTE->value)) {
             $estaEnRutaPermitida =
                 $request->routeIs('perfil.completar') ||
+                $request->routeIs('perfil.validar-paso-1') ||
+                $request->routeIs('perfil.validar-paso-2') ||
                 $request->routeIs('perfil.actualizar') ||
                 $request->routeIs('logout');
 
