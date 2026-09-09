@@ -196,11 +196,11 @@ class ActualizarColegioEmisorActionTest extends TestCase
         $this->assertSame($actor->id, $auditoria->actor_user_id);
         $this->assertSame(
             'Carlos Administrador',
-            $auditoria->actor_nombre
+            $auditoria->actor_nombre_snapshot
         );
         $this->assertSame(
             'carlos.admin@example.com',
-            $auditoria->actor_email
+            $auditoria->actor_email_snapshot
         );
     }
 

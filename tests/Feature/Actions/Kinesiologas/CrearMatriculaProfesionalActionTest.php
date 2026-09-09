@@ -76,9 +76,9 @@ class CrearMatriculaProfesionalActionTest extends TestCase
         $this->assertSame($user->id, $auditoria->actor_user_id);
         $this->assertSame(
             trim($user->name . ' ' . $user->apellido),
-            $auditoria->actor_nombre
+            $auditoria->actor_nombre_snapshot
         );
-        $this->assertSame($user->email, $auditoria->actor_email);
+        $this->assertSame($user->email, $auditoria->actor_email_snapshot);
     }
 
     public function test_rolls_back_matricula_when_audit_persistence_fails(): void

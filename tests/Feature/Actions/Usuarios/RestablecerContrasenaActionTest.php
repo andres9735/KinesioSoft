@@ -57,8 +57,8 @@ class RestablecerContrasenaActionTest extends TestCase
         );
         $this->assertSame('Cuenta', $auditoria->modulo);
         $this->assertNull($auditoria->actor_user_id);
-        $this->assertNull($auditoria->actor_nombre);
-        $this->assertNull($auditoria->actor_email);
+        $this->assertNull($auditoria->actor_nombre_snapshot);
+        $this->assertNull($auditoria->actor_email_snapshot);
         $this->assertSame(
             $actualizado->getMorphClass(),
             $auditoria->auditable_type

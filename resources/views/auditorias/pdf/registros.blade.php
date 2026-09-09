@@ -428,14 +428,14 @@
 
                     <td>
                         <strong>
-                            {{ $auditoria->actor_nombre ?? 'Sistema' }}
+                            {{ $auditoria->actor_nombre_snapshot ?? 'Sistema' }}
                         </strong>
 
-                        @if ($auditoria->actor_email)
+                        @if ($auditoria->actor_email_snapshot)
                             <br>
 
                             <span class="muted">
-                                {{ $auditoria->actor_email }}
+                                {{ $auditoria->actor_email_snapshot }}
                             </span>
                         @endif
                     </td>

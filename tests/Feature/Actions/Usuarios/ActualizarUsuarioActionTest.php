@@ -287,10 +287,10 @@ class ActualizarUsuarioActionTest extends TestCase
         $auditoria = Auditoria::query()->sole();
 
         $this->assertSame($actor->id, $auditoria->actor_user_id);
-        $this->assertSame('Admin Actualizador', $auditoria->actor_nombre);
+        $this->assertSame('Admin Actualizador', $auditoria->actor_nombre_snapshot);
         $this->assertSame(
             'admin.actualizador@example.com',
-            $auditoria->actor_email
+            $auditoria->actor_email_snapshot
         );
 
         $this->assertSame($user->id, $auditoria->auditable_id);

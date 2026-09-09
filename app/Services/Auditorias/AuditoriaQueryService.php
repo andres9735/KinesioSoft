@@ -62,12 +62,12 @@ final class AuditoriaQueryService
                 function (Builder $query) use ($actor): void {
                     $query
                         ->whereLike(
-                            'actor_nombre',
+                            'actor_nombre_snapshot',
                             '%' . $actor . '%',
                             caseSensitive: false
                         )
                         ->orWhereLike(
-                            'actor_email',
+                            'actor_email_snapshot',
                             '%' . $actor . '%',
                             caseSensitive: false
                         );

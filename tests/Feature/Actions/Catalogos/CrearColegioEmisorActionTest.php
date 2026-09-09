@@ -84,11 +84,11 @@ class CrearColegioEmisorActionTest extends TestCase
         $this->assertSame($actor->id, $auditoria->actor_user_id);
         $this->assertSame(
             'Ana Administradora',
-            $auditoria->actor_nombre
+            $auditoria->actor_nombre_snapshot
         );
         $this->assertSame(
             'ana.admin@example.com',
-            $auditoria->actor_email
+            $auditoria->actor_email_snapshot
         );
     }
 

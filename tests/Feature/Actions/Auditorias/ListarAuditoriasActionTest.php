@@ -4,6 +4,7 @@ namespace Tests\Feature\Actions\Auditorias;
 
 use App\Actions\Auditorias\ListarAuditoriasAction;
 use App\Models\Auditoria;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -25,7 +26,7 @@ class ListarAuditoriasActionTest extends TestCase
 
         for ($i = 1; $i <= 12; $i++) {
             $auditorias->push(
-                Auditoria::create([
+                $this->crearAuditoria([
                     'evento' => 'evento_' . $i,
                     'modulo' => 'Pruebas',
                 ])
@@ -67,7 +68,7 @@ class ListarAuditoriasActionTest extends TestCase
 
         for ($i = 1; $i <= 12; $i++) {
             $auditorias->push(
-                Auditoria::create([
+                $this->crearAuditoria([
                     'evento' => 'evento_' . $i,
                     'modulo' => 'Pruebas',
                 ])
@@ -105,7 +106,7 @@ class ListarAuditoriasActionTest extends TestCase
 
     public function test_normalizes_invalid_page_to_first_page(): void
     {
-        Auditoria::create([
+        $this->crearAuditoria([
             'evento' => 'evento_prueba',
             'modulo' => 'Pruebas',
         ]);
@@ -128,7 +129,7 @@ class ListarAuditoriasActionTest extends TestCase
             Carbon::parse('2026-08-09 10:00:00')
         );
 
-        Auditoria::create([
+        $this->crearAuditoria([
             'evento' => 'evento_anterior',
             'modulo' => 'Pruebas',
         ]);
@@ -137,7 +138,7 @@ class ListarAuditoriasActionTest extends TestCase
             Carbon::parse('2026-08-10 10:00:00')
         );
 
-        $auditoriaDesde = Auditoria::create([
+        $auditoriaDesde = $this->crearAuditoria([
             'evento' => 'evento_desde',
             'modulo' => 'Pruebas',
         ]);
@@ -146,7 +147,7 @@ class ListarAuditoriasActionTest extends TestCase
             Carbon::parse('2026-08-11 10:00:00')
         );
 
-        $auditoriaPosterior = Auditoria::create([
+        $auditoriaPosterior = $this->crearAuditoria([
             'evento' => 'evento_posterior',
             'modulo' => 'Pruebas',
         ]);
@@ -181,7 +182,7 @@ class ListarAuditoriasActionTest extends TestCase
             Carbon::parse('2026-08-09 10:00:00')
         );
 
-        $auditoriaAnterior = Auditoria::create([
+        $auditoriaAnterior = $this->crearAuditoria([
             'evento' => 'evento_anterior',
             'modulo' => 'Pruebas',
         ]);
@@ -190,7 +191,7 @@ class ListarAuditoriasActionTest extends TestCase
             Carbon::parse('2026-08-10 18:30:00')
         );
 
-        $auditoriaHasta = Auditoria::create([
+        $auditoriaHasta = $this->crearAuditoria([
             'evento' => 'evento_hasta',
             'modulo' => 'Pruebas',
         ]);
@@ -199,7 +200,7 @@ class ListarAuditoriasActionTest extends TestCase
             Carbon::parse('2026-08-11 10:00:00')
         );
 
-        Auditoria::create([
+        $this->crearAuditoria([
             'evento' => 'evento_posterior',
             'modulo' => 'Pruebas',
         ]);
@@ -234,7 +235,7 @@ class ListarAuditoriasActionTest extends TestCase
             Carbon::parse('2026-08-09 10:00:00')
         );
 
-        Auditoria::create([
+        $this->crearAuditoria([
             'evento' => 'fuera_antes',
             'modulo' => 'Pruebas',
         ]);
@@ -243,7 +244,7 @@ class ListarAuditoriasActionTest extends TestCase
             Carbon::parse('2026-08-10 08:00:00')
         );
 
-        $auditoriaInicio = Auditoria::create([
+        $auditoriaInicio = $this->crearAuditoria([
             'evento' => 'inicio',
             'modulo' => 'Pruebas',
         ]);
@@ -252,7 +253,7 @@ class ListarAuditoriasActionTest extends TestCase
             Carbon::parse('2026-08-11 12:00:00')
         );
 
-        $auditoriaIntermedia = Auditoria::create([
+        $auditoriaIntermedia = $this->crearAuditoria([
             'evento' => 'intermedio',
             'modulo' => 'Pruebas',
         ]);
@@ -261,7 +262,7 @@ class ListarAuditoriasActionTest extends TestCase
             Carbon::parse('2026-08-12 23:00:00')
         );
 
-        $auditoriaFin = Auditoria::create([
+        $auditoriaFin = $this->crearAuditoria([
             'evento' => 'fin',
             'modulo' => 'Pruebas',
         ]);
@@ -270,7 +271,7 @@ class ListarAuditoriasActionTest extends TestCase
             Carbon::parse('2026-08-13 10:00:00')
         );
 
-        Auditoria::create([
+        $this->crearAuditoria([
             'evento' => 'fuera_despues',
             'modulo' => 'Pruebas',
         ]);
@@ -303,12 +304,12 @@ class ListarAuditoriasActionTest extends TestCase
 
     public function test_filters_audits_by_module(): void
     {
-        $auditoriaEsperada = Auditoria::create([
+        $auditoriaEsperada = $this->crearAuditoria([
             'evento' => 'inicio_sesion',
             'modulo' => 'Sistema / Acceso',
         ]);
 
-        Auditoria::create([
+        $this->crearAuditoria([
             'evento' => 'usuario_creado',
             'modulo' => 'Usuarios',
         ]);
@@ -332,12 +333,12 @@ class ListarAuditoriasActionTest extends TestCase
 
     public function test_filters_audits_by_event(): void
     {
-        $auditoriaEsperada = Auditoria::create([
+        $auditoriaEsperada = $this->crearAuditoria([
             'evento' => 'email_verificado',
             'modulo' => 'Cuenta',
         ]);
 
-        Auditoria::create([
+        $this->crearAuditoria([
             'evento' => 'cuenta_actualizada',
             'modulo' => 'Cuenta',
         ]);
@@ -361,23 +362,23 @@ class ListarAuditoriasActionTest extends TestCase
 
     public function test_filters_audits_by_actor_name_or_email(): void
     {
-        $auditoriaPorNombre = Auditoria::create([
-            'actor_nombre' => 'Ana Paciente',
-            'actor_email' => 'ana@example.com',
+        $auditoriaPorNombre = $this->crearAuditoria([
+            'actor_nombre_snapshot' => 'Ana Paciente',
+            'actor_email_snapshot' => 'ana@example.com',
             'evento' => 'cuenta_actualizada',
             'modulo' => 'Cuenta',
         ]);
 
-        $auditoriaPorEmail = Auditoria::create([
-            'actor_nombre' => 'Carlos Administrador',
-            'actor_email' => 'carlos.admin@example.com',
+        $auditoriaPorEmail = $this->crearAuditoria([
+            'actor_nombre_snapshot' => 'Carlos Administrador',
+            'actor_email_snapshot' => 'carlos.admin@example.com',
             'evento' => 'usuario_creado',
             'modulo' => 'Usuarios',
         ]);
 
-        Auditoria::create([
-            'actor_nombre' => 'Lucía Kinesióloga',
-            'actor_email' => 'lucia@example.com',
+        $this->crearAuditoria([
+            'actor_nombre_snapshot' => 'Lucía Kinesióloga',
+            'actor_email_snapshot' => 'lucia@example.com',
             'evento' => 'perfil_kinesiologa_actualizado',
             'modulo' => 'Perfiles',
         ]);
@@ -421,9 +422,9 @@ class ListarAuditoriasActionTest extends TestCase
             Carbon::parse('2026-08-10 10:00:00')
         );
 
-        $auditoriaEsperada = Auditoria::create([
-            'actor_nombre' => 'Ana Administradora',
-            'actor_email' => 'ana.admin@example.com',
+        $auditoriaEsperada = $this->crearAuditoria([
+            'actor_nombre_snapshot' => 'Ana Administradora',
+            'actor_email_snapshot' => 'ana.admin@example.com',
             'evento' => 'usuario_creado',
             'modulo' => 'Usuarios',
         ]);
@@ -432,9 +433,9 @@ class ListarAuditoriasActionTest extends TestCase
             Carbon::parse('2026-08-11 10:00:00')
         );
 
-        Auditoria::create([
-            'actor_nombre' => 'Ana Administradora',
-            'actor_email' => 'ana.admin@example.com',
+        $this->crearAuditoria([
+            'actor_nombre_snapshot' => 'Ana Administradora',
+            'actor_email_snapshot' => 'ana.admin@example.com',
             'evento' => 'usuario_actualizado',
             'modulo' => 'Usuarios',
         ]);
@@ -443,9 +444,9 @@ class ListarAuditoriasActionTest extends TestCase
             Carbon::parse('2026-08-12 10:00:00')
         );
 
-        Auditoria::create([
-            'actor_nombre' => 'Carlos Administrador',
-            'actor_email' => 'carlos@example.com',
+        $this->crearAuditoria([
+            'actor_nombre_snapshot' => 'Carlos Administrador',
+            'actor_email_snapshot' => 'carlos@example.com',
             'evento' => 'usuario_creado',
             'modulo' => 'Usuarios',
         ]);
@@ -454,9 +455,9 @@ class ListarAuditoriasActionTest extends TestCase
             Carbon::parse('2026-08-13 10:00:00')
         );
 
-        Auditoria::create([
-            'actor_nombre' => 'Ana Administradora',
-            'actor_email' => 'ana.admin@example.com',
+        $this->crearAuditoria([
+            'actor_nombre_snapshot' => 'Ana Administradora',
+            'actor_email_snapshot' => 'ana.admin@example.com',
             'evento' => 'usuario_creado',
             'modulo' => 'Usuarios',
         ]);
@@ -485,9 +486,9 @@ class ListarAuditoriasActionTest extends TestCase
     public function test_ignores_empty_filters_and_preserves_active_filters_in_pagination(): void
     {
         for ($i = 1; $i <= 11; $i++) {
-            Auditoria::create([
-                'actor_nombre' => 'Ana Administradora',
-                'actor_email' => 'ana@example.com',
+            $this->crearAuditoria([
+                'actor_nombre_snapshot' => 'Ana Administradora',
+                'actor_email_snapshot' => 'ana@example.com',
                 'evento' => 'usuario_creado',
                 'modulo' => 'Usuarios',
             ]);
@@ -543,7 +544,7 @@ class ListarAuditoriasActionTest extends TestCase
         );
 
         for ($i = 1; $i <= 11; $i++) {
-            Auditoria::create([
+            $this->crearAuditoria([
                 'evento' => 'usuario_creado',
                 'modulo' => 'Usuarios',
             ]);
@@ -566,6 +567,24 @@ class ListarAuditoriasActionTest extends TestCase
         $this->assertStringContainsString(
             'fecha_hasta=2026-08-31',
             $urlSegundaPagina
+        );
+    }
+
+    private function crearAuditoria(
+        array $atributos = []
+    ): Auditoria {
+        $objetivo = User::factory()->create();
+
+        return Auditoria::create(
+            array_merge(
+                [
+                    'auditable_type' =>
+                    $objetivo->getMorphClass(),
+                    'auditable_id' =>
+                    $objetivo->id,
+                ],
+                $atributos
+            )
         );
     }
 }

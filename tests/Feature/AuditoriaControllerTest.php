@@ -6,9 +6,9 @@ use App\Enums\RoleEnum;
 use App\Models\Auditoria;
 use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
-use RuntimeException;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use RuntimeException;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -45,9 +45,9 @@ class AuditoriaControllerTest extends TestCase
             RoleEnum::ADMINISTRADOR
         );
 
-        Auditoria::create([
-            'actor_nombre' => 'Admin KinesioSoft',
-            'actor_email' => 'admin@example.com',
+        $this->crearAuditoria([
+            'actor_nombre_snapshot' => 'Admin KinesioSoft',
+            'actor_email_snapshot' => 'admin@example.com',
             'evento' => 'usuario_creado',
             'modulo' => 'Usuarios',
         ]);
@@ -125,9 +125,9 @@ class AuditoriaControllerTest extends TestCase
             Carbon::parse('2026-08-10 10:00:00')
         );
 
-        Auditoria::create([
-            'actor_nombre' => 'Ana Administradora',
-            'actor_email' => 'ana.admin@example.com',
+        $this->crearAuditoria([
+            'actor_nombre_snapshot' => 'Ana Administradora',
+            'actor_email_snapshot' => 'ana.admin@example.com',
             'evento' => 'usuario_creado',
             'modulo' => 'Usuarios',
         ]);
@@ -136,9 +136,9 @@ class AuditoriaControllerTest extends TestCase
             Carbon::parse('2026-08-11 10:00:00')
         );
 
-        Auditoria::create([
-            'actor_nombre' => 'Carlos Administrador',
-            'actor_email' => 'carlos@example.com',
+        $this->crearAuditoria([
+            'actor_nombre_snapshot' => 'Carlos Administrador',
+            'actor_email_snapshot' => 'carlos@example.com',
             'evento' => 'usuario_actualizado',
             'modulo' => 'Usuarios',
         ]);
@@ -147,9 +147,9 @@ class AuditoriaControllerTest extends TestCase
             Carbon::parse('2026-08-15 10:00:00')
         );
 
-        Auditoria::create([
-            'actor_nombre' => 'Ana Administradora',
-            'actor_email' => 'ana.admin@example.com',
+        $this->crearAuditoria([
+            'actor_nombre_snapshot' => 'Ana Administradora',
+            'actor_email_snapshot' => 'ana.admin@example.com',
             'evento' => 'usuario_creado',
             'modulo' => 'Usuarios',
         ]);
@@ -218,7 +218,7 @@ class AuditoriaControllerTest extends TestCase
             RoleEnum::ADMINISTRADOR
         );
 
-        Auditoria::create([
+        $this->crearAuditoria([
             'evento' => 'usuario_creado',
             'modulo' => 'Usuarios',
         ]);
@@ -279,10 +279,10 @@ class AuditoriaControllerTest extends TestCase
             'email' => 'andres@example.com',
         ]);
 
-        Auditoria::create([
+        $this->crearAuditoria([
             'actor_user_id' => $admin->id,
-            'actor_nombre' => 'Admin KinesioSoft',
-            'actor_email' => 'admin@example.com',
+            'actor_nombre_snapshot' => 'Admin KinesioSoft',
+            'actor_email_snapshot' => 'admin@example.com',
             'evento' => 'usuario_actualizado',
             'modulo' => 'Usuarios',
             'auditable_type' => $usuarioAfectado->getMorphClass(),
@@ -316,19 +316,19 @@ class AuditoriaControllerTest extends TestCase
             ->assertSee('PHPUnit Browser');
     }
 
-    public function test_index_renders_context_when_audit_has_no_comparable_values(): void
+    public function test_index_renders_new_values_when_audit_has_no_previous_values(): void
     {
         $admin = $this->userWithRole(
             RoleEnum::ADMINISTRADOR
         );
 
-        Auditoria::create([
+        $this->crearAuditoria([
             'actor_user_id' => $admin->id,
-            'actor_nombre' => 'Admin KinesioSoft',
-            'actor_email' => 'admin@example.com',
+            'actor_nombre_snapshot' => 'Admin KinesioSoft',
+            'actor_email_snapshot' => 'admin@example.com',
             'evento' => 'inicio_sesion',
             'modulo' => 'Sistema / Acceso',
-            'metadata' => [
+            'valores_nuevos' => [
                 'resultado' => 'correcto',
             ],
             'ip_address' => '127.0.0.1',
@@ -340,13 +340,8 @@ class AuditoriaControllerTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertSee(
-                'Este evento no incluye valores anteriores y posteriores'
-            )
-            ->assertSee(
-                'comparables. Se muestra la información contextual disponible.'
-            )
-            ->assertSee('Información contextual')
+            ->assertSee('Detalle de trazabilidad')
+            ->assertSee('Cambios registrados')
             ->assertSee('Resultado')
             ->assertSee('correcto')
             ->assertSee('127.0.0.1');
@@ -358,11 +353,11 @@ class AuditoriaControllerTest extends TestCase
             RoleEnum::ADMINISTRADOR
         );
 
-        Auditoria::create([
-            'actor_nombre' =>
+        $this->crearAuditoria([
+            'actor_nombre_snapshot' =>
             'Admin KinesioSoft',
 
-            'actor_email' =>
+            'actor_email_snapshot' =>
             'admin@example.com',
 
             'evento' =>
@@ -408,11 +403,11 @@ class AuditoriaControllerTest extends TestCase
             RoleEnum::ADMINISTRADOR
         );
 
-        Auditoria::create([
-            'actor_nombre' =>
+        $this->crearAuditoria([
+            'actor_nombre_snapshot' =>
             'Admin KinesioSoft',
 
-            'actor_email' =>
+            'actor_email_snapshot' =>
             'admin@example.com',
 
             'evento' =>
@@ -464,11 +459,11 @@ class AuditoriaControllerTest extends TestCase
             RoleEnum::SUPERADMIN
         );
 
-        Auditoria::create([
-            'actor_nombre' =>
+        $this->crearAuditoria([
+            'actor_nombre_snapshot' =>
             'Admin KinesioSoft',
 
-            'actor_email' =>
+            'actor_email_snapshot' =>
             'admin@example.com',
 
             'evento' =>
@@ -610,11 +605,11 @@ class AuditoriaControllerTest extends TestCase
             RoleEnum::ADMINISTRADOR
         );
 
-        Auditoria::create([
-            'actor_nombre' =>
+        $this->crearAuditoria([
+            'actor_nombre_snapshot' =>
             'Admin KinesioSoft',
 
-            'actor_email' =>
+            'actor_email_snapshot' =>
             'admin@example.com',
 
             'evento' =>
@@ -678,5 +673,23 @@ class AuditoriaControllerTest extends TestCase
         );
 
         return $user;
+    }
+
+    private function crearAuditoria(
+        array $atributos = []
+    ): Auditoria {
+        $objetivo = User::factory()->create();
+
+        return Auditoria::create(
+            array_merge(
+                [
+                    'auditable_type' =>
+                    $objetivo->getMorphClass(),
+                    'auditable_id' =>
+                    $objetivo->id,
+                ],
+                $atributos
+            )
+        );
     }
 }

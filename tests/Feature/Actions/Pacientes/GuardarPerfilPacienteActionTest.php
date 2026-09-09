@@ -77,10 +77,10 @@ class GuardarPerfilPacienteActionTest extends TestCase
         );
 
         $this->assertSame($user->id, $auditoria->actor_user_id);
-        $this->assertSame('Paciente Prueba', $auditoria->actor_nombre);
+        $this->assertSame('Paciente Prueba', $auditoria->actor_nombre_snapshot);
         $this->assertSame(
             'paciente.prueba@example.com',
-            $auditoria->actor_email
+            $auditoria->actor_email_snapshot
         );
     }
 

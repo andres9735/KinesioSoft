@@ -1,7 +1,6 @@
 @php
     $valoresAnteriores = $auditoria->valores_anteriores ?? [];
     $valoresNuevos = $auditoria->valores_nuevos ?? [];
-    $metadata = $auditoria->metadata ?? [];
 
     $camposModificados = collect(array_keys($valoresAnteriores))
         ->merge(array_keys($valoresNuevos))
@@ -120,11 +119,11 @@
                 </p>
 
                 <p class="mt-1 text-sm font-semibold text-gray-900">
-                    {{ $auditoria->actor_nombre ?? 'Sistema' }}
+                    {{ $auditoria->actor_nombre_snapshot ?? 'Sistema' }}
                 </p>
 
                 <p class="mt-0.5 text-xs text-gray-500">
-                    {{ $auditoria->actor_email ?? 'Sin usuario autenticado' }}
+                    {{ $auditoria->actor_email_snapshot ?? 'Sin usuario autenticado' }}
                 </p>
             </div>
 
@@ -283,31 +282,6 @@
                 </div>
             @endif
         </div>
-
-        {{-- Metadata contextual --}}
-        @if (! empty($metadata))
-            <div class="mt-6 border-t border-gray-200 pt-6">
-                <h4 class="font-semibold text-gray-900">
-                    Información contextual
-                </h4>
-
-                <dl class="mt-3 divide-y divide-gray-100 rounded-xl border border-gray-200">
-                    @foreach ($metadata as $campo => $valor)
-                        <div
-                            class="grid grid-cols-1 gap-1 px-4 py-3 sm:grid-cols-3 sm:gap-4"
-                        >
-                            <dt class="text-sm font-semibold text-gray-600">
-                                {{ $formatearCampo((string) $campo) }}
-                            </dt>
-
-                            <dd class="break-words text-sm text-gray-800 sm:col-span-2">
-                                {{ $formatearValor($valor) }}
-                            </dd>
-                        </div>
-                    @endforeach
-                </dl>
-            </div>
-        @endif
 
         {{-- Contexto técnico --}}
         @if ($auditoria->user_agent)

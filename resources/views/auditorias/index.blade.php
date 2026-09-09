@@ -402,12 +402,12 @@
 
                                     <td class="px-6 py-4">
                                         <p class="text-sm font-semibold text-gray-900">
-                                            {{ $auditoria->actor_nombre ?? 'Sistema' }}
+                                            {{ $auditoria->actor_nombre_snapshot ?? 'Sistema' }}
                                         </p>
 
-                                        @if ($auditoria->actor_email)
+                                        @if ($auditoria->actor_email_snapshot)
                                             <p class="mt-0.5 text-xs text-gray-500">
-                                                {{ $auditoria->actor_email }}
+                                                {{ $auditoria->actor_email_snapshot }}
                                             </p>
                                         @else
                                             <p class="mt-0.5 text-xs text-gray-400">

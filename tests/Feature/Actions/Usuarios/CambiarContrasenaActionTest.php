@@ -48,8 +48,8 @@ class CambiarContrasenaActionTest extends TestCase
         );
         $this->assertSame('Cuenta', $auditoria->modulo);
         $this->assertSame($user->id, $auditoria->actor_user_id);
-        $this->assertSame('Ana Paciente', $auditoria->actor_nombre);
-        $this->assertSame('ana@example.com', $auditoria->actor_email);
+        $this->assertSame('Ana Paciente', $auditoria->actor_nombre_snapshot);
+        $this->assertSame('ana@example.com', $auditoria->actor_email_snapshot);
         $this->assertSame(
             $actualizado->getMorphClass(),
             $auditoria->auditable_type

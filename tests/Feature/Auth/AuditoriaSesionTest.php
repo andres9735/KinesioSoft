@@ -34,8 +34,8 @@ class AuditoriaSesionTest extends TestCase
         $this->assertSame('inicio_sesion', $auditoria->evento);
         $this->assertSame('Sistema / Acceso', $auditoria->modulo);
         $this->assertSame($user->id, $auditoria->actor_user_id);
-        $this->assertSame('Ana Paciente', $auditoria->actor_nombre);
-        $this->assertSame('ana@example.com', $auditoria->actor_email);
+        $this->assertSame('Ana Paciente', $auditoria->actor_nombre_snapshot);
+        $this->assertSame('ana@example.com', $auditoria->actor_email_snapshot);
         $this->assertSame($user->getMorphClass(), $auditoria->auditable_type);
         $this->assertSame($user->id, $auditoria->auditable_id);
         $this->assertNull($auditoria->valores_anteriores);
@@ -97,8 +97,8 @@ class AuditoriaSesionTest extends TestCase
         $this->assertSame('cierre_sesion', $auditoria->evento);
         $this->assertSame('Sistema / Acceso', $auditoria->modulo);
         $this->assertSame($user->id, $auditoria->actor_user_id);
-        $this->assertSame('Carlos Paciente', $auditoria->actor_nombre);
-        $this->assertSame('carlos@example.com', $auditoria->actor_email);
+        $this->assertSame('Carlos Paciente', $auditoria->actor_nombre_snapshot);
+        $this->assertSame('carlos@example.com', $auditoria->actor_email_snapshot);
         $this->assertSame($user->getMorphClass(), $auditoria->auditable_type);
         $this->assertSame($user->id, $auditoria->auditable_id);
         $this->assertNull($auditoria->valores_anteriores);

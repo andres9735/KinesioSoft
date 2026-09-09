@@ -183,11 +183,11 @@ class CambiarEstadoMatriculaProfesionalActionTest extends TestCase
         );
         $this->assertSame(
             'Silvia Prueba',
-            $auditoria->actor_nombre
+            $auditoria->actor_nombre_snapshot
         );
         $this->assertSame(
             'silvia.prueba@example.com',
-            $auditoria->actor_email
+            $auditoria->actor_email_snapshot
         );
     }
 

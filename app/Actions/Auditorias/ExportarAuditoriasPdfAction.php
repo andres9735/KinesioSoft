@@ -163,7 +163,8 @@ final class ExportarAuditoriasPdfAction
         $this->auditoriaService->registrar(
             evento: 'auditoria_exportada_pdf',
             modulo: 'Auditoría',
-            metadata: [
+            auditable: $exportador,
+            valoresNuevos: [
                 'filtros' => $filtrosActivos,
                 'cantidad_registros' =>
                 $cantidadRegistros,

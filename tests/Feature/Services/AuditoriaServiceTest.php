@@ -6,6 +6,7 @@ use App\Models\Auditoria;
 use App\Models\User;
 use App\Services\AuditoriaService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use InvalidArgumentException;
 use LogicException;
 use Tests\TestCase;
 
@@ -32,11 +33,10 @@ class AuditoriaServiceTest extends TestCase
             ],
             valoresNuevos: [
                 'name' => 'Nombre nuevo',
-            ],
-            metadata: [
                 'origen' => 'administracion_usuarios',
             ],
             actor: $actor,
+            url: 'https://kinesiosoft.test/usuarios/10',
             ipAddress: '192.0.2.10',
             userAgent: 'PHPUnit'
         );
@@ -44,12 +44,13 @@ class AuditoriaServiceTest extends TestCase
         $this->assertDatabaseHas('auditorias', [
             'id' => $auditoria->id,
             'actor_user_id' => $actor->id,
-            'actor_nombre' => 'Ana Gómez',
-            'actor_email' => 'ana@example.com',
+            'actor_nombre_snapshot' => 'Ana Gómez',
+            'actor_email_snapshot' => 'ana@example.com',
             'evento' => 'usuario_actualizado',
             'modulo' => 'Usuarios',
             'auditable_type' => $objetivo->getMorphClass(),
             'auditable_id' => $objetivo->id,
+            'url' => 'https://kinesiosoft.test/usuarios/10',
             'ip_address' => '192.0.2.10',
             'user_agent' => 'PHPUnit',
         ]);
@@ -62,18 +63,24 @@ class AuditoriaServiceTest extends TestCase
         );
 
         $this->assertSame(
-            ['name' => 'Nombre nuevo'],
+            [
+                'name' => 'Nombre nuevo',
+                'origen' => 'administracion_usuarios',
+            ],
             $auditoria->valores_nuevos
         );
 
-        $this->assertSame(
-            ['origen' => 'administracion_usuarios'],
-            $auditoria->metadata
+        $this->assertNotNull(
+            $auditoria->created_at
         );
 
-        $this->assertNotNull($auditoria->created_at);
         $this->assertArrayNotHasKey(
             'updated_at',
+            $auditoria->getAttributes()
+        );
+
+        $this->assertArrayNotHasKey(
+            'metadata',
             $auditoria->getAttributes()
         );
     }
@@ -86,43 +93,106 @@ class AuditoriaServiceTest extends TestCase
             'email' => 'carlos@example.com',
         ]);
 
+        $objetivo = User::factory()->create();
+
         $this->actingAs($actor);
 
         $auditoria = app(AuditoriaService::class)->registrar(
             evento: 'inicio_sesion',
             modulo: 'Sistema / Acceso',
+            auditable: $objetivo,
             ipAddress: '198.51.100.20',
             userAgent: 'PHPUnit'
         );
 
-        $this->assertSame($actor->id, $auditoria->actor_user_id);
-        $this->assertSame('Carlos Pérez', $auditoria->actor_nombre);
-        $this->assertSame('carlos@example.com', $auditoria->actor_email);
-        $this->assertNull($auditoria->auditable_type);
-        $this->assertNull($auditoria->auditable_id);
+        $this->assertSame(
+            $actor->id,
+            $auditoria->actor_user_id
+        );
+
+        $this->assertSame(
+            'Carlos Pérez',
+            $auditoria->actor_nombre_snapshot
+        );
+
+        $this->assertSame(
+            'carlos@example.com',
+            $auditoria->actor_email_snapshot
+        );
+
+        $this->assertSame(
+            $objetivo->getMorphClass(),
+            $auditoria->auditable_type
+        );
+
+        $this->assertSame(
+            $objetivo->id,
+            $auditoria->auditable_id
+        );
     }
 
-    public function test_supports_event_without_actor_or_auditable_record(): void
+    public function test_supports_event_without_actor_when_target_is_provided(): void
     {
+        $objetivo = User::factory()->create();
+
         $auditoria = app(AuditoriaService::class)->registrar(
             evento: 'evento_sistema',
             modulo: 'Sistema',
+            auditable: $objetivo,
             ipAddress: '203.0.113.30',
             userAgent: 'PHPUnit'
         );
 
-        $this->assertNull($auditoria->actor_user_id);
-        $this->assertNull($auditoria->actor_nombre);
-        $this->assertNull($auditoria->actor_email);
-        $this->assertNull($auditoria->auditable_type);
-        $this->assertNull($auditoria->auditable_id);
+        $this->assertNull(
+            $auditoria->actor_user_id
+        );
+
+        $this->assertNull(
+            $auditoria->actor_nombre_snapshot
+        );
+
+        $this->assertNull(
+            $auditoria->actor_email_snapshot
+        );
+
+        $this->assertSame(
+            $objetivo->getMorphClass(),
+            $auditoria->auditable_type
+        );
+
+        $this->assertSame(
+            $objetivo->id,
+            $auditoria->auditable_id
+        );
+    }
+
+    public function test_rejects_unpersisted_auditable_record(): void
+    {
+        $objetivo = new User();
+
+        $this->expectException(
+            InvalidArgumentException::class
+        );
+
+        $this->expectExceptionMessage(
+            'El objetivo de la auditoría debe estar persistido.'
+        );
+
+        app(AuditoriaService::class)->registrar(
+            evento: 'evento_invalido',
+            modulo: 'Pruebas',
+            auditable: $objetivo
+        );
     }
 
     public function test_removes_sensitive_fields_recursively_before_persisting(): void
     {
+        $objetivo = User::factory()->create();
+
         $auditoria = app(AuditoriaService::class)->registrar(
             evento: 'password_cambiado',
             modulo: 'Sistema / Acceso',
+            auditable: $objetivo,
             valoresAnteriores: [
                 'name' => 'Andrés',
                 'password' => 'hash-anterior',
@@ -136,12 +206,10 @@ class AuditoriaServiceTest extends TestCase
                     'email' => 'andres@example.com',
                     'token' => 'token-secreto',
                 ],
-            ],
-            metadata: [
-                'current_password' => 'password-actual',
-                'session_id' => 'session-secreta',
                 'contexto' => [
                     'resultado' => 'correcto',
+                    'current_password' => 'password-actual',
+                    'session_id' => 'session-secreta',
                     'two_factor_secret' => '2fa-secreto',
                 ],
             ],
@@ -152,7 +220,9 @@ class AuditoriaServiceTest extends TestCase
         $auditoria->refresh();
 
         $this->assertSame(
-            ['name' => 'Andrés'],
+            [
+                'name' => 'Andrés',
+            ],
             $auditoria->valores_anteriores
         );
 
@@ -162,17 +232,11 @@ class AuditoriaServiceTest extends TestCase
                 'datos' => [
                     'email' => 'andres@example.com',
                 ],
-            ],
-            $auditoria->valores_nuevos
-        );
-
-        $this->assertSame(
-            [
                 'contexto' => [
                     'resultado' => 'correcto',
                 ],
             ],
-            $auditoria->metadata
+            $auditoria->valores_nuevos
         );
     }
 
@@ -226,9 +290,12 @@ class AuditoriaServiceTest extends TestCase
 
     private function auditoria(): Auditoria
     {
+        $objetivo = User::factory()->create();
+
         return app(AuditoriaService::class)->registrar(
             evento: 'evento_original',
             modulo: 'Pruebas',
+            auditable: $objetivo,
             ipAddress: '192.0.2.50',
             userAgent: 'PHPUnit'
         );

@@ -6,6 +6,7 @@ use App\Models\Auditoria;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
+use InvalidArgumentException;
 
 final class AuditoriaService
 {
@@ -29,46 +30,62 @@ final class AuditoriaService
     public function registrar(
         string $evento,
         string $modulo,
-        ?Model $auditable = null,
+        Model $auditable,
         array $valoresAnteriores = [],
         array $valoresNuevos = [],
-        array $metadata = [],
         ?User $actor = null,
+        ?string $url = null,
         ?string $ipAddress = null,
         ?string $userAgent = null
     ): Auditoria {
+        if (! $auditable->exists || $auditable->getKey() === null) {
+            throw new InvalidArgumentException(
+                'El objetivo de la auditoría debe estar persistido.'
+            );
+        }
+
         $actor ??= $this->actorAutenticado();
 
-        if ($ipAddress === null || $userAgent === null) {
+        if (
+            $url === null
+            || $ipAddress === null
+            || $userAgent === null
+        ) {
             $request = app()->bound('request')
                 ? request()
                 : null;
 
+            $url ??= $request?->url();
             $ipAddress ??= $request?->ip();
             $userAgent ??= $request?->userAgent();
         }
 
-        $valoresAnteriores = $this->sanitizar($valoresAnteriores);
-        $valoresNuevos = $this->sanitizar($valoresNuevos);
-        $metadata = $this->sanitizar($metadata);
+        $valoresAnteriores = $this->sanitizar(
+            $valoresAnteriores
+        );
+
+        $valoresNuevos = $this->sanitizar(
+            $valoresNuevos
+        );
 
         return Auditoria::create([
             'actor_user_id' => $actor?->getKey(),
-            'actor_nombre' => $this->nombreActor($actor),
-            'actor_email' => $actor?->email,
+            'actor_nombre_snapshot' =>
+            $this->nombreActor($actor),
+            'actor_email_snapshot' => $actor?->email,
             'evento' => $evento,
             'modulo' => $modulo,
-            'auditable_type' => $auditable?->getMorphClass(),
-            'auditable_id' => $auditable?->getKey(),
-            'valores_anteriores' => $valoresAnteriores !== []
+            'auditable_type' => $auditable->getMorphClass(),
+            'auditable_id' => $auditable->getKey(),
+            'valores_anteriores' =>
+            $valoresAnteriores !== []
                 ? $valoresAnteriores
                 : null,
-            'valores_nuevos' => $valoresNuevos !== []
+            'valores_nuevos' =>
+            $valoresNuevos !== []
                 ? $valoresNuevos
                 : null,
-            'metadata' => $metadata !== []
-                ? $metadata
-                : null,
+            'url' => $url,
             'ip_address' => $ipAddress,
             'user_agent' => $userAgent,
         ]);

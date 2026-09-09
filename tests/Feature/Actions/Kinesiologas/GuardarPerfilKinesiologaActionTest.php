@@ -410,11 +410,11 @@ class GuardarPerfilKinesiologaActionTest extends TestCase
             $this->assertSame($user->id, $auditoria->actor_user_id);
             $this->assertSame(
                 'Laura Profesional',
-                $auditoria->actor_nombre
+                $auditoria->actor_nombre_snapshot
             );
             $this->assertSame(
                 'laura.profesional@example.com',
-                $auditoria->actor_email
+                $auditoria->actor_email_snapshot
             );
         }
     }

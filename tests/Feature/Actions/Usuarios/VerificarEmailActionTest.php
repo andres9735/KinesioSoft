@@ -48,11 +48,11 @@ class VerificarEmailActionTest extends TestCase
         );
         $this->assertSame(
             'Ana Paciente',
-            $auditoria->actor_nombre
+            $auditoria->actor_nombre_snapshot
         );
         $this->assertSame(
             'ana@example.com',
-            $auditoria->actor_email
+            $auditoria->actor_email_snapshot
         );
 
         $this->assertSame(

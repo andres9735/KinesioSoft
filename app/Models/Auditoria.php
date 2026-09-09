@@ -13,15 +13,15 @@ class Auditoria extends Model
 
     protected $fillable = [
         'actor_user_id',
-        'actor_nombre',
-        'actor_email',
+        'actor_nombre_snapshot',
+        'actor_email_snapshot',
         'evento',
         'modulo',
         'auditable_type',
         'auditable_id',
         'valores_anteriores',
         'valores_nuevos',
-        'metadata',
+        'url',
         'ip_address',
         'user_agent',
     ];
@@ -31,7 +31,6 @@ class Auditoria extends Model
         return [
             'valores_anteriores' => 'array',
             'valores_nuevos' => 'array',
-            'metadata' => 'array',
             'created_at' => 'datetime',
         ];
     }

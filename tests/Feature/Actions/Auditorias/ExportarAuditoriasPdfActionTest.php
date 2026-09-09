@@ -29,11 +29,11 @@ class ExportarAuditoriasPdfActionTest extends TestCase
         );
 
         for ($i = 1; $i <= 12; $i++) {
-            Auditoria::create([
-                'actor_nombre' =>
+            $this->crearAuditoria([
+                'actor_nombre_snapshot' =>
                 'Administrador ' . $i,
 
-                'actor_email' =>
+                'actor_email_snapshot' =>
                 'admin' . $i . '@example.com',
 
                 'evento' =>
@@ -47,11 +47,11 @@ class ExportarAuditoriasPdfActionTest extends TestCase
             ]);
         }
 
-        Auditoria::create([
-            'actor_nombre' =>
+        $this->crearAuditoria([
+            'actor_nombre_snapshot' =>
             'Administrador Cuenta',
 
-            'actor_email' =>
+            'actor_email_snapshot' =>
             'cuenta@example.com',
 
             'evento' =>
@@ -110,11 +110,11 @@ class ExportarAuditoriasPdfActionTest extends TestCase
             )
         );
 
-        Auditoria::create([
-            'actor_nombre' =>
+        $this->crearAuditoria([
+            'actor_nombre_snapshot' =>
             'Ana Administradora',
 
-            'actor_email' =>
+            'actor_email_snapshot' =>
             'ana.admin@example.com',
 
             'evento' =>
@@ -130,11 +130,11 @@ class ExportarAuditoriasPdfActionTest extends TestCase
             )
         );
 
-        Auditoria::create([
-            'actor_nombre' =>
+        $this->crearAuditoria([
+            'actor_nombre_snapshot' =>
             'Carlos Administrador',
 
-            'actor_email' =>
+            'actor_email_snapshot' =>
             'carlos@example.com',
 
             'evento' =>
@@ -150,11 +150,11 @@ class ExportarAuditoriasPdfActionTest extends TestCase
             )
         );
 
-        Auditoria::create([
-            'actor_nombre' =>
+        $this->crearAuditoria([
+            'actor_nombre_snapshot' =>
             'Ana Administradora',
 
-            'actor_email' =>
+            'actor_email_snapshot' =>
             'ana.admin@example.com',
 
             'evento' =>
@@ -222,11 +222,11 @@ class ExportarAuditoriasPdfActionTest extends TestCase
             )
         );
 
-        Auditoria::create([
-            'actor_nombre' =>
+        $this->crearAuditoria([
+            'actor_nombre_snapshot' =>
             'Ana Administradora',
 
-            'actor_email' =>
+            'actor_email_snapshot' =>
             'ana@example.com',
 
             'evento' =>
@@ -236,11 +236,11 @@ class ExportarAuditoriasPdfActionTest extends TestCase
             'Usuarios',
         ]);
 
-        Auditoria::create([
-            'actor_nombre' =>
+        $this->crearAuditoria([
+            'actor_nombre_snapshot' =>
             'Carlos Administrador',
 
-            'actor_email' =>
+            'actor_email_snapshot' =>
             'carlos@example.com',
 
             'evento' =>
@@ -294,28 +294,26 @@ class ExportarAuditoriasPdfActionTest extends TestCase
 
         $this->assertSame(
             'Administrador Principal',
-            $auditoriaExportacion->actor_nombre
+            $auditoriaExportacion->actor_nombre_snapshot
         );
 
         $this->assertSame(
             'admin@kinesiosoft.com',
-            $auditoriaExportacion->actor_email
+            $auditoriaExportacion->actor_email_snapshot
         );
 
-        $this->assertNull(
+        $this->assertSame(
+            $exportador->getMorphClass(),
             $auditoriaExportacion->auditable_type
         );
 
-        $this->assertNull(
+        $this->assertSame(
+            $exportador->id,
             $auditoriaExportacion->auditable_id
         );
 
         $this->assertNull(
             $auditoriaExportacion->valores_anteriores
-        );
-
-        $this->assertNull(
-            $auditoriaExportacion->valores_nuevos
         );
 
         $this->assertSame(
@@ -327,7 +325,7 @@ class ExportarAuditoriasPdfActionTest extends TestCase
                 'nombre_archivo' =>
                 'kinesiosoft_auditoria_20260816_113045.pdf',
             ],
-            $auditoriaExportacion->metadata
+            $auditoriaExportacion->valores_nuevos
         );
     }
 
@@ -339,11 +337,11 @@ class ExportarAuditoriasPdfActionTest extends TestCase
             )
         );
 
-        Auditoria::create([
-            'actor_nombre' =>
+        $this->crearAuditoria([
+            'actor_nombre_snapshot' =>
             'Administrador Existente',
 
-            'actor_email' =>
+            'actor_email_snapshot' =>
             'existente@example.com',
 
             'evento' =>
@@ -397,17 +395,23 @@ class ExportarAuditoriasPdfActionTest extends TestCase
 
                 'actor_user_id' =>
                 $exportador->id,
+
+                'auditable_type' =>
+                $exportador->getMorphClass(),
+
+                'auditable_id' =>
+                $exportador->id,
             ]
         );
     }
 
     public function test_does_not_generate_or_audit_export_when_filters_have_no_results(): void
     {
-        Auditoria::create([
-            'actor_nombre' =>
+        $this->crearAuditoria([
+            'actor_nombre_snapshot' =>
             'Administrador Existente',
 
-            'actor_email' =>
+            'actor_email_snapshot' =>
             'existente@example.com',
 
             'evento' =>
@@ -453,6 +457,25 @@ class ExportarAuditoriasPdfActionTest extends TestCase
                 'evento' =>
                 'auditoria_exportada_pdf',
             ]
+        );
+    }
+
+    private function crearAuditoria(
+        array $atributos = []
+    ): Auditoria {
+        $objetivo = User::factory()->create();
+
+        return Auditoria::create(
+            array_merge(
+                [
+                    'auditable_type' =>
+                    $objetivo->getMorphClass(),
+
+                    'auditable_id' =>
+                    $objetivo->id,
+                ],
+                $atributos
+            )
         );
     }
 }
