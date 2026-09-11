@@ -10,6 +10,11 @@ class ItemDeclaracionSalud extends Model
 {
     use HasFactory;
 
+    public const TIPO_ANTECEDENTE = 'ANTECEDENTE';
+    public const TIPO_CIRUGIA = 'CIRUGIA';
+    public const TIPO_ALERGIA = 'ALERGIA';
+    public const TIPO_MEDICACION = 'MEDICACION';
+
     public $timestamps = false;
 
     protected $table = 'items_declaracion_salud';

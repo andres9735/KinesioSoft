@@ -104,7 +104,8 @@
                         const title = form.dataset.confirmTitle || '¿Confirmar acción?';
                         const text = form.dataset.confirmText || 'Esta acción requiere confirmación.';
                         const confirmButtonText = form.dataset.confirmButton || 'Sí, continuar';
-                        const cancelButtonText = form.dataset.cancelButton || 'Cancelar';
+                        const cancelButtonText =
+                            form.dataset.cancelButton || 'Cancelar';
                         const icon = form.dataset.confirmIcon || 'warning';
 
                         if (window.Swal) {

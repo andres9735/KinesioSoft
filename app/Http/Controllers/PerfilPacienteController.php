@@ -2,29 +2,60 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Pacientes\CompletarPerfilClinicoInicialAction;
+use App\Http\Requests\PerfilPaciente\CompletarPerfilPacienteRequest;
 use App\Http\Requests\PerfilPaciente\ValidarPaso1PerfilPacienteRequest;
 use App\Http\Requests\PerfilPaciente\ValidarPaso2PerfilPacienteRequest;
-use App\Actions\Pacientes\GuardarPerfilPacienteAction;
-use App\Http\Requests\UpdatePerfilPacienteRequest;
 use App\Models\User;
-use Illuminate\Http\Response;
+use DomainException;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\View\View;
+use Throwable;
 
 class PerfilPacienteController extends Controller
 {
     public function __construct(
-        private readonly GuardarPerfilPacienteAction $guardarPerfilPacienteAction
+        private readonly CompletarPerfilClinicoInicialAction $completarPerfilClinicoInicialAction
     ) {}
 
     /**
-     * Muestra el formulario de completado de perfil.
+     * Muestra el formulario de completado del perfil clínico inicial
+     * o la vista de consulta del perfil ya completado.
      */
-    public function edit(): View
+    public function edit(Request $request): View
     {
-        return view('perfil.completar-paciente');
+        /** @var User $user */
+        $user = $request->user();
+
+        if (! $user->perfilCompleto()) {
+            return view('perfil.completar-paciente');
+        }
+
+        $paciente = $user->paciente;
+
+        $declaracion = $paciente
+            ? $paciente->declaracionesSalud()
+            ->with('items')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->first()
+            : null;
+
+        return view(
+            'perfil.mostrar-paciente',
+            [
+                'user' => $user,
+                'paciente' => $paciente,
+                'declaracion' => $declaracion,
+            ]
+        );
     }
 
+    /**
+     * Valida el paso 1 del wizard sin persistir datos.
+     */
     public function validarPaso1(
         ValidarPaso1PerfilPacienteRequest $request
     ): Response {
@@ -33,6 +64,9 @@ class PerfilPacienteController extends Controller
         return response()->noContent();
     }
 
+    /**
+     * Valida el paso 2 del wizard sin persistir datos.
+     */
     public function validarPaso2(
         ValidarPaso2PerfilPacienteRequest $request
     ): Response {
@@ -42,26 +76,59 @@ class PerfilPacienteController extends Controller
     }
 
     /**
-     * Actualiza los datos faltantes del perfil del paciente.
+     * Completa definitivamente el perfil clínico inicial.
      */
     public function update(
-        UpdatePerfilPacienteRequest $request
+        CompletarPerfilPacienteRequest $request
     ): RedirectResponse {
         /** @var User $user */
         $user = $request->user();
 
         $data = $request->validated();
 
-        $this->guardarPerfilPacienteAction->ejecutar(
-            $user,
-            $data
-        );
+        try {
+            $this->completarPerfilClinicoInicialAction->ejecutar(
+                $user,
+                $data
+            );
+        } catch (DomainException $exception) {
+            return back()
+                ->withInput()
+                ->with(
+                    'warning',
+                    $exception->getMessage()
+                );
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return back()
+                ->withInput()
+                ->with(
+                    'error',
+                    'No se pudo completar el perfil clínico inicial por un '
+                        . 'inconveniente técnico. Los cambios no fueron '
+                        . 'aplicados. Intente nuevamente.'
+                );
+        }
+
+        $mensajeExito =
+            'Perfil clínico inicial completado correctamente.';
+
+        if (! $user->hasVerifiedEmail()) {
+            return redirect()
+                ->route('verification.notice')
+                ->with(
+                    'success',
+                    $mensajeExito
+                        . ' Verifique su correo electrónico para continuar.'
+                );
+        }
 
         return redirect()
             ->route('dashboard')
             ->with(
                 'success',
-                'Perfil completado correctamente.'
+                $mensajeExito
             );
     }
 }

@@ -20,7 +20,7 @@
                 </h4>
 
                 <p class="text-sm leading-6 text-gray-500">
-                    Consulte y mantenga actualizados sus datos personales.
+                    Consulte sus datos personales y su declaración inicial de salud.
                 </p>
             </div>
 

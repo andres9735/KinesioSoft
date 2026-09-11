@@ -122,7 +122,7 @@ class DashboardControllerTest extends TestCase
             ->assertSeeText('Paciente')
             ->assertSeeText('Accesos personales')
             ->assertSeeText(
-                'Consulte y mantenga actualizados sus datos personales.'
+                'Consulte sus datos personales y su declaración inicial de salud.'
             )
             ->assertDontSeeText('Accesos administrativos')
             ->assertDontSeeText('Herramientas profesionales');

@@ -88,15 +88,15 @@ abstract class PerfilPacienteRequestBase extends FormRequest
             'peso_kg' => [
                 'required',
                 'numeric',
-                'gt:0',
-                'max:999.99',
+                'min:1',
+                'max:500',
             ],
 
             'altura_cm' => [
                 'required',
                 'numeric',
-                'gt:0',
-                'max:999.99',
+                'min:30',
+                'max:250',
             ],
 
             'ocupacion' => [
@@ -213,12 +213,14 @@ abstract class PerfilPacienteRequestBase extends FormRequest
                 strtoupper(trim($nivelActividad));
         }
 
-        foreach ([
-            'antecedentes_respuesta',
-            'cirugias_respuesta',
-            'alergias_respuesta',
-            'medicacion_respuesta',
-        ] as $campo) {
+        foreach (
+            [
+                'antecedentes_respuesta',
+                'cirugias_respuesta',
+                'alergias_respuesta',
+                'medicacion_respuesta',
+            ] as $campo
+        ) {
             $valor = $this->input($campo);
 
             if (is_string($valor)) {
@@ -227,22 +229,35 @@ abstract class PerfilPacienteRequestBase extends FormRequest
             }
         }
 
-        foreach ([
-            'antecedentes',
-            'cirugias',
-            'alergias',
-            'medicaciones',
-        ] as $campo) {
+        foreach (
+            [
+                'antecedentes',
+                'cirugias',
+                'alergias',
+                'medicaciones',
+            ] as $campo
+        ) {
             $valores = $this->input($campo);
 
-            if (is_array($valores)) {
-                $normalizados[$campo] = array_map(
-                    static fn ($valor) => is_string($valor)
-                        ? trim($valor)
-                        : $valor,
-                    $valores
-                );
+            if (! is_array($valores)) {
+                continue;
             }
+
+            $valoresNormalizados = array_map(
+                static fn($valor) => is_string($valor)
+                    ? trim($valor)
+                    : $valor,
+                $valores
+            );
+
+            $normalizados[$campo] = array_values(
+                array_filter(
+                    $valoresNormalizados,
+                    static fn($valor) =>
+                    ! is_string($valor)
+                        || $valor !== ''
+                )
+            );
         }
 
         if ($normalizados !== []) {
@@ -265,7 +280,11 @@ abstract class PerfilPacienteRequestBase extends FormRequest
         ];
 
         foreach ($configuracion as $respuesta => $items) {
-            if ($validator->errors()->has($respuesta)) {
+            if (
+                $validator->errors()->has($respuesta)
+                || $validator->errors()->has($items)
+                || $validator->errors()->has($items . '.*')
+            ) {
                 continue;
             }
 
@@ -275,8 +294,8 @@ abstract class PerfilPacienteRequestBase extends FormRequest
                 $this->input($items, [])
             )
                 ->filter(
-                    static fn ($valor) =>
-                        is_string($valor)
+                    static fn($valor) =>
+                    is_string($valor)
                         && trim($valor) !== ''
                 );
 
