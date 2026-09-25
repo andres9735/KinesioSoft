@@ -13,6 +13,11 @@ class JurisdiccionPolicy
         return $this->puedeAdministrarCatalogos($user);
     }
 
+    public function view(User $user, Jurisdiccion $jurisdiccion): bool
+    {
+        return $this->puedeAdministrarCatalogos($user);
+    }
+
     public function create(User $user): bool
     {
         return $this->puedeAdministrarCatalogos($user);
@@ -23,7 +28,12 @@ class JurisdiccionPolicy
         return $this->puedeAdministrarCatalogos($user);
     }
 
-    public function toggleActivo(User $user, Jurisdiccion $jurisdiccion): bool
+    public function inactivar(User $user, Jurisdiccion $jurisdiccion): bool
+    {
+        return $this->puedeAdministrarCatalogos($user);
+    }
+
+    public function reactivar(User $user, Jurisdiccion $jurisdiccion): bool
     {
         return $this->puedeAdministrarCatalogos($user);
     }

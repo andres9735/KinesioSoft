@@ -99,6 +99,20 @@ class GlobalConfirmationTest extends TestCase
                 $file->getPathname()
             );
 
+            $this->assertDoesNotMatchRegularExpression(
+                '/\bon(?:click|submit)\s*=\s*["\'][^"\']*\bconfirm\s*\(/i',
+                $contenido,
+                'Las vistas no deben usar confirmaciones inline: '.
+                    $file->getPathname()
+            );
+
+            $this->assertStringNotContainsString(
+                'window.confirm(',
+                $contenido,
+                'Las vistas no deben usar window.confirm(): '.
+                    $file->getPathname()
+            );
+
             $lineas = preg_split(
                 '/\R/',
                 $contenido
@@ -139,14 +153,14 @@ class GlobalConfirmationTest extends TestCase
                 $this->assertLessThan(
                     count($lineas),
                     $finAtributos,
-                    'No se encontró @csrf para el formulario de confirmación: ' .
+                    'No se encontró @csrf para el formulario de confirmación: '.
                         $file->getPathname()
                 );
 
                 $this->assertStringContainsString(
                     '@csrf',
                     $lineas[$finAtributos],
-                    'El contrato de confirmación debe definirse antes de @csrf: ' .
+                    'El contrato de confirmación debe definirse antes de @csrf: '.
                         $file->getPathname()
                 );
 
@@ -177,7 +191,7 @@ class GlobalConfirmationTest extends TestCase
                 $this->assertStringNotContainsString(
                     '<button',
                     $contextoAnterior,
-                    'La clase js-confirm-action debe estar en el <form>, no en el <button>: ' .
+                    'La clase js-confirm-action debe estar en el <form>, no en el <button>: '.
                         $file->getPathname()
                 );
 
@@ -203,5 +217,50 @@ class GlobalConfirmationTest extends TestCase
             0,
             $hookCount
         );
+    }
+
+    public function test_clinical_catalog_state_forms_use_the_global_contract(): void
+    {
+        foreach (
+            [
+                'catalogos/diagnosticos-clinicos/index.blade.php' => 'catalogos.diagnosticos',
+                'catalogos/pruebas-funcionales/index.blade.php' => 'catalogos.pruebas',
+                'catalogos/tecnicas-terapeuticas/index.blade.php' => 'catalogos.tecnicas',
+                'catalogos/categorias-clinicas/index.blade.php' => 'catalogos.categorias',
+                'catalogos/ejercicios-domiciliarios/index.blade.php' => 'catalogos.ejercicios',
+                'catalogos/tipos-equipo-terapeutico/index.blade.php' => 'catalogos.tipos-equipo',
+            ] as $view => $routePrefix
+        ) {
+            $path = resource_path('views/'.$view);
+            $contenido = file_get_contents($path);
+
+            $this->assertIsString($contenido, $path);
+
+            preg_match_all(
+                '/<form\b[\s\S]*?@csrf/',
+                $contenido,
+                $formularios
+            );
+
+            $usaContratoGlobal = collect($formularios[0])->contains(
+                fn (string $formulario): bool => str_contains(
+                    $formulario,
+                    "'{$routePrefix}.inactivar'"
+                ) &&
+                    str_contains(
+                        $formulario,
+                        "'{$routePrefix}.reactivar'"
+                    ) &&
+                    preg_match(
+                        '/class="[^"]*\bjs-confirm-action\b[^"]*"/',
+                        $formulario
+                    ) === 1
+            );
+
+            $this->assertTrue(
+                $usaContratoGlobal,
+                'Inactivar y reactivar deben usar js-confirm-action en '.$path
+            );
+        }
     }
 }

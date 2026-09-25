@@ -13,6 +13,13 @@ class EspecialidadKinesiologiaPolicy
         return $this->puedeAdministrarCatalogos($user);
     }
 
+    public function view(
+        User $user,
+        EspecialidadKinesiologia $especialidad
+    ): bool {
+        return $this->puedeAdministrarCatalogos($user);
+    }
+
     public function create(User $user): bool
     {
         return $this->puedeAdministrarCatalogos($user);
@@ -25,7 +32,14 @@ class EspecialidadKinesiologiaPolicy
         return $this->puedeAdministrarCatalogos($user);
     }
 
-    public function toggleActivo(
+    public function inactivar(
+        User $user,
+        EspecialidadKinesiologia $especialidad
+    ): bool {
+        return $this->puedeAdministrarCatalogos($user);
+    }
+
+    public function reactivar(
         User $user,
         EspecialidadKinesiologia $especialidad
     ): bool {

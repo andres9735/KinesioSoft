@@ -13,6 +13,11 @@ class TituloProfesionalPolicy
         return $this->puedeAdministrarCatalogos($user);
     }
 
+    public function view(User $user, TituloProfesional $titulo): bool
+    {
+        return $this->puedeAdministrarCatalogos($user);
+    }
+
     public function create(User $user): bool
     {
         return $this->puedeAdministrarCatalogos($user);
@@ -23,7 +28,12 @@ class TituloProfesionalPolicy
         return $this->puedeAdministrarCatalogos($user);
     }
 
-    public function toggleActivo(User $user, TituloProfesional $titulo): bool
+    public function inactivar(User $user, TituloProfesional $titulo): bool
+    {
+        return $this->puedeAdministrarCatalogos($user);
+    }
+
+    public function reactivar(User $user, TituloProfesional $titulo): bool
     {
         return $this->puedeAdministrarCatalogos($user);
     }

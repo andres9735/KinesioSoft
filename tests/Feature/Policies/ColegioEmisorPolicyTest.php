@@ -42,7 +42,7 @@ class ColegioEmisorPolicyTest extends TestCase
             Gate::forUser($admin)->allows('update', $colegio)
         );
         $this->assertTrue(
-            Gate::forUser($admin)->allows('toggleActivo', $colegio)
+            Gate::forUser($admin)->allows('inactivar', $colegio)
         );
     }
 
@@ -61,7 +61,7 @@ class ColegioEmisorPolicyTest extends TestCase
             Gate::forUser($superadmin)->allows('update', $colegio)
         );
         $this->assertTrue(
-            Gate::forUser($superadmin)->allows('toggleActivo', $colegio)
+            Gate::forUser($superadmin)->allows('inactivar', $colegio)
         );
     }
 
@@ -80,7 +80,7 @@ class ColegioEmisorPolicyTest extends TestCase
             Gate::forUser($paciente)->allows('update', $colegio)
         );
         $this->assertFalse(
-            Gate::forUser($paciente)->allows('toggleActivo', $colegio)
+            Gate::forUser($paciente)->allows('inactivar', $colegio)
         );
     }
 
@@ -99,8 +99,28 @@ class ColegioEmisorPolicyTest extends TestCase
             Gate::forUser($kinesiologo)->allows('update', $colegio)
         );
         $this->assertFalse(
-            Gate::forUser($kinesiologo)->allows('toggleActivo', $colegio)
+            Gate::forUser($kinesiologo)->allows('inactivar', $colegio)
         );
+    }
+
+    public function test_view_and_reactivar_follow_catalogo_admin_roles(): void
+    {
+        $colegio = $this->colegioEmisor();
+
+        foreach (RoleEnum::cases() as $role) {
+            $user = $this->userWithRole($role);
+            $permitido = in_array($role, [
+                RoleEnum::ADMINISTRADOR,
+                RoleEnum::SUPERADMIN,
+            ], true);
+
+            foreach (['view', 'reactivar'] as $ability) {
+                $this->assertSame(
+                    $permitido,
+                    Gate::forUser($user)->allows($ability, $colegio)
+                );
+            }
+        }
     }
 
     private function userWithRole(RoleEnum $role): User

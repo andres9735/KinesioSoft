@@ -13,6 +13,11 @@ class ColegioEmisorPolicy
         return $this->puedeAdministrarCatalogos($user);
     }
 
+    public function view(User $user, ColegioEmisor $colegio): bool
+    {
+        return $this->puedeAdministrarCatalogos($user);
+    }
+
     public function create(User $user): bool
     {
         return $this->puedeAdministrarCatalogos($user);
@@ -23,7 +28,12 @@ class ColegioEmisorPolicy
         return $this->puedeAdministrarCatalogos($user);
     }
 
-    public function toggleActivo(User $user, ColegioEmisor $colegio): bool
+    public function inactivar(User $user, ColegioEmisor $colegio): bool
+    {
+        return $this->puedeAdministrarCatalogos($user);
+    }
+
+    public function reactivar(User $user, ColegioEmisor $colegio): bool
     {
         return $this->puedeAdministrarCatalogos($user);
     }

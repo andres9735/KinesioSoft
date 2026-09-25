@@ -28,4 +28,8 @@ return [
         'password' => env('KINESIOSOFT_SUPERADMIN_PASSWORD'),
     ],
 
+    'ejercicios' => [
+        'recursos_directorio' => 'ejercicios/recursos',
+    ],
+
 ];

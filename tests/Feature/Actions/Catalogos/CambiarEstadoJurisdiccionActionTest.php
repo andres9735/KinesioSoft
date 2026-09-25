@@ -4,8 +4,10 @@ namespace Tests\Feature\Actions\Catalogos;
 
 use App\Actions\Catalogos\CambiarEstadoJurisdiccionAction;
 use App\Models\Auditoria;
+use App\Models\ColegioEmisor;
 use App\Models\Jurisdiccion;
 use App\Models\User;
+use DomainException;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -33,7 +35,7 @@ class CambiarEstadoJurisdiccionActionTest extends TestCase
 
         $actualizada = app(
             CambiarEstadoJurisdiccionAction::class
-        )->ejecutar($jurisdiccion);
+        )->ejecutar($jurisdiccion, false);
 
         $this->assertFalse((bool) $actualizada->activo);
 
@@ -77,7 +79,7 @@ class CambiarEstadoJurisdiccionActionTest extends TestCase
 
         $actualizada = app(
             CambiarEstadoJurisdiccionAction::class
-        )->ejecutar($jurisdiccion);
+        )->ejecutar($jurisdiccion, true);
 
         $this->assertTrue((bool) $actualizada->activo);
 
@@ -89,7 +91,7 @@ class CambiarEstadoJurisdiccionActionTest extends TestCase
         $auditoria = Auditoria::query()->sole();
 
         $this->assertSame(
-            'jurisdiccion_activada',
+            'jurisdiccion_reactivada',
             $auditoria->evento
         );
         $this->assertSame(
@@ -100,6 +102,46 @@ class CambiarEstadoJurisdiccionActionTest extends TestCase
             ['activo' => true],
             $auditoria->valores_nuevos
         );
+    }
+
+    public function test_inactivating_an_already_inactive_jurisdiccion_is_idempotent(): void
+    {
+        $jurisdiccion = Jurisdiccion::create([
+            'nombre' => 'Misiones',
+            'slug' => 'misiones',
+            'activo' => false,
+        ]);
+
+        $actualizada = app(CambiarEstadoJurisdiccionAction::class)
+            ->ejecutar($jurisdiccion, false);
+
+        $this->assertFalse((bool) $actualizada->activo);
+        $this->assertFalse($actualizada->wasChanged());
+        $this->assertDatabaseHas('jurisdicciones', [
+            'id' => $jurisdiccion->id,
+            'activo' => false,
+        ]);
+        $this->assertDatabaseCount('auditorias', 0);
+    }
+
+    public function test_reactivating_an_already_active_jurisdiccion_is_idempotent(): void
+    {
+        $jurisdiccion = Jurisdiccion::create([
+            'nombre' => 'Misiones',
+            'slug' => 'misiones',
+            'activo' => true,
+        ]);
+
+        $actualizada = app(CambiarEstadoJurisdiccionAction::class)
+            ->ejecutar($jurisdiccion, true);
+
+        $this->assertTrue((bool) $actualizada->activo);
+        $this->assertFalse($actualizada->wasChanged());
+        $this->assertDatabaseHas('jurisdicciones', [
+            'id' => $jurisdiccion->id,
+            'activo' => true,
+        ]);
+        $this->assertDatabaseCount('auditorias', 0);
     }
 
     public function test_uses_authenticated_user_as_audit_actor(): void
@@ -119,7 +161,7 @@ class CambiarEstadoJurisdiccionActionTest extends TestCase
         $this->actingAs($actor);
 
         app(CambiarEstadoJurisdiccionAction::class)
-            ->ejecutar($jurisdiccion);
+            ->ejecutar($jurisdiccion, false);
 
         $auditoria = Auditoria::query()->sole();
 
@@ -156,7 +198,7 @@ class CambiarEstadoJurisdiccionActionTest extends TestCase
 
         try {
             app(CambiarEstadoJurisdiccionAction::class)
-                ->ejecutar($jurisdiccion);
+                ->ejecutar($jurisdiccion, false);
 
             $this->fail(
                 'Se esperaba una QueryException al persistir la auditoría.'
@@ -169,5 +211,69 @@ class CambiarEstadoJurisdiccionActionTest extends TestCase
 
             $this->assertDatabaseCount('auditorias', 0);
         }
+    }
+
+    public function test_active_colegio_blocks_inactivation_without_state_change_or_audit(): void
+    {
+        $jurisdiccion = Jurisdiccion::create([
+            'nombre' => 'Misiones', 'slug' => 'misiones', 'activo' => true,
+        ]);
+        ColegioEmisor::create([
+            'nombre' => 'Colegio de Misiones',
+            'sigla' => 'CM',
+            'jurisdiccion_id' => $jurisdiccion->id,
+            'activo' => true,
+        ]);
+
+        try {
+            app(CambiarEstadoJurisdiccionAction::class)->ejecutar($jurisdiccion, false);
+            $this->fail('Se esperaba el rechazo por colegios activos.');
+        } catch (DomainException $exception) {
+            $this->assertSame(
+                'No se puede inactivar la jurisdicción porque tiene colegios emisores activos asociados.',
+                $exception->getMessage()
+            );
+        }
+
+        $this->assertDatabaseHas('jurisdicciones', ['id' => $jurisdiccion->id, 'activo' => true]);
+        $this->assertDatabaseCount('auditorias', 0);
+    }
+
+    public function test_inactive_colegio_does_not_block_inactivation(): void
+    {
+        $jurisdiccion = Jurisdiccion::create([
+            'nombre' => 'Misiones', 'slug' => 'misiones', 'activo' => true,
+        ]);
+        ColegioEmisor::create([
+            'nombre' => 'Colegio de Misiones',
+            'sigla' => 'CM',
+            'jurisdiccion_id' => $jurisdiccion->id,
+            'activo' => false,
+        ]);
+
+        $actualizada = app(CambiarEstadoJurisdiccionAction::class)->ejecutar($jurisdiccion, false);
+
+        $this->assertFalse((bool) $actualizada->activo);
+        $this->assertDatabaseHas('jurisdicciones', ['id' => $jurisdiccion->id, 'activo' => false]);
+        $this->assertSame('jurisdiccion_inactivada', Auditoria::query()->sole()->evento);
+    }
+
+    public function test_already_inactive_jurisdiccion_remains_idempotent_even_with_active_colegio(): void
+    {
+        $jurisdiccion = Jurisdiccion::create([
+            'nombre' => 'Misiones', 'slug' => 'misiones', 'activo' => false,
+        ]);
+        ColegioEmisor::create([
+            'nombre' => 'Colegio histórico',
+            'sigla' => 'CH',
+            'jurisdiccion_id' => $jurisdiccion->id,
+            'activo' => true,
+        ]);
+
+        $actualizada = app(CambiarEstadoJurisdiccionAction::class)->ejecutar($jurisdiccion, false);
+
+        $this->assertFalse((bool) $actualizada->activo);
+        $this->assertFalse($actualizada->wasChanged());
+        $this->assertDatabaseCount('auditorias', 0);
     }
 }

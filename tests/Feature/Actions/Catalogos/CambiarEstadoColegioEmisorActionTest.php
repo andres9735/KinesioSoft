@@ -7,6 +7,7 @@ use App\Models\Auditoria;
 use App\Models\ColegioEmisor;
 use App\Models\Jurisdiccion;
 use App\Models\User;
+use DomainException;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -30,7 +31,7 @@ class CambiarEstadoColegioEmisorActionTest extends TestCase
 
         $actualizado = app(
             CambiarEstadoColegioEmisorAction::class
-        )->ejecutar($colegio);
+        )->ejecutar($colegio, false);
 
         $this->assertFalse((bool) $actualizado->activo);
 
@@ -70,7 +71,7 @@ class CambiarEstadoColegioEmisorActionTest extends TestCase
 
         $actualizado = app(
             CambiarEstadoColegioEmisorAction::class
-        )->ejecutar($colegio);
+        )->ejecutar($colegio, true);
 
         $this->assertTrue((bool) $actualizado->activo);
 
@@ -82,7 +83,7 @@ class CambiarEstadoColegioEmisorActionTest extends TestCase
         $auditoria = Auditoria::query()->sole();
 
         $this->assertSame(
-            'colegio_emisor_activado',
+            'colegio_emisor_reactivado',
             $auditoria->evento
         );
         $this->assertSame(
@@ -93,6 +94,78 @@ class CambiarEstadoColegioEmisorActionTest extends TestCase
             ['activo' => true],
             $auditoria->valores_nuevos
         );
+    }
+
+    public function test_inactivating_an_already_inactive_colegio_is_idempotent(): void
+    {
+        $colegio = $this->crearColegio(activo: false);
+
+        $actualizado = app(CambiarEstadoColegioEmisorAction::class)
+            ->ejecutar($colegio, false);
+
+        $this->assertFalse((bool) $actualizado->activo);
+        $this->assertFalse($actualizado->wasChanged());
+        $this->assertDatabaseHas('colegios_emisores', [
+            'id' => $colegio->id,
+            'activo' => false,
+        ]);
+        $this->assertDatabaseCount('auditorias', 0);
+    }
+
+    public function test_reactivating_an_already_active_colegio_is_idempotent(): void
+    {
+        $colegio = $this->crearColegio(activo: true);
+
+        $actualizado = app(CambiarEstadoColegioEmisorAction::class)
+            ->ejecutar($colegio, true);
+
+        $this->assertTrue((bool) $actualizado->activo);
+        $this->assertFalse($actualizado->wasChanged());
+        $this->assertDatabaseHas('colegios_emisores', [
+            'id' => $colegio->id,
+            'activo' => true,
+        ]);
+        $this->assertDatabaseCount('auditorias', 0);
+    }
+
+    public function test_reactivation_rejects_inactive_jurisdiction_without_change_or_audit(): void
+    {
+        $colegio = $this->crearColegio(activo: false);
+        $colegio->jurisdiccion->update(['activo' => false]);
+
+        try {
+            app(CambiarEstadoColegioEmisorAction::class)->ejecutar($colegio, true);
+            $this->fail('Se esperaba el rechazo de la reactivación.');
+        } catch (DomainException $exception) {
+            $this->assertSame(
+                'No se puede reactivar el colegio emisor porque su jurisdicción está inactiva.',
+                $exception->getMessage()
+            );
+        }
+
+        $this->assertDatabaseHas('colegios_emisores', [
+            'id' => $colegio->id,
+            'jurisdiccion_id' => $colegio->jurisdiccion_id,
+            'activo' => false,
+        ]);
+        $this->assertDatabaseCount('auditorias', 0);
+    }
+
+    public function test_reactivation_of_already_active_historical_colegio_is_idempotent(): void
+    {
+        $colegio = $this->crearColegio(activo: true);
+        $colegio->jurisdiccion->update(['activo' => false]);
+
+        $actualizado = app(CambiarEstadoColegioEmisorAction::class)
+            ->ejecutar($colegio, true);
+
+        $this->assertTrue((bool) $actualizado->activo);
+        $this->assertFalse($actualizado->wasChanged());
+        $this->assertDatabaseHas('colegios_emisores', [
+            'id' => $colegio->id,
+            'activo' => true,
+        ]);
+        $this->assertDatabaseCount('auditorias', 0);
     }
 
     public function test_uses_authenticated_user_as_audit_actor(): void
@@ -108,7 +181,7 @@ class CambiarEstadoColegioEmisorActionTest extends TestCase
         $this->actingAs($actor);
 
         app(CambiarEstadoColegioEmisorAction::class)
-            ->ejecutar($colegio);
+            ->ejecutar($colegio, false);
 
         $auditoria = Auditoria::query()->sole();
 
@@ -141,7 +214,7 @@ class CambiarEstadoColegioEmisorActionTest extends TestCase
 
         try {
             app(CambiarEstadoColegioEmisorAction::class)
-                ->ejecutar($colegio);
+                ->ejecutar($colegio, false);
 
             $this->fail(
                 'Se esperaba una QueryException al persistir la auditoría.'

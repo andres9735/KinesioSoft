@@ -50,7 +50,7 @@ class EspecialidadKinesiologiaPolicyTest extends TestCase
         );
 
         $this->assertTrue(
-            Gate::forUser($admin)->allows('toggleActivo', $especialidad)
+            Gate::forUser($admin)->allows('inactivar', $especialidad)
         );
     }
 
@@ -79,7 +79,7 @@ class EspecialidadKinesiologiaPolicyTest extends TestCase
 
         $this->assertTrue(
             Gate::forUser($superadmin)->allows(
-                'toggleActivo',
+                'inactivar',
                 $especialidad
             )
         );
@@ -110,7 +110,7 @@ class EspecialidadKinesiologiaPolicyTest extends TestCase
 
         $this->assertFalse(
             Gate::forUser($paciente)->allows(
-                'toggleActivo',
+                'inactivar',
                 $especialidad
             )
         );
@@ -141,10 +141,30 @@ class EspecialidadKinesiologiaPolicyTest extends TestCase
 
         $this->assertFalse(
             Gate::forUser($kinesiologo)->allows(
-                'toggleActivo',
+                'inactivar',
                 $especialidad
             )
         );
+    }
+
+    public function test_view_and_reactivar_follow_catalogo_admin_roles(): void
+    {
+        $especialidad = $this->especialidad();
+
+        foreach (RoleEnum::cases() as $role) {
+            $user = $this->userWithRole($role);
+            $permitido = in_array($role, [
+                RoleEnum::ADMINISTRADOR,
+                RoleEnum::SUPERADMIN,
+            ], true);
+
+            foreach (['view', 'reactivar'] as $ability) {
+                $this->assertSame(
+                    $permitido,
+                    Gate::forUser($user)->allows($ability, $especialidad)
+                );
+            }
+        }
     }
 
     private function userWithRole(RoleEnum $role): User

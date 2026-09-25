@@ -41,7 +41,7 @@ class TituloProfesionalPolicyTest extends TestCase
             Gate::forUser($admin)->allows('update', $titulo)
         );
         $this->assertTrue(
-            Gate::forUser($admin)->allows('toggleActivo', $titulo)
+            Gate::forUser($admin)->allows('inactivar', $titulo)
         );
     }
 
@@ -60,7 +60,7 @@ class TituloProfesionalPolicyTest extends TestCase
             Gate::forUser($superadmin)->allows('update', $titulo)
         );
         $this->assertTrue(
-            Gate::forUser($superadmin)->allows('toggleActivo', $titulo)
+            Gate::forUser($superadmin)->allows('inactivar', $titulo)
         );
     }
 
@@ -79,7 +79,7 @@ class TituloProfesionalPolicyTest extends TestCase
             Gate::forUser($paciente)->allows('update', $titulo)
         );
         $this->assertFalse(
-            Gate::forUser($paciente)->allows('toggleActivo', $titulo)
+            Gate::forUser($paciente)->allows('inactivar', $titulo)
         );
     }
 
@@ -98,8 +98,28 @@ class TituloProfesionalPolicyTest extends TestCase
             Gate::forUser($kinesiologo)->allows('update', $titulo)
         );
         $this->assertFalse(
-            Gate::forUser($kinesiologo)->allows('toggleActivo', $titulo)
+            Gate::forUser($kinesiologo)->allows('inactivar', $titulo)
         );
+    }
+
+    public function test_view_and_reactivar_follow_catalogo_admin_roles(): void
+    {
+        $titulo = $this->tituloProfesional();
+
+        foreach (RoleEnum::cases() as $role) {
+            $user = $this->userWithRole($role);
+            $permitido = in_array($role, [
+                RoleEnum::ADMINISTRADOR,
+                RoleEnum::SUPERADMIN,
+            ], true);
+
+            foreach (['view', 'reactivar'] as $ability) {
+                $this->assertSame(
+                    $permitido,
+                    Gate::forUser($user)->allows($ability, $titulo)
+                );
+            }
+        }
     }
 
     private function userWithRole(RoleEnum $role): User

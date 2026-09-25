@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\RoleEnum;
+use App\Http\Middleware\EnsureUserProfileIsComplete;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Routing\Route;
@@ -39,6 +40,11 @@ class NavigationTest extends TestCase
         $this->assertSame(
             2,
             substr_count($html, 'Catálogos')
+        );
+
+        $this->assertSame(
+            2,
+            substr_count($html, 'href="'.route('catalogos.index').'"')
         );
 
         $this->assertSame(
@@ -81,6 +87,11 @@ class NavigationTest extends TestCase
         $this->assertSame(
             2,
             substr_count($html, 'Catálogos')
+        );
+
+        $this->assertSame(
+            2,
+            substr_count($html, 'href="'.route('catalogos.index').'"')
         );
 
         $this->assertSame(
@@ -136,6 +147,11 @@ class NavigationTest extends TestCase
         );
 
         $this->assertStringNotContainsString(
+            'href="'.route('catalogos.index').'"',
+            $html
+        );
+
+        $this->assertStringNotContainsString(
             'Auditoría',
             $html
         );
@@ -178,9 +194,69 @@ class NavigationTest extends TestCase
         );
 
         $this->assertStringNotContainsString(
+            'href="'.route('catalogos.index').'"',
+            $html
+        );
+
+        $this->assertStringNotContainsString(
             'Auditoría',
             $html
         );
+    }
+
+    public function test_catalog_hub_links_the_ten_catalogs(): void
+    {
+        $response = $this
+            ->actingAs($this->userWithRole(RoleEnum::ADMINISTRADOR))
+            ->get(route('catalogos.index'));
+
+        $response->assertOk();
+
+        foreach (
+            [
+                'catalogos.jurisdicciones.index' => 'Jurisdicciones',
+                'catalogos.colegios.index' => 'Colegios emisores',
+                'catalogos.titulos.index' => 'Títulos profesionales',
+                'catalogos.especialidades.index' => 'Especialidades de kinesiología',
+                'catalogos.diagnosticos.index' => 'Diagnósticos clínicos',
+                'catalogos.pruebas.index' => 'Pruebas funcionales',
+                'catalogos.tecnicas.index' => 'Técnicas terapéuticas',
+                'catalogos.categorias.index' => 'Categorías clínicas',
+                'catalogos.ejercicios.index' => 'Ejercicios domiciliarios',
+                'catalogos.tipos-equipo.index' => 'Tipos de equipo terapéutico',
+            ] as $routeName => $catalogName
+        ) {
+            $response
+                ->assertSeeText($catalogName)
+                ->assertSee(
+                    'href="'.route($routeName).'"',
+                    false
+                );
+        }
+
+        $response->assertDontSeeText('Aún no disponible');
+    }
+
+    public function test_superadmin_can_access_catalog_hub(): void
+    {
+        $this
+            ->actingAs($this->userWithRole(RoleEnum::SUPERADMIN))
+            ->get(route('catalogos.index'))
+            ->assertOk();
+    }
+
+    public function test_non_administrative_roles_cannot_access_catalog_hub(): void
+    {
+        $this->withoutMiddleware(EnsureUserProfileIsComplete::class);
+
+        foreach (
+            [RoleEnum::KINESIOLOGO, RoleEnum::PACIENTE] as $role
+        ) {
+            $this
+                ->actingAs($this->userWithRole($role))
+                ->get(route('catalogos.index'))
+                ->assertForbidden();
+        }
     }
 
     public function test_navigation_uses_real_submit_for_logout_confirmation(): void
@@ -233,7 +309,7 @@ class NavigationTest extends TestCase
             2,
             substr_count(
                 $html,
-                'action="' . route('logout') . '"'
+                'action="'.route('logout').'"'
             )
         );
 
@@ -345,12 +421,7 @@ class NavigationTest extends TestCase
         RoleEnum $rol,
         ?string $routeName = null
     ): string {
-        $user = User::factory()->create([
-            'name' => 'Usuario',
-            'apellido' => 'Prueba',
-        ]);
-
-        $user->assignRole($rol->value);
+        $user = $this->userWithRole($rol);
 
         $this->actingAs($user);
 
@@ -358,16 +429,28 @@ class NavigationTest extends TestCase
             $route = new Route(
                 ['GET'],
                 '/prueba',
-                static fn() => null
+                static fn () => null
             );
 
             $route->name($routeName);
 
             request()->setRouteResolver(
-                static fn() => $route
+                static fn () => $route
             );
         }
 
         return view('layouts.navigation')->render();
+    }
+
+    private function userWithRole(RoleEnum $role): User
+    {
+        $user = User::factory()->create([
+            'name' => 'Usuario',
+            'apellido' => 'Prueba',
+        ]);
+
+        $user->assignRole($role->value);
+
+        return $user;
     }
 }

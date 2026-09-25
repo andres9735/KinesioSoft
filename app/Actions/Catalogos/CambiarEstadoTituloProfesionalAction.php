@@ -13,10 +13,11 @@ final class CambiarEstadoTituloProfesionalAction
     ) {}
 
     public function ejecutar(
-        TituloProfesional $titulo
+        TituloProfesional $titulo,
+        bool $activoObjetivo
     ): TituloProfesional {
         return DB::transaction(
-            function () use ($titulo): TituloProfesional {
+            function () use ($titulo, $activoObjetivo): TituloProfesional {
                 $tituloActual = TituloProfesional::query()
                     ->whereKey($titulo->getKey())
                     ->lockForUpdate()
@@ -24,12 +25,16 @@ final class CambiarEstadoTituloProfesionalAction
 
                 $estadoAnterior = (bool) $tituloActual->activo;
 
-                $tituloActual->activo = ! $estadoAnterior;
+                if ($estadoAnterior === $activoObjetivo) {
+                    return $tituloActual;
+                }
+
+                $tituloActual->activo = $activoObjetivo;
                 $tituloActual->save();
 
                 $this->auditoriaService->registrar(
-                    evento: $tituloActual->activo
-                        ? 'titulo_profesional_activado'
+                    evento: $activoObjetivo
+                        ? 'titulo_profesional_reactivado'
                         : 'titulo_profesional_inactivado',
                     modulo: 'Catálogos',
                     auditable: $tituloActual,
@@ -37,7 +42,7 @@ final class CambiarEstadoTituloProfesionalAction
                         'activo' => $estadoAnterior,
                     ],
                     valoresNuevos: [
-                        'activo' => (bool) $tituloActual->activo,
+                        'activo' => $activoObjetivo,
                     ]
                 );
 

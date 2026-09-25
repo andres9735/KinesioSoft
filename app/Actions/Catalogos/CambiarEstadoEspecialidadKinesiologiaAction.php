@@ -13,10 +13,11 @@ final class CambiarEstadoEspecialidadKinesiologiaAction
     ) {}
 
     public function ejecutar(
-        EspecialidadKinesiologia $especialidad
+        EspecialidadKinesiologia $especialidad,
+        bool $activoObjetivo
     ): EspecialidadKinesiologia {
         return DB::transaction(
-            function () use ($especialidad): EspecialidadKinesiologia {
+            function () use ($especialidad, $activoObjetivo): EspecialidadKinesiologia {
                 $especialidadActual = EspecialidadKinesiologia::query()
                     ->whereKey($especialidad->getKey())
                     ->lockForUpdate()
@@ -24,12 +25,16 @@ final class CambiarEstadoEspecialidadKinesiologiaAction
 
                 $estadoAnterior = (bool) $especialidadActual->activo;
 
-                $especialidadActual->activo = ! $estadoAnterior;
+                if ($estadoAnterior === $activoObjetivo) {
+                    return $especialidadActual;
+                }
+
+                $especialidadActual->activo = $activoObjetivo;
                 $especialidadActual->save();
 
                 $this->auditoriaService->registrar(
-                    evento: $especialidadActual->activo
-                        ? 'especialidad_kinesiologia_activada'
+                    evento: $activoObjetivo
+                        ? 'especialidad_kinesiologia_reactivada'
                         : 'especialidad_kinesiologia_inactivada',
                     modulo: 'Catálogos',
                     auditable: $especialidadActual,
@@ -37,7 +42,7 @@ final class CambiarEstadoEspecialidadKinesiologiaAction
                         'activo' => $estadoAnterior,
                     ],
                     valoresNuevos: [
-                        'activo' => (bool) $especialidadActual->activo,
+                        'activo' => $activoObjetivo,
                     ]
                 );
 

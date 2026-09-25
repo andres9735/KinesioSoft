@@ -9,6 +9,7 @@ use App\Http\Requests\StoreEspecialidadKinesiologiaRequest;
 use App\Http\Requests\UpdateEspecialidadKinesiologiaRequest;
 use App\Models\EspecialidadKinesiologia;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
@@ -20,18 +21,36 @@ class EspecialidadKinesiologiaController extends Controller
         private readonly CambiarEstadoEspecialidadKinesiologiaAction $cambiarEstadoEspecialidadKinesiologiaAction
     ) {}
 
-    public function index(): View
+    public function index(Request $request): View
     {
         Gate::authorize('viewAny', EspecialidadKinesiologia::class);
 
+        $q = $request->query('q');
+        $q = is_string($q) ? trim($q) : '';
+        $estado = $request->query('estado');
+        $estado = in_array($estado, ['activos', 'inactivos'], true)
+            ? $estado
+            : 'todos';
+
         $especialidades = EspecialidadKinesiologia::query()
+            ->when($q !== '', fn ($query) => $query->where('nombre', 'like', "%{$q}%"))
+            ->when($estado === 'activos', fn ($query) => $query->where('activo', true))
+            ->when($estado === 'inactivos', fn ($query) => $query->where('activo', false))
             ->orderBy('nombre')
-            ->paginate(10);
+            ->paginate(10)
+            ->withQueryString();
 
         return view(
             'catalogos.especialidades.index',
-            compact('especialidades')
+            compact('especialidades', 'q', 'estado')
         );
+    }
+
+    public function show(EspecialidadKinesiologia $especialidad): View
+    {
+        Gate::authorize('view', $especialidad);
+
+        return view('catalogos.especialidades.show', compact('especialidad'));
     }
 
     public function create(): View
@@ -90,22 +109,45 @@ class EspecialidadKinesiologiaController extends Controller
             );
     }
 
-    public function toggleActivo(
+    public function inactivar(
         EspecialidadKinesiologia $especialidad
     ): RedirectResponse {
-        Gate::authorize('toggleActivo', $especialidad);
+        Gate::authorize('inactivar', $especialidad);
 
         $especialidadActualizada =
             $this->cambiarEstadoEspecialidadKinesiologiaAction->ejecutar(
-                $especialidad
+                $especialidad,
+                false
             );
-
-        $mensaje = $especialidadActualizada->activo
-            ? 'Especialidad de kinesiología activada correctamente.'
-            : 'Especialidad de kinesiología inactivada correctamente.';
 
         return redirect()
             ->route('catalogos.especialidades.index')
-            ->with('success', $mensaje);
+            ->with(
+                $especialidadActualizada->wasChanged('activo') ? 'success' : 'warning',
+                $especialidadActualizada->wasChanged('activo')
+                    ? 'Especialidad de kinesiología inactivada correctamente.'
+                    : 'La especialidad de kinesiología ya se encontraba inactiva.'
+            );
+    }
+
+    public function reactivar(
+        EspecialidadKinesiologia $especialidad
+    ): RedirectResponse {
+        Gate::authorize('reactivar', $especialidad);
+
+        $especialidadActualizada =
+            $this->cambiarEstadoEspecialidadKinesiologiaAction->ejecutar(
+                $especialidad,
+                true
+            );
+
+        return redirect()
+            ->route('catalogos.especialidades.index')
+            ->with(
+                $especialidadActualizada->wasChanged('activo') ? 'success' : 'warning',
+                $especialidadActualizada->wasChanged('activo')
+                    ? 'Especialidad de kinesiología reactivada correctamente.'
+                    : 'La especialidad de kinesiología ya se encontraba activa.'
+            );
     }
 }

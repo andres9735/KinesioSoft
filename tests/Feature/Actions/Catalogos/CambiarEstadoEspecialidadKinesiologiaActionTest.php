@@ -29,7 +29,7 @@ class CambiarEstadoEspecialidadKinesiologiaActionTest extends TestCase
 
         $actualizada = app(
             CambiarEstadoEspecialidadKinesiologiaAction::class
-        )->ejecutar($especialidad);
+        )->ejecutar($especialidad, false);
 
         $this->assertFalse((bool) $actualizada->activo);
 
@@ -69,7 +69,7 @@ class CambiarEstadoEspecialidadKinesiologiaActionTest extends TestCase
 
         $actualizada = app(
             CambiarEstadoEspecialidadKinesiologiaAction::class
-        )->ejecutar($especialidad);
+        )->ejecutar($especialidad, true);
 
         $this->assertTrue((bool) $actualizada->activo);
 
@@ -81,7 +81,7 @@ class CambiarEstadoEspecialidadKinesiologiaActionTest extends TestCase
         $auditoria = Auditoria::query()->sole();
 
         $this->assertSame(
-            'especialidad_kinesiologia_activada',
+            'especialidad_kinesiologia_reactivada',
             $auditoria->evento
         );
         $this->assertSame(
@@ -92,6 +92,38 @@ class CambiarEstadoEspecialidadKinesiologiaActionTest extends TestCase
             ['activo' => true],
             $auditoria->valores_nuevos
         );
+    }
+
+    public function test_inactivating_an_already_inactive_especialidad_is_idempotent(): void
+    {
+        $especialidad = $this->crearEspecialidad(activo: false);
+
+        $actualizada = app(CambiarEstadoEspecialidadKinesiologiaAction::class)
+            ->ejecutar($especialidad, false);
+
+        $this->assertFalse((bool) $actualizada->activo);
+        $this->assertFalse($actualizada->wasChanged());
+        $this->assertDatabaseHas('especialidades_kinesiologia', [
+            'id' => $especialidad->id,
+            'activo' => false,
+        ]);
+        $this->assertDatabaseCount('auditorias', 0);
+    }
+
+    public function test_reactivating_an_already_active_especialidad_is_idempotent(): void
+    {
+        $especialidad = $this->crearEspecialidad(activo: true);
+
+        $actualizada = app(CambiarEstadoEspecialidadKinesiologiaAction::class)
+            ->ejecutar($especialidad, true);
+
+        $this->assertTrue((bool) $actualizada->activo);
+        $this->assertFalse($actualizada->wasChanged());
+        $this->assertDatabaseHas('especialidades_kinesiologia', [
+            'id' => $especialidad->id,
+            'activo' => true,
+        ]);
+        $this->assertDatabaseCount('auditorias', 0);
     }
 
     public function test_uses_authenticated_user_as_audit_actor(): void
@@ -107,7 +139,7 @@ class CambiarEstadoEspecialidadKinesiologiaActionTest extends TestCase
         $this->actingAs($actor);
 
         app(CambiarEstadoEspecialidadKinesiologiaAction::class)
-            ->ejecutar($especialidad);
+            ->ejecutar($especialidad, false);
 
         $auditoria = Auditoria::query()->sole();
 
@@ -140,7 +172,7 @@ class CambiarEstadoEspecialidadKinesiologiaActionTest extends TestCase
 
         try {
             app(CambiarEstadoEspecialidadKinesiologiaAction::class)
-                ->ejecutar($especialidad);
+                ->ejecutar($especialidad, false);
 
             $this->fail(
                 'Se esperaba una QueryException al persistir la auditoría.'

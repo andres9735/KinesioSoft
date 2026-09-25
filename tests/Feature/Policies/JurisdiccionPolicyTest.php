@@ -41,7 +41,7 @@ class JurisdiccionPolicyTest extends TestCase
             Gate::forUser($admin)->allows('update', $jurisdiccion)
         );
         $this->assertTrue(
-            Gate::forUser($admin)->allows('toggleActivo', $jurisdiccion)
+            Gate::forUser($admin)->allows('inactivar', $jurisdiccion)
         );
     }
 
@@ -60,7 +60,7 @@ class JurisdiccionPolicyTest extends TestCase
             Gate::forUser($superadmin)->allows('update', $jurisdiccion)
         );
         $this->assertTrue(
-            Gate::forUser($superadmin)->allows('toggleActivo', $jurisdiccion)
+            Gate::forUser($superadmin)->allows('inactivar', $jurisdiccion)
         );
     }
 
@@ -79,7 +79,7 @@ class JurisdiccionPolicyTest extends TestCase
             Gate::forUser($paciente)->allows('update', $jurisdiccion)
         );
         $this->assertFalse(
-            Gate::forUser($paciente)->allows('toggleActivo', $jurisdiccion)
+            Gate::forUser($paciente)->allows('inactivar', $jurisdiccion)
         );
     }
 
@@ -98,8 +98,28 @@ class JurisdiccionPolicyTest extends TestCase
             Gate::forUser($kinesiologo)->allows('update', $jurisdiccion)
         );
         $this->assertFalse(
-            Gate::forUser($kinesiologo)->allows('toggleActivo', $jurisdiccion)
+            Gate::forUser($kinesiologo)->allows('inactivar', $jurisdiccion)
         );
+    }
+
+    public function test_view_and_reactivar_follow_catalogo_admin_roles(): void
+    {
+        $jurisdiccion = $this->jurisdiccion();
+
+        foreach (RoleEnum::cases() as $role) {
+            $user = $this->userWithRole($role);
+            $permitido = in_array($role, [
+                RoleEnum::ADMINISTRADOR,
+                RoleEnum::SUPERADMIN,
+            ], true);
+
+            foreach (['view', 'reactivar'] as $ability) {
+                $this->assertSame(
+                    $permitido,
+                    Gate::forUser($user)->allows($ability, $jurisdiccion)
+                );
+            }
+        }
     }
 
     private function userWithRole(RoleEnum $role): User

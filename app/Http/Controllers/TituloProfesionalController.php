@@ -9,6 +9,7 @@ use App\Http\Requests\StoreTituloProfesionalRequest;
 use App\Http\Requests\UpdateTituloProfesionalRequest;
 use App\Models\TituloProfesional;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
@@ -20,13 +21,33 @@ class TituloProfesionalController extends Controller
         private readonly CambiarEstadoTituloProfesionalAction $cambiarEstadoTituloProfesionalAction
     ) {}
 
-    public function index(): View
+    public function index(Request $request): View
     {
         Gate::authorize('viewAny', TituloProfesional::class);
 
-        $titulos = TituloProfesional::orderBy('nombre')->paginate(10);
+        $q = $request->query('q');
+        $q = is_string($q) ? trim($q) : '';
+        $estado = $request->query('estado');
+        $estado = in_array($estado, ['activos', 'inactivos'], true)
+            ? $estado
+            : 'todos';
 
-        return view('catalogos.titulos.index', compact('titulos'));
+        $titulos = TituloProfesional::query()
+            ->when($q !== '', fn ($query) => $query->where('nombre', 'like', "%{$q}%"))
+            ->when($estado === 'activos', fn ($query) => $query->where('activo', true))
+            ->when($estado === 'inactivos', fn ($query) => $query->where('activo', false))
+            ->orderBy('nombre')
+            ->paginate(10)
+            ->withQueryString();
+
+        return view('catalogos.titulos.index', compact('titulos', 'q', 'estado'));
+    }
+
+    public function show(TituloProfesional $titulo): View
+    {
+        Gate::authorize('view', $titulo);
+
+        return view('catalogos.titulos.show', compact('titulo'));
     }
 
     public function create(): View
@@ -81,17 +102,43 @@ class TituloProfesionalController extends Controller
             );
     }
 
-    public function toggleActivo(
+    public function inactivar(
         TituloProfesional $titulo
     ): RedirectResponse {
-        Gate::authorize('toggleActivo', $titulo);
+        Gate::authorize('inactivar', $titulo);
 
-        $this->cambiarEstadoTituloProfesionalAction->ejecutar(
-            $titulo
+        $tituloActualizado = $this->cambiarEstadoTituloProfesionalAction->ejecutar(
+            $titulo,
+            false
         );
 
         return redirect()
             ->route('catalogos.titulos.index')
-            ->with('success', 'Estado actualizado correctamente.');
+            ->with(
+                $tituloActualizado->wasChanged('activo') ? 'success' : 'warning',
+                $tituloActualizado->wasChanged('activo')
+                    ? 'Título profesional inactivado correctamente.'
+                    : 'El título profesional ya se encontraba inactivo.'
+            );
+    }
+
+    public function reactivar(
+        TituloProfesional $titulo
+    ): RedirectResponse {
+        Gate::authorize('reactivar', $titulo);
+
+        $tituloActualizado = $this->cambiarEstadoTituloProfesionalAction->ejecutar(
+            $titulo,
+            true
+        );
+
+        return redirect()
+            ->route('catalogos.titulos.index')
+            ->with(
+                $tituloActualizado->wasChanged('activo') ? 'success' : 'warning',
+                $tituloActualizado->wasChanged('activo')
+                    ? 'Título profesional reactivado correctamente.'
+                    : 'El título profesional ya se encontraba activo.'
+            );
     }
 }

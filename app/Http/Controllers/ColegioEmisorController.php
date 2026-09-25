@@ -9,7 +9,9 @@ use App\Http\Requests\StoreColegioEmisorRequest;
 use App\Http\Requests\UpdateColegioEmisorRequest;
 use App\Models\ColegioEmisor;
 use App\Models\Jurisdiccion;
+use DomainException;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
@@ -21,19 +23,43 @@ class ColegioEmisorController extends Controller
         private readonly CambiarEstadoColegioEmisorAction $cambiarEstadoColegioEmisorAction
     ) {}
 
-    public function index(): View
+    public function index(Request $request): View
     {
         Gate::authorize('viewAny', ColegioEmisor::class);
 
+        $q = $request->query('q');
+        $q = is_string($q) ? trim($q) : '';
+        $estado = $request->query('estado');
+        $estado = in_array($estado, ['activos', 'inactivos'], true)
+            ? $estado
+            : 'todos';
+
         $colegios = ColegioEmisor::query()
             ->with('jurisdiccion')
+            ->when($q !== '', fn ($query) => $query->where(
+                fn ($busqueda) => $busqueda
+                    ->where('nombre', 'like', "%{$q}%")
+                    ->orWhere('sigla', 'like', "%{$q}%")
+            ))
+            ->when($estado === 'activos', fn ($query) => $query->where('activo', true))
+            ->when($estado === 'inactivos', fn ($query) => $query->where('activo', false))
             ->orderBy('nombre')
-            ->paginate(10);
+            ->paginate(10)
+            ->withQueryString();
 
         return view(
             'catalogos.colegios-emisores.index',
-            compact('colegios')
+            compact('colegios', 'q', 'estado')
         );
+    }
+
+    public function show(ColegioEmisor $colegio): View
+    {
+        Gate::authorize('view', $colegio);
+
+        $colegio->load('jurisdiccion');
+
+        return view('catalogos.colegios-emisores.show', compact('colegio'));
     }
 
     public function create(): View
@@ -107,22 +133,51 @@ class ColegioEmisorController extends Controller
             );
     }
 
-    public function toggleActivo(
+    public function inactivar(
         ColegioEmisor $colegio
     ): RedirectResponse {
-        Gate::authorize('toggleActivo', $colegio);
+        Gate::authorize('inactivar', $colegio);
 
         $colegioActualizado =
             $this->cambiarEstadoColegioEmisorAction->ejecutar(
-                $colegio
+                $colegio,
+                false
             );
-
-        $mensaje = $colegioActualizado->activo
-            ? 'Colegio emisor activado correctamente.'
-            : 'Colegio emisor inactivado correctamente.';
 
         return redirect()
             ->route('catalogos.colegios.index')
-            ->with('success', $mensaje);
+            ->with(
+                $colegioActualizado->wasChanged('activo') ? 'success' : 'warning',
+                $colegioActualizado->wasChanged('activo')
+                    ? 'Colegio emisor inactivado correctamente.'
+                    : 'El colegio emisor ya se encontraba inactivo.'
+            );
+    }
+
+    public function reactivar(
+        ColegioEmisor $colegio
+    ): RedirectResponse {
+        Gate::authorize('reactivar', $colegio);
+
+        try {
+            $colegioActualizado =
+                $this->cambiarEstadoColegioEmisorAction->ejecutar(
+                    $colegio,
+                    true
+                );
+        } catch (DomainException $exception) {
+            return redirect()
+                ->route('catalogos.colegios.index')
+                ->with('error', $exception->getMessage());
+        }
+
+        return redirect()
+            ->route('catalogos.colegios.index')
+            ->with(
+                $colegioActualizado->wasChanged('activo') ? 'success' : 'warning',
+                $colegioActualizado->wasChanged('activo')
+                    ? 'Colegio emisor reactivado correctamente.'
+                    : 'El colegio emisor ya se encontraba activo.'
+            );
     }
 }

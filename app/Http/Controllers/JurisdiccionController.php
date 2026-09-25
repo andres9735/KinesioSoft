@@ -8,7 +8,9 @@ use App\Actions\Catalogos\CrearJurisdiccionAction;
 use App\Http\Requests\StoreJurisdiccionRequest;
 use App\Http\Requests\UpdateJurisdiccionRequest;
 use App\Models\Jurisdiccion;
+use DomainException;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
@@ -20,18 +22,36 @@ class JurisdiccionController extends Controller
         private readonly CambiarEstadoJurisdiccionAction $cambiarEstadoJurisdiccionAction
     ) {}
 
-    public function index(): View
+    public function index(Request $request): View
     {
         Gate::authorize('viewAny', Jurisdiccion::class);
 
+        $q = $request->query('q');
+        $q = is_string($q) ? trim($q) : '';
+        $estado = $request->query('estado');
+        $estado = in_array($estado, ['activos', 'inactivos'], true)
+            ? $estado
+            : 'todos';
+
         $jurisdicciones = Jurisdiccion::query()
+            ->when($q !== '', fn ($query) => $query->where('nombre', 'like', "%{$q}%"))
+            ->when($estado === 'activos', fn ($query) => $query->where('activo', true))
+            ->when($estado === 'inactivos', fn ($query) => $query->where('activo', false))
             ->orderBy('nombre')
-            ->paginate(10);
+            ->paginate(10)
+            ->withQueryString();
 
         return view(
             'catalogos.jurisdicciones.index',
-            compact('jurisdicciones')
+            compact('jurisdicciones', 'q', 'estado')
         );
+    }
+
+    public function show(Jurisdiccion $jurisdiccion): View
+    {
+        Gate::authorize('view', $jurisdiccion);
+
+        return view('catalogos.jurisdicciones.show', compact('jurisdiccion'));
     }
 
     public function create(): View
@@ -89,22 +109,50 @@ class JurisdiccionController extends Controller
             );
     }
 
-    public function toggleActivo(
+    public function inactivar(
         Jurisdiccion $jurisdiccion
     ): RedirectResponse {
-        Gate::authorize('toggleActivo', $jurisdiccion);
+        Gate::authorize('inactivar', $jurisdiccion);
 
-        $jurisdiccionActualizada =
-            $this->cambiarEstadoJurisdiccionAction->ejecutar(
-                $jurisdiccion
+        try {
+            $jurisdiccionActualizada = $this->cambiarEstadoJurisdiccionAction->ejecutar(
+                $jurisdiccion,
+                false
             );
-
-        $mensaje = $jurisdiccionActualizada->activo
-            ? 'Jurisdicción activada correctamente.'
-            : 'Jurisdicción inactivada correctamente.';
+        } catch (DomainException $exception) {
+            return redirect()
+                ->route('catalogos.jurisdicciones.index')
+                ->with('error', $exception->getMessage());
+        }
 
         return redirect()
             ->route('catalogos.jurisdicciones.index')
-            ->with('success', $mensaje);
+            ->with(
+                $jurisdiccionActualizada->wasChanged('activo') ? 'success' : 'warning',
+                $jurisdiccionActualizada->wasChanged('activo')
+                    ? 'Jurisdicción inactivada correctamente.'
+                    : 'La jurisdicción ya se encontraba inactiva.'
+            );
+    }
+
+    public function reactivar(
+        Jurisdiccion $jurisdiccion
+    ): RedirectResponse {
+        Gate::authorize('reactivar', $jurisdiccion);
+
+        $jurisdiccionActualizada =
+            $this->cambiarEstadoJurisdiccionAction->ejecutar(
+                $jurisdiccion,
+                true
+            );
+
+        return redirect()
+            ->route('catalogos.jurisdicciones.index')
+            ->with(
+                $jurisdiccionActualizada->wasChanged('activo') ? 'success' : 'warning',
+                $jurisdiccionActualizada->wasChanged('activo')
+                    ? 'Jurisdicción reactivada correctamente.'
+                    : 'La jurisdicción ya se encontraba activa.'
+            );
     }
 }

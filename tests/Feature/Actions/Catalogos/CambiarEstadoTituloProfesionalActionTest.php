@@ -33,7 +33,7 @@ class CambiarEstadoTituloProfesionalActionTest extends TestCase
 
         $actualizado = app(
             CambiarEstadoTituloProfesionalAction::class
-        )->ejecutar($titulo);
+        )->ejecutar($titulo, false);
 
         $this->assertFalse((bool) $actualizado->activo);
 
@@ -77,7 +77,7 @@ class CambiarEstadoTituloProfesionalActionTest extends TestCase
 
         $actualizado = app(
             CambiarEstadoTituloProfesionalAction::class
-        )->ejecutar($titulo);
+        )->ejecutar($titulo, true);
 
         $this->assertTrue((bool) $actualizado->activo);
 
@@ -89,7 +89,7 @@ class CambiarEstadoTituloProfesionalActionTest extends TestCase
         $auditoria = Auditoria::query()->sole();
 
         $this->assertSame(
-            'titulo_profesional_activado',
+            'titulo_profesional_reactivado',
             $auditoria->evento
         );
         $this->assertSame(
@@ -100,6 +100,46 @@ class CambiarEstadoTituloProfesionalActionTest extends TestCase
             ['activo' => true],
             $auditoria->valores_nuevos
         );
+    }
+
+    public function test_inactivating_an_already_inactive_titulo_is_idempotent(): void
+    {
+        $titulo = TituloProfesional::create([
+            'nombre' => 'Kinesiólogo',
+            'slug' => 'kinesiologo',
+            'activo' => false,
+        ]);
+
+        $actualizado = app(CambiarEstadoTituloProfesionalAction::class)
+            ->ejecutar($titulo, false);
+
+        $this->assertFalse((bool) $actualizado->activo);
+        $this->assertFalse($actualizado->wasChanged());
+        $this->assertDatabaseHas('titulos_profesionales', [
+            'id' => $titulo->id,
+            'activo' => false,
+        ]);
+        $this->assertDatabaseCount('auditorias', 0);
+    }
+
+    public function test_reactivating_an_already_active_titulo_is_idempotent(): void
+    {
+        $titulo = TituloProfesional::create([
+            'nombre' => 'Kinesiólogo',
+            'slug' => 'kinesiologo',
+            'activo' => true,
+        ]);
+
+        $actualizado = app(CambiarEstadoTituloProfesionalAction::class)
+            ->ejecutar($titulo, true);
+
+        $this->assertTrue((bool) $actualizado->activo);
+        $this->assertFalse($actualizado->wasChanged());
+        $this->assertDatabaseHas('titulos_profesionales', [
+            'id' => $titulo->id,
+            'activo' => true,
+        ]);
+        $this->assertDatabaseCount('auditorias', 0);
     }
 
     public function test_uses_authenticated_user_as_audit_actor(): void
@@ -119,7 +159,7 @@ class CambiarEstadoTituloProfesionalActionTest extends TestCase
         $this->actingAs($actor);
 
         app(CambiarEstadoTituloProfesionalAction::class)
-            ->ejecutar($titulo);
+            ->ejecutar($titulo, false);
 
         $auditoria = Auditoria::query()->sole();
 
@@ -156,7 +196,7 @@ class CambiarEstadoTituloProfesionalActionTest extends TestCase
 
         try {
             app(CambiarEstadoTituloProfesionalAction::class)
-                ->ejecutar($titulo);
+                ->ejecutar($titulo, false);
 
             $this->fail(
                 'Se esperaba una QueryException al persistir la auditoría.'

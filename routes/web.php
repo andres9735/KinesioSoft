@@ -2,14 +2,20 @@
 
 use App\Http\Controllers\AuditoriaController;
 use App\Http\Controllers\CatalogoController;
-use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\CategoriaClinicaController;
 use App\Http\Controllers\ColegioEmisorController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DiagnosticoClinicoController;
+use App\Http\Controllers\EjercicioDomiciliarioController;
 use App\Http\Controllers\EspecialidadKinesiologiaController;
 use App\Http\Controllers\JurisdiccionController;
 use App\Http\Controllers\MisMatriculasProfesionalesController;
 use App\Http\Controllers\PerfilKinesiologaController;
 use App\Http\Controllers\PerfilPacienteController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PruebaFuncionalController;
+use App\Http\Controllers\TecnicaTerapeuticaController;
+use App\Http\Controllers\TipoEquipoTerapeuticoController;
 use App\Http\Controllers\TituloProfesionalController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -226,6 +232,11 @@ Route::middleware([
                 )->name('store');
 
                 Route::get(
+                    '/{jurisdiccion}',
+                    [JurisdiccionController::class, 'show']
+                )->name('show');
+
+                Route::get(
                     '/{jurisdiccion}/editar',
                     [JurisdiccionController::class, 'edit']
                 )->name('edit');
@@ -236,9 +247,14 @@ Route::middleware([
                 )->name('update');
 
                 Route::patch(
-                    '/{jurisdiccion}/toggle-activo',
-                    [JurisdiccionController::class, 'toggleActivo']
-                )->name('toggle-activo');
+                    '/{jurisdiccion}/inactivar',
+                    [JurisdiccionController::class, 'inactivar']
+                )->name('inactivar');
+
+                Route::patch(
+                    '/{jurisdiccion}/reactivar',
+                    [JurisdiccionController::class, 'reactivar']
+                )->name('reactivar');
             });
 
         /*
@@ -266,6 +282,11 @@ Route::middleware([
                 )->name('store');
 
                 Route::get(
+                    '/{titulo}',
+                    [TituloProfesionalController::class, 'show']
+                )->name('show');
+
+                Route::get(
                     '/{titulo}/editar',
                     [TituloProfesionalController::class, 'edit']
                 )->name('edit');
@@ -276,9 +297,14 @@ Route::middleware([
                 )->name('update');
 
                 Route::patch(
-                    '/{titulo}/toggle-activo',
-                    [TituloProfesionalController::class, 'toggleActivo']
-                )->name('toggle-activo');
+                    '/{titulo}/inactivar',
+                    [TituloProfesionalController::class, 'inactivar']
+                )->name('inactivar');
+
+                Route::patch(
+                    '/{titulo}/reactivar',
+                    [TituloProfesionalController::class, 'reactivar']
+                )->name('reactivar');
             });
 
         /*
@@ -306,6 +332,11 @@ Route::middleware([
                 )->name('store');
 
                 Route::get(
+                    '/{colegio}',
+                    [ColegioEmisorController::class, 'show']
+                )->name('show');
+
+                Route::get(
                     '/{colegio}/editar',
                     [ColegioEmisorController::class, 'edit']
                 )->name('edit');
@@ -316,9 +347,14 @@ Route::middleware([
                 )->name('update');
 
                 Route::patch(
-                    '/{colegio}/toggle-activo',
-                    [ColegioEmisorController::class, 'toggleActivo']
-                )->name('toggle-activo');
+                    '/{colegio}/inactivar',
+                    [ColegioEmisorController::class, 'inactivar']
+                )->name('inactivar');
+
+                Route::patch(
+                    '/{colegio}/reactivar',
+                    [ColegioEmisorController::class, 'reactivar']
+                )->name('reactivar');
             });
 
         /*
@@ -346,6 +382,11 @@ Route::middleware([
                 )->name('store');
 
                 Route::get(
+                    '/{especialidad}',
+                    [EspecialidadKinesiologiaController::class, 'show']
+                )->name('show');
+
+                Route::get(
                     '/{especialidad}/editar',
                     [EspecialidadKinesiologiaController::class, 'edit']
                 )->name('edit');
@@ -356,11 +397,161 @@ Route::middleware([
                 )->name('update');
 
                 Route::patch(
-                    '/{especialidad}/toggle-activo',
-                    [EspecialidadKinesiologiaController::class, 'toggleActivo']
-                )->name('toggle-activo');
+                    '/{especialidad}/inactivar',
+                    [EspecialidadKinesiologiaController::class, 'inactivar']
+                )->name('inactivar');
+
+                Route::patch(
+                    '/{especialidad}/reactivar',
+                    [EspecialidadKinesiologiaController::class, 'reactivar']
+                )->name('reactivar');
+            });
+
+        /*
+        |--------------------------------------------------------------------------
+        | Diagnósticos clínicos
+        |--------------------------------------------------------------------------
+        */
+
+        Route::prefix('diagnosticos-clinicos')
+            ->name('diagnosticos.')
+            ->group(function () {
+                Route::get(
+                    '/',
+                    [DiagnosticoClinicoController::class, 'index']
+                )->name('index');
+
+                Route::get(
+                    '/create',
+                    [DiagnosticoClinicoController::class, 'create']
+                )->name('create');
+
+                Route::post(
+                    '/',
+                    [DiagnosticoClinicoController::class, 'store']
+                )->name('store');
+
+                Route::get(
+                    '/{diagnosticoClinico}',
+                    [DiagnosticoClinicoController::class, 'show']
+                )->name('show');
+
+                Route::get(
+                    '/{diagnosticoClinico}/edit',
+                    [DiagnosticoClinicoController::class, 'edit']
+                )->name('edit');
+
+                Route::put(
+                    '/{diagnosticoClinico}',
+                    [DiagnosticoClinicoController::class, 'update']
+                )->name('update');
+
+                Route::patch(
+                    '/{diagnosticoClinico}/inactivar',
+                    [DiagnosticoClinicoController::class, 'inactivar']
+                )->name('inactivar');
+
+                Route::patch(
+                    '/{diagnosticoClinico}/reactivar',
+                    [DiagnosticoClinicoController::class, 'reactivar']
+                )->name('reactivar');
+            });
+
+        /*
+        |--------------------------------------------------------------------------
+        | Pruebas funcionales
+        |--------------------------------------------------------------------------
+        */
+
+        Route::prefix('pruebas-funcionales')
+            ->name('pruebas.')
+            ->group(function () {
+                Route::get('/', [PruebaFuncionalController::class, 'index'])->name('index');
+                Route::get('/create', [PruebaFuncionalController::class, 'create'])->name('create');
+                Route::post('/', [PruebaFuncionalController::class, 'store'])->name('store');
+                Route::get('/{pruebaFuncional}', [PruebaFuncionalController::class, 'show'])->name('show');
+                Route::get('/{pruebaFuncional}/edit', [PruebaFuncionalController::class, 'edit'])->name('edit');
+                Route::put('/{pruebaFuncional}', [PruebaFuncionalController::class, 'update'])->name('update');
+                Route::patch('/{pruebaFuncional}/inactivar', [PruebaFuncionalController::class, 'inactivar'])->name('inactivar');
+                Route::patch('/{pruebaFuncional}/reactivar', [PruebaFuncionalController::class, 'reactivar'])->name('reactivar');
+            });
+
+        /*
+        |--------------------------------------------------------------------------
+        | Técnicas terapéuticas
+        |--------------------------------------------------------------------------
+        */
+
+        Route::prefix('tecnicas-terapeuticas')
+            ->name('tecnicas.')
+            ->group(function () {
+                Route::get('/', [TecnicaTerapeuticaController::class, 'index'])->name('index');
+                Route::get('/create', [TecnicaTerapeuticaController::class, 'create'])->name('create');
+                Route::post('/', [TecnicaTerapeuticaController::class, 'store'])->name('store');
+                Route::get('/{tecnicaTerapeutica}', [TecnicaTerapeuticaController::class, 'show'])->name('show');
+                Route::get('/{tecnicaTerapeutica}/edit', [TecnicaTerapeuticaController::class, 'edit'])->name('edit');
+                Route::put('/{tecnicaTerapeutica}', [TecnicaTerapeuticaController::class, 'update'])->name('update');
+                Route::patch('/{tecnicaTerapeutica}/inactivar', [TecnicaTerapeuticaController::class, 'inactivar'])->name('inactivar');
+                Route::patch('/{tecnicaTerapeutica}/reactivar', [TecnicaTerapeuticaController::class, 'reactivar'])->name('reactivar');
+            });
+
+        /*
+        |--------------------------------------------------------------------------
+        | Categorías clínicas
+        |--------------------------------------------------------------------------
+        */
+
+        Route::prefix('categorias-clinicas')
+            ->name('categorias.')
+            ->group(function () {
+                Route::get('/', [CategoriaClinicaController::class, 'index'])->name('index');
+                Route::get('/create', [CategoriaClinicaController::class, 'create'])->name('create');
+                Route::post('/', [CategoriaClinicaController::class, 'store'])->name('store');
+                Route::get('/{categoriaClinica}', [CategoriaClinicaController::class, 'show'])->name('show');
+                Route::get('/{categoriaClinica}/edit', [CategoriaClinicaController::class, 'edit'])->name('edit');
+                Route::put('/{categoriaClinica}', [CategoriaClinicaController::class, 'update'])->name('update');
+                Route::patch('/{categoriaClinica}/inactivar', [CategoriaClinicaController::class, 'inactivar'])->name('inactivar');
+                Route::patch('/{categoriaClinica}/reactivar', [CategoriaClinicaController::class, 'reactivar'])->name('reactivar');
+            });
+
+        /*
+        |--------------------------------------------------------------------------
+        | Ejercicios domiciliarios
+        |--------------------------------------------------------------------------
+        */
+
+        Route::prefix('ejercicios-domiciliarios')
+            ->name('ejercicios.')
+            ->group(function () {
+                Route::get('/', [EjercicioDomiciliarioController::class, 'index'])->name('index');
+                Route::get('/create', [EjercicioDomiciliarioController::class, 'create'])->name('create');
+                Route::post('/', [EjercicioDomiciliarioController::class, 'store'])->name('store');
+                Route::get('/{ejercicioDomiciliario}', [EjercicioDomiciliarioController::class, 'show'])->name('show');
+                Route::get('/{ejercicioDomiciliario}/edit', [EjercicioDomiciliarioController::class, 'edit'])->name('edit');
+                Route::put('/{ejercicioDomiciliario}', [EjercicioDomiciliarioController::class, 'update'])->name('update');
+                Route::patch('/{ejercicioDomiciliario}/inactivar', [EjercicioDomiciliarioController::class, 'inactivar'])->name('inactivar');
+                Route::patch('/{ejercicioDomiciliario}/reactivar', [EjercicioDomiciliarioController::class, 'reactivar'])->name('reactivar');
+            });
+
+        /*
+        |--------------------------------------------------------------------------
+        | Tipos de equipo terapéutico
+        |--------------------------------------------------------------------------
+        */
+
+        Route::prefix('tipos-equipo-terapeutico')
+            ->name('tipos-equipo.')
+            ->group(function () {
+                Route::get('/', [TipoEquipoTerapeuticoController::class, 'index'])->name('index');
+                Route::get('/create', [TipoEquipoTerapeuticoController::class, 'create'])->name('create');
+                Route::post('/', [TipoEquipoTerapeuticoController::class, 'store'])->name('store');
+                Route::get('/{tipoEquipoTerapeutico}', [TipoEquipoTerapeuticoController::class, 'show'])->name('show');
+                Route::get('/{tipoEquipoTerapeutico}/edit', [TipoEquipoTerapeuticoController::class, 'edit'])->name('edit');
+                Route::put('/{tipoEquipoTerapeutico}', [TipoEquipoTerapeuticoController::class, 'update'])->name('update');
+                Route::patch('/{tipoEquipoTerapeutico}/inactivar', [TipoEquipoTerapeuticoController::class, 'inactivar'])->name('inactivar');
+                Route::patch('/{tipoEquipoTerapeutico}/reactivar', [TipoEquipoTerapeuticoController::class, 'reactivar'])->name('reactivar');
             });
     });
 });
 
-require __DIR__ . '/auth.php';
+require __DIR__.'/auth.php';

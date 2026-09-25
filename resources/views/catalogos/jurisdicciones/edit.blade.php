@@ -43,12 +43,12 @@
                     </div>
                 </section>
 
-                <div class="flex items-center justify-between rounded-2xl bg-white px-6 py-4 shadow-sm ring-1 ring-gray-100">
+                <div class="flex flex-col-reverse gap-3 rounded-2xl bg-white px-6 py-4 shadow-sm ring-1 ring-gray-100 sm:flex-row sm:items-center sm:justify-between">
                     <p class="text-sm text-gray-500">
                         Revise el cambio antes de guardar.
                     </p>
 
-                    <div class="flex items-center gap-3">
+                    <div class="flex flex-wrap gap-3">
                         <a href="{{ route('catalogos.jurisdicciones.index') }}"
                            class="inline-flex items-center rounded-md bg-gray-200 px-4 py-2 font-semibold text-xs uppercase tracking-widest text-gray-800 hover:bg-gray-300">
                             Volver

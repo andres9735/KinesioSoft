@@ -4,6 +4,7 @@ namespace App\Actions\Catalogos;
 
 use App\Models\Jurisdiccion;
 use App\Services\AuditoriaService;
+use DomainException;
 use Illuminate\Support\Facades\DB;
 
 final class CambiarEstadoJurisdiccionAction
@@ -13,10 +14,11 @@ final class CambiarEstadoJurisdiccionAction
     ) {}
 
     public function ejecutar(
-        Jurisdiccion $jurisdiccion
+        Jurisdiccion $jurisdiccion,
+        bool $activoObjetivo
     ): Jurisdiccion {
         return DB::transaction(
-            function () use ($jurisdiccion): Jurisdiccion {
+            function () use ($jurisdiccion, $activoObjetivo): Jurisdiccion {
                 $jurisdiccionActual = Jurisdiccion::query()
                     ->whereKey($jurisdiccion->getKey())
                     ->lockForUpdate()
@@ -24,12 +26,24 @@ final class CambiarEstadoJurisdiccionAction
 
                 $estadoAnterior = (bool) $jurisdiccionActual->activo;
 
-                $jurisdiccionActual->activo = ! $estadoAnterior;
+                if ($estadoAnterior === $activoObjetivo) {
+                    return $jurisdiccionActual;
+                }
+
+                if (! $activoObjetivo && $jurisdiccionActual->colegiosEmisores()
+                    ->where('activo', true)
+                    ->exists()) {
+                    throw new DomainException(
+                        'No se puede inactivar la jurisdicción porque tiene colegios emisores activos asociados.'
+                    );
+                }
+
+                $jurisdiccionActual->activo = $activoObjetivo;
                 $jurisdiccionActual->save();
 
                 $this->auditoriaService->registrar(
-                    evento: $jurisdiccionActual->activo
-                        ? 'jurisdiccion_activada'
+                    evento: $activoObjetivo
+                        ? 'jurisdiccion_reactivada'
                         : 'jurisdiccion_inactivada',
                     modulo: 'Catálogos',
                     auditable: $jurisdiccionActual,
@@ -37,7 +51,7 @@ final class CambiarEstadoJurisdiccionAction
                         'activo' => $estadoAnterior,
                     ],
                     valoresNuevos: [
-                        'activo' => (bool) $jurisdiccionActual->activo,
+                        'activo' => $activoObjetivo,
                     ]
                 );
 

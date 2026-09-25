@@ -142,8 +142,7 @@ class ColegioEmisorControllerTest extends TestCase
         $response = $this
             ->actingAs($admin)
             ->post(route('catalogos.colegios.store'), [
-                'nombre' =>
-                '  Colegio   de Kinesiólogos   de Misiones  ',
+                'nombre' => '  Colegio   de Kinesiólogos   de Misiones  ',
                 'sigla' => '  coki   mi  ',
                 'jurisdiccion_id' => $jurisdiccion->id,
             ]);
@@ -186,10 +185,8 @@ class ColegioEmisorControllerTest extends TestCase
         );
 
         $response->assertSessionHasErrors([
-            'nombre' =>
-            'El nombre contiene caracteres no permitidos.',
-            'sigla' =>
-            'La sigla solo puede contener letras, números, espacios, puntos y guiones.',
+            'nombre' => 'El nombre contiene caracteres no permitidos.',
+            'sigla' => 'La sigla solo puede contener letras, números, espacios, puntos y guiones.',
         ]);
     }
 
@@ -212,8 +209,7 @@ class ColegioEmisorControllerTest extends TestCase
 
         $response->assertRedirect(route('catalogos.colegios.create'));
         $response->assertSessionHasErrors([
-            'nombre' =>
-            'Debe ingresar el nombre del colegio emisor.',
+            'nombre' => 'Debe ingresar el nombre del colegio emisor.',
         ]);
     }
 
@@ -264,8 +260,7 @@ class ColegioEmisorControllerTest extends TestCase
         );
 
         $response->assertSessionHasErrors([
-            'sigla' =>
-            'La sigla debe tener al menos 2 caracteres.',
+            'sigla' => 'La sigla debe tener al menos 2 caracteres.',
         ]);
     }
 
@@ -283,8 +278,7 @@ class ColegioEmisorControllerTest extends TestCase
 
         $response->assertRedirect(route('catalogos.colegios.create'));
         $response->assertSessionHasErrors([
-            'jurisdiccion_id' =>
-            'Debe seleccionar una jurisdicción.',
+            'jurisdiccion_id' => 'Debe seleccionar una jurisdicción.',
         ]);
     }
 
@@ -314,8 +308,7 @@ class ColegioEmisorControllerTest extends TestCase
 
         $response->assertRedirect(route('catalogos.colegios.create'));
         $response->assertSessionHasErrors([
-            'nombre' =>
-            'Ya existe un colegio emisor con ese nombre.',
+            'nombre' => 'Ya existe un colegio emisor con ese nombre.',
         ]);
     }
 
@@ -345,8 +338,7 @@ class ColegioEmisorControllerTest extends TestCase
 
         $response->assertRedirect(route('catalogos.colegios.create'));
         $response->assertSessionHasErrors([
-            'sigla' =>
-            'Ya existe un colegio emisor con esa sigla.',
+            'sigla' => 'Ya existe un colegio emisor con esa sigla.',
         ]);
     }
 
@@ -434,8 +426,7 @@ class ColegioEmisorControllerTest extends TestCase
         $response = $this
             ->actingAs($admin)
             ->put(route('catalogos.colegios.update', $colegio), [
-                'nombre' =>
-                '  Colegio   de Kinesiólogos   de Misiones  ',
+                'nombre' => '  Colegio   de Kinesiólogos   de Misiones  ',
                 'sigla' => '  coki   mi  ',
                 'jurisdiccion_id' => $jurisdiccion->id,
             ]);
@@ -485,10 +476,8 @@ class ColegioEmisorControllerTest extends TestCase
         );
 
         $response->assertSessionHasErrors([
-            'nombre' =>
-            'El nombre contiene caracteres no permitidos.',
-            'sigla' =>
-            'La sigla solo puede contener letras, números, espacios, puntos y guiones.',
+            'nombre' => 'El nombre contiene caracteres no permitidos.',
+            'sigla' => 'La sigla solo puede contener letras, números, espacios, puntos y guiones.',
         ]);
 
         $this->assertDatabaseHas('colegios_emisores', [
@@ -529,8 +518,7 @@ class ColegioEmisorControllerTest extends TestCase
         );
 
         $response->assertSessionHasErrors([
-            'sigla' =>
-            'La sigla debe tener al menos 2 caracteres.',
+            'sigla' => 'La sigla debe tener al menos 2 caracteres.',
         ]);
     }
 
@@ -595,8 +583,7 @@ class ColegioEmisorControllerTest extends TestCase
 
         $response->assertRedirect(route('catalogos.colegios.edit', $colegio2));
         $response->assertSessionHasErrors([
-            'nombre' =>
-            'Ya existe un colegio emisor con ese nombre.',
+            'nombre' => 'Ya existe un colegio emisor con ese nombre.',
         ]);
     }
 
@@ -634,8 +621,7 @@ class ColegioEmisorControllerTest extends TestCase
 
         $response->assertRedirect(route('catalogos.colegios.edit', $colegio2));
         $response->assertSessionHasErrors([
-            'sigla' =>
-            'Ya existe un colegio emisor con esa sigla.',
+            'sigla' => 'Ya existe un colegio emisor con esa sigla.',
         ]);
     }
 
@@ -686,8 +672,7 @@ class ColegioEmisorControllerTest extends TestCase
         $response
             ->assertRedirect(route('catalogos.colegios.create'))
             ->assertSessionHasErrors([
-                'jurisdiccion_id' =>
-                'La jurisdicción seleccionada no existe, se encuentra inactiva o no puede utilizarse para esta operación.',
+                'jurisdiccion_id' => 'La jurisdicción seleccionada no existe, se encuentra inactiva o no puede utilizarse para esta operación.',
             ]);
 
         $this->assertDatabaseMissing('colegios_emisores', [
@@ -756,8 +741,7 @@ class ColegioEmisorControllerTest extends TestCase
         $response
             ->assertRedirect(route('catalogos.colegios.edit', $colegio))
             ->assertSessionHasErrors([
-                'jurisdiccion_id' =>
-                'La jurisdicción seleccionada no existe, se encuentra inactiva o no puede utilizarse para esta operación.',
+                'jurisdiccion_id' => 'La jurisdicción seleccionada no existe, se encuentra inactiva o no puede utilizarse para esta operación.',
             ]);
 
         $this->assertDatabaseHas('colegios_emisores', [
@@ -768,7 +752,7 @@ class ColegioEmisorControllerTest extends TestCase
         ]);
     }
 
-    public function test_toggle_activo_inactivates_colegio(): void
+    public function test_inactivar_inactivates_colegio(): void
     {
         $admin = $this->adminUser();
 
@@ -786,7 +770,7 @@ class ColegioEmisorControllerTest extends TestCase
         ]);
 
         $response = $this->actingAs($admin)
-            ->patch(route('catalogos.colegios.toggle-activo', $colegio));
+            ->patch(route('catalogos.colegios.inactivar', $colegio));
 
         $response->assertRedirect(route('catalogos.colegios.index'));
         $response->assertSessionHas('success');
@@ -835,7 +819,7 @@ class ColegioEmisorControllerTest extends TestCase
         ]);
     }
 
-    public function test_toggle_activo_activates_colegio(): void
+    public function test_reactivar_activates_colegio(): void
     {
         $admin = $this->adminUser();
 
@@ -853,7 +837,7 @@ class ColegioEmisorControllerTest extends TestCase
         ]);
 
         $response = $this->actingAs($admin)
-            ->patch(route('catalogos.colegios.toggle-activo', $colegio));
+            ->patch(route('catalogos.colegios.reactivar', $colegio));
 
         $response->assertRedirect(route('catalogos.colegios.index'));
         $response->assertSessionHas('success');
@@ -861,6 +845,275 @@ class ColegioEmisorControllerTest extends TestCase
         $this->assertDatabaseHas('colegios_emisores', [
             'id' => $colegio->id,
             'activo' => 1,
+        ]);
+    }
+
+    public function test_repeated_state_requests_do_not_toggle_colegio_or_audit(): void
+    {
+        $jurisdiccion = Jurisdiccion::create([
+            'nombre' => 'Misiones',
+            'slug' => 'misiones',
+            'activo' => true,
+        ]);
+
+        $colegio = ColegioEmisor::create([
+            'nombre' => 'Colegio de Kinesiólogos de Misiones',
+            'sigla' => 'COKIFIMI',
+            'jurisdiccion_id' => $jurisdiccion->id,
+            'activo' => false,
+        ]);
+
+        $this->actingAs($this->adminUser())
+            ->patch(route('catalogos.colegios.inactivar', $colegio))
+            ->assertSessionHas('warning');
+
+        $this->assertDatabaseHas('colegios_emisores', [
+            'id' => $colegio->id,
+            'activo' => false,
+        ]);
+
+        $colegio->update(['activo' => true]);
+
+        $this->patch(route('catalogos.colegios.reactivar', $colegio))
+            ->assertSessionHas('warning');
+
+        $this->assertDatabaseHas('colegios_emisores', [
+            'id' => $colegio->id,
+            'activo' => true,
+        ]);
+        $this->assertDatabaseCount('auditorias', 0);
+    }
+
+    public function test_index_searches_name_and_sigla_and_shows_empty_state(): void
+    {
+        $jurisdiccion = $this->jurisdiccionParaListado();
+        $nombre = $this->colegioParaListado($jurisdiccion, 'Colegio Delta', 'CD', true);
+        $sigla = $this->colegioParaListado($jurisdiccion, 'Colegio Norte', 'DELTA', false);
+        $otro = $this->colegioParaListado($jurisdiccion, 'Colegio Sur', 'CS', true);
+
+        $response = $this->actingAs($this->adminUser())
+            ->get(route('catalogos.colegios.index', ['q' => 'Delta']));
+
+        $response->assertOk()
+            ->assertSee($nombre->nombre)
+            ->assertSee($sigla->nombre)
+            ->assertDontSee($otro->nombre)
+            ->assertSee('Buscar por nombre o sigla')
+            ->assertSee('value="Delta"', false);
+
+        $this->get(route('catalogos.colegios.index', ['q' => 'NoExiste']))
+            ->assertOk()
+            ->assertSee('No se encontraron colegios emisores')
+            ->assertDontSee('Crear primer colegio emisor');
+    }
+
+    public function test_index_filters_all_states_and_treats_unknown_state_as_all(): void
+    {
+        $jurisdiccion = $this->jurisdiccionParaListado();
+        $activo = $this->colegioParaListado($jurisdiccion, 'Colegio Activo', 'CA', true);
+        $inactivo = $this->colegioParaListado($jurisdiccion, 'Colegio Inactivo', 'CI', false);
+        $this->actingAs($this->adminUser());
+
+        $this->get(route('catalogos.colegios.index'))
+            ->assertOk()->assertSee($activo->nombre)->assertSee($inactivo->nombre);
+
+        foreach (['todos', 'desconocido'] as $estado) {
+            $this->get(route('catalogos.colegios.index', ['estado' => $estado]))
+                ->assertOk()->assertSee($activo->nombre)->assertSee($inactivo->nombre)
+                ->assertSee('<option value="todos" selected>', false);
+        }
+
+        $this->get(route('catalogos.colegios.index', ['estado' => 'activos']))
+            ->assertSee($activo->nombre)->assertDontSee($inactivo->nombre);
+        $this->get(route('catalogos.colegios.index', ['estado' => 'inactivos']))
+            ->assertSee($inactivo->nombre)->assertDontSee($activo->nombre);
+    }
+
+    public function test_index_groups_name_or_sigla_before_state_filter(): void
+    {
+        $jurisdiccion = $this->jurisdiccionParaListado();
+        $activoPorNombre = $this->colegioParaListado($jurisdiccion, 'Colegio Delta', 'CD', true);
+        $activoPorSigla = $this->colegioParaListado($jurisdiccion, 'Colegio Norte', 'DELTA', true);
+        $inactivoPorNombre = $this->colegioParaListado($jurisdiccion, 'Delta Histórico', 'DH', false);
+        $inactivoPorSigla = $this->colegioParaListado($jurisdiccion, 'Colegio Sur', 'DELTA-S', false);
+
+        $response = $this->actingAs($this->adminUser())
+            ->get(route('catalogos.colegios.index', ['q' => 'Delta', 'estado' => 'activos']));
+
+        $response->assertOk()
+            ->assertSee($activoPorNombre->nombre)
+            ->assertSee($activoPorSigla->nombre)
+            ->assertDontSee($inactivoPorNombre->nombre)
+            ->assertDontSee($inactivoPorSigla->nombre);
+    }
+
+    public function test_index_paginates_ten_and_preserves_query_string(): void
+    {
+        $jurisdiccion = $this->jurisdiccionParaListado();
+        for ($i = 1; $i <= 11; $i++) {
+            $this->colegioParaListado($jurisdiccion, sprintf('Colegio Delta %02d', $i), 'CD'.$i, true);
+        }
+
+        $response = $this->actingAs($this->adminUser())
+            ->get(route('catalogos.colegios.index', ['q' => 'Delta', 'estado' => 'activos']));
+
+        $response->assertOk();
+        $colegios = $response->viewData('colegios');
+        $this->assertSame(10, $colegios->count());
+        $this->assertSame(11, $colegios->total());
+        $this->assertStringContainsString('q=Delta', $colegios->url(2));
+        $this->assertStringContainsString('estado=activos', $colegios->url(2));
+    }
+
+    public function test_show_is_read_only_for_active_inactive_and_historical_colegios(): void
+    {
+        $jurisdiccion = $this->jurisdiccionParaListado();
+        $activo = $this->colegioParaListado($jurisdiccion, 'Colegio Activo', 'CA', true);
+        $inactivo = $this->colegioParaListado($jurisdiccion, 'Colegio Inactivo', 'CI', false);
+        $historica = Jurisdiccion::create([
+            'nombre' => 'Jurisdicción histórica', 'slug' => 'jurisdiccion-historica', 'activo' => false,
+        ]);
+        $historico = $this->colegioParaListado($historica, 'Colegio Histórico', 'CH', false);
+
+        $this->actingAs($this->adminUser());
+        foreach ([$activo, $inactivo, $historico] as $colegio) {
+            $this->get(route('catalogos.colegios.show', $colegio))
+                ->assertOk()
+                ->assertSee('Consultar colegio emisor')
+                ->assertSee($colegio->nombre)
+                ->assertSee($colegio->sigla)
+                ->assertSee($colegio->jurisdiccion->nombre)
+                ->assertSee($colegio->activo ? 'Activo' : 'Inactivo');
+            $this->assertDatabaseHas('colegios_emisores', [
+                'id' => $colegio->id, 'jurisdiccion_id' => $colegio->jurisdiccion_id,
+                'activo' => $colegio->activo,
+            ]);
+        }
+        $this->assertDatabaseCount('auditorias', 0);
+    }
+
+    public function test_superadmin_can_show_colegio_and_non_admin_cannot(): void
+    {
+        $colegio = $this->colegioParaListado($this->jurisdiccionParaListado(), 'Colegio Norte', 'CN', true);
+
+        $this->actingAs($this->superadminUser())
+            ->get(route('catalogos.colegios.show', $colegio))->assertOk();
+        $this->actingAs($this->nonAdminUser())
+            ->get(route('catalogos.colegios.show', $colegio))
+            ->assertRedirect(route('perfil.completar'));
+    }
+
+    public function test_index_shows_desktop_mobile_and_actions_for_each_state(): void
+    {
+        $jurisdiccion = $this->jurisdiccionParaListado();
+        $activo = $this->colegioParaListado($jurisdiccion, 'Colegio Activo', 'CA', true);
+        $inactivo = $this->colegioParaListado($jurisdiccion, 'Colegio Inactivo', 'CI', false);
+
+        $this->actingAs($this->adminUser())
+            ->get(route('catalogos.colegios.index'))
+            ->assertOk()
+            ->assertSee('Nombre')
+            ->assertSee('Sigla')
+            ->assertSee('Jurisdicción')
+            ->assertSee('Estado')
+            ->assertSee('Acciones')
+            ->assertSee('md:block')
+            ->assertSee('md:hidden')
+            ->assertSee('Limpiar filtros')
+            ->assertSee('Jurisdicción: '.$jurisdiccion->nombre)
+            ->assertSee($jurisdiccion->nombre)
+            ->assertSee(route('catalogos.colegios.show', $activo))
+            ->assertSee(route('catalogos.colegios.show', $inactivo))
+            ->assertSee(route('catalogos.colegios.edit', $activo))
+            ->assertSee(route('catalogos.colegios.edit', $inactivo))
+            ->assertSee(route('catalogos.colegios.inactivar', $activo))
+            ->assertSee(route('catalogos.colegios.reactivar', $inactivo))
+            ->assertSee('js-confirm-action')
+            ->assertSee('data-confirm-title="¿Inactivar colegio emisor?"', false)
+            ->assertSee('data-confirm-title="¿Reactivar colegio emisor?"', false);
+    }
+
+    public function test_edit_offers_current_inactive_jurisdiction_and_only_active_alternatives(): void
+    {
+        $historica = Jurisdiccion::create([
+            'nombre' => 'Jurisdicción histórica', 'slug' => 'historica', 'activo' => false,
+        ]);
+        $otraInactiva = Jurisdiccion::create([
+            'nombre' => 'Jurisdicción cerrada', 'slug' => 'cerrada', 'activo' => false,
+        ]);
+        $activa = $this->jurisdiccionParaListado();
+        $colegio = $this->colegioParaListado($historica, 'Colegio Histórico', 'CH', false);
+
+        $this->actingAs($this->adminUser())
+            ->get(route('catalogos.colegios.edit', $colegio))
+            ->assertOk()
+            ->assertSeeInOrder([$historica->nombre, '(Inactiva)'])
+            ->assertSee('value="'.$historica->id.'"', false)
+            ->assertSee($activa->nombre)
+            ->assertDontSee($otraInactiva->nombre);
+    }
+
+    public function test_historical_colegio_can_switch_to_active_but_not_another_inactive_jurisdiction(): void
+    {
+        $historica = Jurisdiccion::create([
+            'nombre' => 'Histórica', 'slug' => 'historica', 'activo' => false,
+        ]);
+        $otraInactiva = Jurisdiccion::create([
+            'nombre' => 'Cerrada', 'slug' => 'cerrada', 'activo' => false,
+        ]);
+        $activa = $this->jurisdiccionParaListado();
+        $colegio = $this->colegioParaListado($historica, 'Colegio Histórico', 'CH', false);
+        $this->actingAs($this->adminUser());
+
+        $this->from(route('catalogos.colegios.edit', $colegio))
+            ->put(route('catalogos.colegios.update', $colegio), [
+                'nombre' => 'Colegio Histórico', 'sigla' => 'CH',
+                'jurisdiccion_id' => $otraInactiva->id,
+            ])->assertSessionHasErrors('jurisdiccion_id');
+        $this->assertDatabaseHas('colegios_emisores', [
+            'id' => $colegio->id, 'jurisdiccion_id' => $historica->id,
+        ]);
+
+        $this->put(route('catalogos.colegios.update', $colegio), [
+            'nombre' => 'Colegio Histórico', 'sigla' => 'CH',
+            'jurisdiccion_id' => $activa->id,
+        ])->assertRedirect(route('catalogos.colegios.index'))
+            ->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('colegios_emisores', [
+            'id' => $colegio->id, 'jurisdiccion_id' => $activa->id,
+        ]);
+    }
+
+    public function test_reactivation_rejects_inactive_jurisdiction_with_error_and_no_audit(): void
+    {
+        $jurisdiccion = Jurisdiccion::create([
+            'nombre' => 'Histórica', 'slug' => 'historica', 'activo' => false,
+        ]);
+        $colegio = $this->colegioParaListado($jurisdiccion, 'Colegio Histórico', 'CH', false);
+
+        $this->actingAs($this->adminUser())
+            ->patch(route('catalogos.colegios.reactivar', $colegio))
+            ->assertRedirect(route('catalogos.colegios.index'))
+            ->assertSessionHas('error', 'No se puede reactivar el colegio emisor porque su jurisdicción está inactiva.');
+
+        $this->assertDatabaseHas('colegios_emisores', [
+            'id' => $colegio->id, 'activo' => false,
+        ]);
+        $this->assertDatabaseCount('auditorias', 0);
+    }
+
+    private function jurisdiccionParaListado(): Jurisdiccion
+    {
+        return Jurisdiccion::create([
+            'nombre' => 'Misiones', 'slug' => 'misiones', 'activo' => true,
+        ]);
+    }
+
+    private function colegioParaListado(Jurisdiccion $jurisdiccion, string $nombre, string $sigla, bool $activo): ColegioEmisor
+    {
+        return ColegioEmisor::create([
+            'nombre' => $nombre, 'sigla' => $sigla,
+            'jurisdiccion_id' => $jurisdiccion->id, 'activo' => $activo,
         ]);
     }
 }

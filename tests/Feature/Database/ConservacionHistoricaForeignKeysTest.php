@@ -2,12 +2,16 @@
 
 namespace Tests\Feature\Database;
 
+use App\Models\CategoriaClinica;
 use App\Models\ColegioEmisor;
+use App\Models\EjercicioDomiciliario;
 use App\Models\EspecialidadKinesiologia;
 use App\Models\Jurisdiccion;
 use App\Models\Kinesiologa;
 use App\Models\MatriculaProfesionalKinesiologia;
 use App\Models\Paciente;
+use App\Models\RecursoEjercicio;
+use App\Models\TipoEquipoTerapeutico;
 use App\Models\TituloProfesional;
 use App\Models\User;
 use Illuminate\Database\QueryException;
@@ -142,6 +146,114 @@ class ConservacionHistoricaForeignKeysTest extends TestCase
         ]);
     }
 
+    public function test_database_prevents_deleting_clinical_category_with_child(): void
+    {
+        $padre = $this->categoriaClinica('CAT-PADRE');
+        $hija = $this->categoriaClinica('CAT-HIJA', 'ANATOMICA', $padre->id);
+
+        $this->assertDeleteIsRestricted('categorias_clinicas', $padre->id);
+
+        $this->assertDatabaseHas('categorias_clinicas', [
+            'id' => $padre->id,
+            'codigo' => 'CAT-PADRE',
+        ]);
+        $this->assertDatabaseHas('categorias_clinicas', [
+            'id' => $hija->id,
+            'categoria_padre_id' => $padre->id,
+        ]);
+    }
+
+    public function test_database_prevents_deleting_exercise_with_category_pivot(): void
+    {
+        $ejercicio = $this->ejercicioDomiciliario();
+        $categoria = $this->categoriaClinica('CAT-EJERCICIO');
+        $ejercicio->categorias()->attach($categoria);
+
+        $this->assertDeleteIsRestricted('ejercicios_domiciliarios', $ejercicio->id);
+
+        $this->assertDatabaseHas('ejercicios_domiciliarios', [
+            'id' => $ejercicio->id,
+            'codigo' => 'EJ-CONSERVACION',
+        ]);
+        $this->assertDatabaseHas('categorias_clinicas', [
+            'id' => $categoria->id,
+            'codigo' => 'CAT-EJERCICIO',
+        ]);
+        $this->assertDatabaseHas('ejercicio_categoria', [
+            'ejercicio_id' => $ejercicio->id,
+            'categoria_id' => $categoria->id,
+        ]);
+    }
+
+    public function test_database_prevents_deleting_clinical_category_with_exercise_pivot(): void
+    {
+        $ejercicio = $this->ejercicioDomiciliario();
+        $categoria = $this->categoriaClinica('CAT-PIVOTE');
+        $ejercicio->categorias()->attach($categoria);
+
+        $this->assertDeleteIsRestricted('categorias_clinicas', $categoria->id);
+
+        $this->assertDatabaseHas('categorias_clinicas', [
+            'id' => $categoria->id,
+            'codigo' => 'CAT-PIVOTE',
+        ]);
+        $this->assertDatabaseHas('ejercicios_domiciliarios', [
+            'id' => $ejercicio->id,
+            'codigo' => 'EJ-CONSERVACION',
+        ]);
+        $this->assertDatabaseHas('ejercicio_categoria', [
+            'ejercicio_id' => $ejercicio->id,
+            'categoria_id' => $categoria->id,
+        ]);
+    }
+
+    public function test_database_prevents_deleting_exercise_with_resource(): void
+    {
+        $ejercicio = $this->ejercicioDomiciliario();
+        $recurso = RecursoEjercicio::create([
+            'ejercicio_id' => $ejercicio->id,
+            'tipo' => 'VIDEO',
+            'origen' => 'EXTERNO',
+            'url_externa' => 'https://example.com/ejercicio',
+            'titulo' => 'Video de ejercicio',
+            'orden' => 1,
+            'activo' => true,
+        ]);
+
+        $this->assertDeleteIsRestricted('ejercicios_domiciliarios', $ejercicio->id);
+
+        $this->assertDatabaseHas('ejercicios_domiciliarios', [
+            'id' => $ejercicio->id,
+            'codigo' => 'EJ-CONSERVACION',
+        ]);
+        $this->assertDatabaseHas('recursos_ejercicio', [
+            'id' => $recurso->id,
+            'ejercicio_id' => $ejercicio->id,
+        ]);
+    }
+
+    public function test_database_prevents_deleting_clinical_category_with_equipment_type(): void
+    {
+        $categoria = $this->categoriaClinica('CAT-EQUIPO', 'EQUIPAMIENTO');
+        $tipoEquipo = TipoEquipoTerapeutico::create([
+            'codigo' => 'EQUIPO-CONSERVACION',
+            'nombre' => 'Equipo de prueba',
+            'categoria_clinica_id' => $categoria->id,
+            'activo' => true,
+        ]);
+
+        $this->assertDeleteIsRestricted('categorias_clinicas', $categoria->id);
+
+        $this->assertDatabaseHas('categorias_clinicas', [
+            'id' => $categoria->id,
+            'codigo' => 'CAT-EQUIPO',
+        ]);
+        $this->assertDatabaseHas('tipos_equipo_terapeutico', [
+            'id' => $tipoEquipo->id,
+            'categoria_clinica_id' => $categoria->id,
+        ]);
+    }
+
     private function assertDeleteIsRestricted(
         string $table,
         int $id
@@ -159,6 +271,31 @@ class ConservacionHistoricaForeignKeysTest extends TestCase
                 'id' => $id,
             ]);
         }
+    }
+
+    private function categoriaClinica(
+        string $codigo,
+        string $tipo = 'ANATOMICA',
+        ?int $padreId = null
+    ): CategoriaClinica {
+        return CategoriaClinica::create([
+            'categoria_padre_id' => $padreId,
+            'codigo' => $codigo,
+            'nombre' => $codigo,
+            'tipo' => $tipo,
+            'activo' => true,
+        ]);
+    }
+
+    private function ejercicioDomiciliario(): EjercicioDomiciliario
+    {
+        return EjercicioDomiciliario::create([
+            'codigo' => 'EJ-CONSERVACION',
+            'nombre' => 'Ejercicio de prueba',
+            'descripcion' => 'Descripción mínima para conservar la referencia.',
+            'dificultad_base' => 'BAJA',
+            'activo' => true,
+        ]);
     }
 
     private function tituloProfesional(): TituloProfesional

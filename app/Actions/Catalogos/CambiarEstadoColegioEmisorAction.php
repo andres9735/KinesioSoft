@@ -3,7 +3,9 @@
 namespace App\Actions\Catalogos;
 
 use App\Models\ColegioEmisor;
+use App\Models\Jurisdiccion;
 use App\Services\AuditoriaService;
+use DomainException;
 use Illuminate\Support\Facades\DB;
 
 final class CambiarEstadoColegioEmisorAction
@@ -13,10 +15,11 @@ final class CambiarEstadoColegioEmisorAction
     ) {}
 
     public function ejecutar(
-        ColegioEmisor $colegio
+        ColegioEmisor $colegio,
+        bool $activoObjetivo
     ): ColegioEmisor {
         return DB::transaction(
-            function () use ($colegio): ColegioEmisor {
+            function () use ($colegio, $activoObjetivo): ColegioEmisor {
                 $colegioActual = ColegioEmisor::query()
                     ->whereKey($colegio->getKey())
                     ->lockForUpdate()
@@ -24,12 +27,26 @@ final class CambiarEstadoColegioEmisorAction
 
                 $estadoAnterior = (bool) $colegioActual->activo;
 
-                $colegioActual->activo = ! $estadoAnterior;
+                if ($estadoAnterior === $activoObjetivo) {
+                    return $colegioActual;
+                }
+
+                if ($activoObjetivo && ! Jurisdiccion::query()
+                    ->whereKey($colegioActual->jurisdiccion_id)
+                    ->where('activo', true)
+                    ->lockForUpdate()
+                    ->first(['id'])) {
+                    throw new DomainException(
+                        'No se puede reactivar el colegio emisor porque su jurisdicción está inactiva.'
+                    );
+                }
+
+                $colegioActual->activo = $activoObjetivo;
                 $colegioActual->save();
 
                 $this->auditoriaService->registrar(
-                    evento: $colegioActual->activo
-                        ? 'colegio_emisor_activado'
+                    evento: $activoObjetivo
+                        ? 'colegio_emisor_reactivado'
                         : 'colegio_emisor_inactivado',
                     modulo: 'Catálogos',
                     auditable: $colegioActual,
@@ -37,7 +54,7 @@ final class CambiarEstadoColegioEmisorAction
                         'activo' => $estadoAnterior,
                     ],
                     valoresNuevos: [
-                        'activo' => (bool) $colegioActual->activo,
+                        'activo' => $activoObjetivo,
                     ]
                 );
 
