@@ -5,6 +5,7 @@ import { inicializarTomSelects } from './components/tom-select';
 import { inicializarRelacionesJurisdiccionColegio } from './components/jurisdiccion-colegio';
 import { inicializarRelacionesColegioMatricula } from './components/colegio-matricula';
 import ejercicioCatalogo from './components/ejercicio-catalogo';
+import domicilioPaciente from './components/domicilio-paciente';
 
 window.Alpine = Alpine;
 window.Swal = Swal;
@@ -13,5 +14,6 @@ inicializarTomSelects();
 inicializarRelacionesJurisdiccionColegio();
 inicializarRelacionesColegioMatricula();
 Alpine.data('ejercicioCatalogo', ejercicioCatalogo);
+Alpine.data('domicilioPaciente', domicilioPaciente);
 
 Alpine.start();

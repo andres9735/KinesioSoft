@@ -4,7 +4,9 @@ namespace Tests\Feature\Auth;
 
 use App\Enums\RoleEnum;
 use App\Models\DeclaracionSaludPaciente;
+use App\Models\Localidad;
 use App\Models\Paciente;
+use App\Models\Provincia;
 use App\Models\User;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -36,7 +38,7 @@ class EmailVerificationAccessTest extends TestCase
 
     public function test_user_model_requires_email_verification(): void
     {
-        $user = new User();
+        $user = new User;
 
         $this->assertInstanceOf(
             MustVerifyEmail::class,
@@ -215,9 +217,14 @@ class EmailVerificationAccessTest extends TestCase
             RoleEnum::PACIENTE->value
         );
 
+        $localidad = $this->crearLocalidad();
+
         $paciente = Paciente::create([
             'user_id' => $user->id,
             'direccion' => 'Av. Mitre 1234',
+            'localidad_id' => $localidad->id,
+            'calle' => 'Avenida Mitre',
+            'altura_domicilio' => '1234',
             'contacto_emergencia_nombre' => 'María Pérez',
             'contacto_emergencia_telefono' => '3764123457',
             'activo' => true,
@@ -230,8 +237,7 @@ class EmailVerificationAccessTest extends TestCase
             'altura_cm' => 165.00,
             'ocupacion' => 'Docente',
             'nivel_actividad_fisica' => 'MODERADO',
-            'detalle_actividad_fisica' =>
-            'Caminatas tres veces por semana.',
+            'detalle_actividad_fisica' => 'Caminatas tres veces por semana.',
             'estado' => 'PENDIENTE_REVISION',
         ]);
 
@@ -318,10 +324,19 @@ class EmailVerificationAccessTest extends TestCase
             RoleEnum::PACIENTE->value
         );
 
+        $localidad = $completo
+            ? $this->crearLocalidad()
+            : null;
+
         $paciente = Paciente::create([
             'user_id' => $user->id,
-            'direccion' => $completo
-                ? 'Av. Mitre 1234'
+            'direccion' => null,
+            'localidad_id' => $localidad?->id,
+            'calle' => $completo
+                ? 'Avenida Mitre'
+                : null,
+            'altura_domicilio' => $completo
+                ? '1234'
                 : null,
             'contacto_emergencia_nombre' => $completo
                 ? 'María Pérez'
@@ -340,12 +355,26 @@ class EmailVerificationAccessTest extends TestCase
                 'altura_cm' => 165.00,
                 'ocupacion' => 'Docente',
                 'nivel_actividad_fisica' => 'MODERADO',
-                'detalle_actividad_fisica' =>
-                'Caminatas tres veces por semana.',
+                'detalle_actividad_fisica' => 'Caminatas tres veces por semana.',
                 'estado' => 'PENDIENTE_REVISION',
             ]);
         }
 
         return $user->fresh();
+    }
+
+    private function crearLocalidad(): Localidad
+    {
+        $provincia = Provincia::create([
+            'georef_id' => '54',
+            'nombre' => 'Misiones',
+        ]);
+
+        return Localidad::create([
+            'georef_id' => '54098010',
+            'provincia_id' => $provincia->id,
+            'nombre' => 'Posadas',
+            'departamento_nombre' => 'Capital',
+        ]);
     }
 }

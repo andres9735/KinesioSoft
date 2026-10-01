@@ -6,7 +6,9 @@ use App\Actions\Pacientes\CompletarPerfilClinicoInicialAction;
 use App\Models\Auditoria;
 use App\Models\DeclaracionSaludPaciente;
 use App\Models\ItemDeclaracionSalud;
+use App\Models\Localidad;
 use App\Models\Paciente;
+use App\Models\Provincia;
 use App\Models\User;
 use DomainException;
 use Illuminate\Database\QueryException;
@@ -17,6 +19,27 @@ use Tests\TestCase;
 class CompletarPerfilClinicoInicialActionTest extends TestCase
 {
     use RefreshDatabase;
+
+    private Provincia $provincia;
+
+    private Localidad $localidad;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->provincia = Provincia::create([
+            'georef_id' => '54',
+            'nombre' => 'Misiones',
+        ]);
+
+        $this->localidad = Localidad::create([
+            'georef_id' => '54098010',
+            'provincia_id' => $this->provincia->id,
+            'nombre' => 'Posadas',
+            'departamento_nombre' => 'Capital',
+        ]);
+    }
 
     public function test_completes_initial_clinical_profile_and_creates_declaration_items_and_minimal_audit(): void
     {
@@ -43,10 +66,24 @@ class CompletarPerfilClinicoInicialActionTest extends TestCase
         $this->assertSame('masculino', $user->sexo);
         $this->assertSame('3758-409036', $user->telefono);
 
+        $this->assertNull($paciente->direccion);
+        $this->assertSame($this->localidad->id, $paciente->localidad_id);
+        $this->assertSame('Pasaje Los Lapachos', $paciente->calle);
+        $this->assertSame('1234 A', $paciente->altura_domicilio);
+        $this->assertSame('2 B', $paciente->piso_departamento);
         $this->assertSame(
-            'Av. Libertador 1234',
-            $paciente->direccion
+            'Frente a la plaza',
+            $paciente->referencia_domicilio
         );
+        $this->assertArrayNotHasKey(
+            'provincia_id',
+            $paciente->getAttributes()
+        );
+        $this->assertArrayNotHasKey(
+            'calle_id',
+            $paciente->getAttributes()
+        );
+        $this->assertDatabaseCount('calles', 0);
         $this->assertSame(
             'María Gómez',
             $paciente->contacto_emergencia_nombre
@@ -153,8 +190,7 @@ class CompletarPerfilClinicoInicialActionTest extends TestCase
 
         $this->assertSame(
             [
-                'estado' =>
-                DeclaracionSaludPaciente::ESTADO_PENDIENTE_REVISION,
+                'estado' => DeclaracionSaludPaciente::ESTADO_PENDIENTE_REVISION,
             ],
             $auditoria->valores_nuevos
         );
@@ -230,8 +266,7 @@ class CompletarPerfilClinicoInicialActionTest extends TestCase
             'declaraciones_salud_paciente',
             [
                 'id' => $declaracion->id,
-                'estado' =>
-                DeclaracionSaludPaciente::ESTADO_PENDIENTE_REVISION,
+                'estado' => DeclaracionSaludPaciente::ESTADO_PENDIENTE_REVISION,
             ]
         );
 
@@ -279,10 +314,8 @@ class CompletarPerfilClinicoInicialActionTest extends TestCase
             'items_declaracion_salud',
             [
                 'declaracion_salud_id' => $declaracion->id,
-                'tipo' =>
-                    ItemDeclaracionSalud::TIPO_ANTECEDENTE,
-                'descripcion' =>
-                    'Hipertensión arterial familiar',
+                'tipo' => ItemDeclaracionSalud::TIPO_ANTECEDENTE,
+                'descripcion' => 'Hipertensión arterial familiar',
             ]
         );
 
@@ -290,10 +323,8 @@ class CompletarPerfilClinicoInicialActionTest extends TestCase
             'items_declaracion_salud',
             [
                 'declaracion_salud_id' => $declaracion->id,
-                'tipo' =>
-                    ItemDeclaracionSalud::TIPO_MEDICACION,
-                'descripcion' =>
-                    'Ibuprofeno según necesidad',
+                'tipo' => ItemDeclaracionSalud::TIPO_MEDICACION,
+                'descripcion' => 'Ibuprofeno según necesidad',
             ]
         );
 
@@ -301,8 +332,7 @@ class CompletarPerfilClinicoInicialActionTest extends TestCase
             'items_declaracion_salud',
             [
                 'declaracion_salud_id' => $declaracion->id,
-                'tipo' =>
-                    ItemDeclaracionSalud::TIPO_CIRUGIA,
+                'tipo' => ItemDeclaracionSalud::TIPO_CIRUGIA,
             ]
         );
 
@@ -310,8 +340,7 @@ class CompletarPerfilClinicoInicialActionTest extends TestCase
             'items_declaracion_salud',
             [
                 'declaracion_salud_id' => $declaracion->id,
-                'tipo' =>
-                    ItemDeclaracionSalud::TIPO_ALERGIA,
+                'tipo' => ItemDeclaracionSalud::TIPO_ALERGIA,
             ]
         );
 
@@ -326,6 +355,81 @@ class CompletarPerfilClinicoInicialActionTest extends TestCase
         );
     }
 
+    public function test_preserves_historical_direccion_while_updating_structured_address(): void
+    {
+        [$user, $paciente] = $this->crearContextoPaciente([
+            'direccion' => 'Dirección histórica',
+            'localidad_id' => $this->localidad->id,
+            'calle' => 'Calle inicial',
+            'altura_domicilio' => '100',
+            'piso_departamento' => '1 A',
+            'referencia_domicilio' => 'Referencia inicial',
+        ]);
+
+        $otraProvincia = Provincia::create([
+            'georef_id' => '06',
+            'nombre' => 'Buenos Aires',
+        ]);
+
+        $otraLocalidad = Localidad::create([
+            'georef_id' => '06441020',
+            'provincia_id' => $otraProvincia->id,
+            'nombre' => 'La Plata',
+            'departamento_nombre' => 'La Plata',
+        ]);
+
+        app(CompletarPerfilClinicoInicialAction::class)->ejecutar(
+            $user,
+            $this->datosValidos([
+                'provincia_id' => $otraProvincia->id,
+                'localidad_id' => $otraLocalidad->id,
+                'calle' => 'Diagonal 74',
+                'altura_domicilio' => '1234 bis',
+                'piso_departamento' => '7 C',
+                'referencia_domicilio' => 'Esquina Plaza Moreno',
+            ])
+        );
+
+        $paciente->refresh();
+
+        $this->assertSame('Dirección histórica', $paciente->direccion);
+        $this->assertSame($otraLocalidad->id, $paciente->localidad_id);
+        $this->assertSame('Diagonal 74', $paciente->calle);
+        $this->assertSame('1234 bis', $paciente->altura_domicilio);
+        $this->assertSame('7 C', $paciente->piso_departamento);
+        $this->assertSame(
+            'Esquina Plaza Moreno',
+            $paciente->referencia_domicilio
+        );
+    }
+
+    public function test_accepts_data_without_direccion_and_preserves_null_and_optional_nulls(): void
+    {
+        [$user, $paciente] = $this->crearContextoPaciente();
+
+        $datos = $this->datosValidos([
+            'altura_domicilio' => 'S/N',
+            'piso_departamento' => null,
+            'referencia_domicilio' => null,
+        ]);
+
+        $this->assertArrayNotHasKey('direccion', $datos);
+
+        app(CompletarPerfilClinicoInicialAction::class)->ejecutar(
+            $user,
+            $datos
+        );
+
+        $paciente->refresh();
+
+        $this->assertNull($paciente->direccion);
+        $this->assertSame($this->localidad->id, $paciente->localidad_id);
+        $this->assertSame('Pasaje Los Lapachos', $paciente->calle);
+        $this->assertSame('S/N', $paciente->altura_domicilio);
+        $this->assertNull($paciente->piso_departamento);
+        $this->assertNull($paciente->referencia_domicilio);
+    }
+
     public function test_rejects_second_pending_declaration_without_modifying_profile(): void
     {
         [$user, $paciente] = $this->crearContextoPaciente();
@@ -338,8 +442,7 @@ class CompletarPerfilClinicoInicialActionTest extends TestCase
             'ocupacion' => 'Empleado',
             'nivel_actividad_fisica' => 'SEDENTARIO',
             'detalle_actividad_fisica' => 'Sin actividad habitual.',
-            'estado' =>
-            DeclaracionSaludPaciente::ESTADO_PENDIENTE_REVISION,
+            'estado' => DeclaracionSaludPaciente::ESTADO_PENDIENTE_REVISION,
         ]);
 
         $this->actingAs($user);
@@ -373,6 +476,11 @@ class CompletarPerfilClinicoInicialActionTest extends TestCase
         $this->assertNull($user->telefono);
 
         $this->assertNull($paciente->direccion);
+        $this->assertNull($paciente->localidad_id);
+        $this->assertNull($paciente->calle);
+        $this->assertNull($paciente->altura_domicilio);
+        $this->assertNull($paciente->piso_departamento);
+        $this->assertNull($paciente->referencia_domicilio);
         $this->assertNull(
             $paciente->contacto_emergencia_nombre
         );
@@ -451,6 +559,11 @@ class CompletarPerfilClinicoInicialActionTest extends TestCase
         $this->assertNull($user->telefono);
 
         $this->assertNull($paciente->direccion);
+        $this->assertNull($paciente->localidad_id);
+        $this->assertNull($paciente->calle);
+        $this->assertNull($paciente->altura_domicilio);
+        $this->assertNull($paciente->piso_departamento);
+        $this->assertNull($paciente->referencia_domicilio);
         $this->assertNull(
             $paciente->contacto_emergencia_nombre
         );
@@ -479,8 +592,9 @@ class CompletarPerfilClinicoInicialActionTest extends TestCase
     /**
      * @return array{0: User, 1: Paciente}
      */
-    private function crearContextoPaciente(): array
-    {
+    private function crearContextoPaciente(
+        array $sobrescriturasPaciente = []
+    ): array {
         $user = User::factory()->create([
             'name' => 'Paciente',
             'apellido' => 'Prueba',
@@ -491,13 +605,18 @@ class CompletarPerfilClinicoInicialActionTest extends TestCase
             'telefono' => null,
         ]);
 
-        $paciente = Paciente::create([
+        $paciente = Paciente::create(array_replace([
             'user_id' => $user->id,
             'direccion' => null,
+            'localidad_id' => null,
+            'calle' => null,
+            'altura_domicilio' => null,
+            'piso_departamento' => null,
+            'referencia_domicilio' => null,
             'contacto_emergencia_nombre' => null,
             'contacto_emergencia_telefono' => null,
             'activo' => true,
-        ]);
+        ], $sobrescriturasPaciente));
 
         return [$user, $paciente];
     }
@@ -516,18 +635,21 @@ class CompletarPerfilClinicoInicialActionTest extends TestCase
                 'sexo' => 'masculino',
                 'telefono' => '3758-409036',
 
-                'direccion' => 'Av. Libertador 1234',
+                'provincia_id' => $this->provincia->id,
+                'localidad_id' => $this->localidad->id,
+                'calle' => 'Pasaje Los Lapachos',
+                'altura_domicilio' => '1234 A',
+                'piso_departamento' => '2 B',
+                'referencia_domicilio' => 'Frente a la plaza',
                 'contacto_emergencia_nombre' => 'María Gómez',
                 'contacto_emergencia_telefono' => '3764-112233',
 
-                'objetivo_salud' =>
-                'Mejorar movilidad y disminuir dolor lumbar',
+                'objetivo_salud' => 'Mejorar movilidad y disminuir dolor lumbar',
                 'peso_kg' => 72.5,
                 'altura_cm' => 174,
                 'ocupacion' => 'Desarrollador de software',
                 'nivel_actividad_fisica' => 'MODERADO',
-                'detalle_actividad_fisica' =>
-                'Caminatas y entrenamiento de fuerza tres veces por semana.',
+                'detalle_actividad_fisica' => 'Caminatas y entrenamiento de fuerza tres veces por semana.',
 
                 'antecedentes_respuesta' => 'si',
                 'antecedentes' => [

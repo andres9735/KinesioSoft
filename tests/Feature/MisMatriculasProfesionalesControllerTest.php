@@ -8,8 +8,10 @@ use App\Models\DeclaracionSaludPaciente;
 use App\Models\EspecialidadKinesiologia;
 use App\Models\Jurisdiccion;
 use App\Models\Kinesiologa;
+use App\Models\Localidad;
 use App\Models\MatriculaProfesionalKinesiologia;
 use App\Models\Paciente;
+use App\Models\Provincia;
 use App\Models\TituloProfesional;
 use App\Models\User;
 use Illuminate\Database\QueryException;
@@ -109,11 +111,11 @@ class MisMatriculasProfesionalesControllerTest extends TestCase
         $user = User::factory()->create([
             'name' => 'Silvia',
             'apellido' => 'Prueba',
-            'email' => $emailPrefix . '_' . uniqid() . '@example.com',
+            'email' => $emailPrefix.'_'.uniqid().'@example.com',
             'dni' => (string) random_int(30000000, 39999999),
             'fecha_nacimiento' => '1990-01-01',
             'sexo' => 'femenino',
-            'telefono' => '3764' . random_int(100000, 999999),
+            'telefono' => '3764'.random_int(100000, 999999),
             'activo' => true,
         ]);
 
@@ -142,10 +144,22 @@ class MisMatriculasProfesionalesControllerTest extends TestCase
 
     private function pacienteCompleto(): User
     {
+        $provincia = Provincia::create([
+            'georef_id' => '54',
+            'nombre' => 'Misiones',
+        ]);
+
+        $localidad = Localidad::create([
+            'georef_id' => '54028010',
+            'provincia_id' => $provincia->id,
+            'nombre' => 'Posadas',
+            'departamento_nombre' => 'Capital',
+        ]);
+
         $user = User::factory()->create([
             'name' => 'Paciente',
             'apellido' => 'Prueba',
-            'email' => 'paciente_' . uniqid() . '@example.com',
+            'email' => 'paciente_'.uniqid().'@example.com',
             'dni' => '40111222',
             'fecha_nacimiento' => '1995-01-01',
             'sexo' => 'masculino',
@@ -158,6 +172,9 @@ class MisMatriculasProfesionalesControllerTest extends TestCase
         $paciente = Paciente::create([
             'user_id' => $user->id,
             'direccion' => 'Av. Mitre 1234',
+            'localidad_id' => $localidad->id,
+            'calle' => 'Avenida Mitre',
+            'altura_domicilio' => '1234',
             'contacto_emergencia_nombre' => 'María Pérez',
             'contacto_emergencia_telefono' => '3764000001',
             'activo' => true,
@@ -170,8 +187,7 @@ class MisMatriculasProfesionalesControllerTest extends TestCase
             'altura_cm' => 175.00,
             'ocupacion' => 'Docente',
             'nivel_actividad_fisica' => 'MODERADO',
-            'detalle_actividad_fisica' =>
-            'Caminatas tres veces por semana.',
+            'detalle_actividad_fisica' => 'Caminatas tres veces por semana.',
             'estado' => 'PENDIENTE_REVISION',
         ]);
 

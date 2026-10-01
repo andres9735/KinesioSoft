@@ -15,6 +15,11 @@ class Paciente extends Model
     protected $fillable = [
         'user_id',
         'direccion',
+        'localidad_id',
+        'calle',
+        'altura_domicilio',
+        'piso_departamento',
+        'referencia_domicilio',
         'contacto_emergencia_nombre',
         'contacto_emergencia_telefono',
         'activo',
@@ -30,6 +35,11 @@ class Paciente extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function localidad(): BelongsTo
+    {
+        return $this->belongsTo(Localidad::class);
     }
 
     public function historiaClinica(): HasOne

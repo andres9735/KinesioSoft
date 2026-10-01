@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\Enums\RoleEnum;
 use App\Models\DeclaracionSaludPaciente;
+use App\Models\Localidad;
 use App\Models\Paciente;
+use App\Models\Provincia;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -51,7 +53,12 @@ class PerfilPacienteCompletitudTest extends TestCase
     ): Paciente {
         return Paciente::create([
             'user_id' => $user->id,
-            'direccion' => 'Av. Mitre 1234',
+            'direccion' => null,
+            'localidad_id' => $this->crearLocalidad()->id,
+            'calle' => 'Avenida Mitre',
+            'altura_domicilio' => '1234 A',
+            'piso_departamento' => null,
+            'referencia_domicilio' => null,
             'contacto_emergencia_nombre' => 'María Pérez',
             'contacto_emergencia_telefono' => '3764123457',
             'activo' => true,
@@ -68,10 +75,8 @@ class PerfilPacienteCompletitudTest extends TestCase
             'altura_cm' => 175.00,
             'ocupacion' => 'Docente',
             'nivel_actividad_fisica' => 'MODERADO',
-            'detalle_actividad_fisica' =>
-            'Caminatas tres veces por semana.',
-            'estado' =>
-            DeclaracionSaludPaciente::ESTADO_PENDIENTE_REVISION,
+            'detalle_actividad_fisica' => 'Caminatas tres veces por semana.',
+            'estado' => DeclaracionSaludPaciente::ESTADO_PENDIENTE_REVISION,
         ]);
     }
 
@@ -161,8 +166,14 @@ class PerfilPacienteCompletitudTest extends TestCase
     public static function camposAdministrativosRequeridos(): array
     {
         return [
-            'direccion' => [
-                'direccion',
+            'localidad' => [
+                'localidad_id',
+            ],
+            'calle' => [
+                'calle',
+            ],
+            'altura domicilio' => [
+                'altura_domicilio',
             ],
             'contacto emergencia nombre' => [
                 'contacto_emergencia_nombre',
@@ -225,8 +236,27 @@ class PerfilPacienteCompletitudTest extends TestCase
             $user->perfilCompleto()
         );
 
+        $this->assertNull($user->paciente->direccion);
+        $this->assertNull($user->paciente->piso_departamento);
+        $this->assertNull($user->paciente->referencia_domicilio);
+
         $this->actingAs($user)
             ->get(route('dashboard'))
             ->assertOk();
+    }
+
+    private function crearLocalidad(): Localidad
+    {
+        $provincia = Provincia::create([
+            'georef_id' => '54',
+            'nombre' => 'Misiones',
+        ]);
+
+        return Localidad::create([
+            'georef_id' => '54098010',
+            'provincia_id' => $provincia->id,
+            'nombre' => 'Posadas',
+            'departamento_nombre' => 'Capital',
+        ]);
     }
 }

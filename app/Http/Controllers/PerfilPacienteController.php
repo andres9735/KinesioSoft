@@ -30,17 +30,25 @@ class PerfilPacienteController extends Controller
         $user = $request->user();
 
         if (! $user->perfilCompleto()) {
-            return view('perfil.completar-paciente');
+            $user->loadMissing('paciente.localidad');
+
+            return view(
+                'perfil.completar-paciente',
+                [
+                    'user' => $user,
+                    'paciente' => $user->paciente,
+                ]
+            );
         }
 
         $paciente = $user->paciente;
 
         $declaracion = $paciente
             ? $paciente->declaracionesSalud()
-            ->with('items')
-            ->orderByDesc('created_at')
-            ->orderByDesc('id')
-            ->first()
+                ->with('items')
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')
+                ->first()
             : null;
 
         return view(
@@ -106,8 +114,8 @@ class PerfilPacienteController extends Controller
                 ->with(
                     'error',
                     'No se pudo completar el perfil clínico inicial por un '
-                        . 'inconveniente técnico. Los cambios no fueron '
-                        . 'aplicados. Intente nuevamente.'
+                        .'inconveniente técnico. Los cambios no fueron '
+                        .'aplicados. Intente nuevamente.'
                 );
         }
 
@@ -120,7 +128,7 @@ class PerfilPacienteController extends Controller
                 ->with(
                     'success',
                     $mensajeExito
-                        . ' Verifique su correo electrónico para continuar.'
+                        .' Verifique su correo electrónico para continuar.'
                 );
         }
 

@@ -59,11 +59,13 @@ final class CompletarPerfilClinicoInicialAction
             ]);
 
             $paciente->update([
-                'direccion' => $data['direccion'],
-                'contacto_emergencia_nombre' =>
-                $data['contacto_emergencia_nombre'],
-                'contacto_emergencia_telefono' =>
-                $data['contacto_emergencia_telefono'],
+                'localidad_id' => $data['localidad_id'],
+                'calle' => $data['calle'],
+                'altura_domicilio' => $data['altura_domicilio'],
+                'piso_departamento' => $data['piso_departamento'],
+                'referencia_domicilio' => $data['referencia_domicilio'],
+                'contacto_emergencia_nombre' => $data['contacto_emergencia_nombre'],
+                'contacto_emergencia_telefono' => $data['contacto_emergencia_telefono'],
             ]);
 
             $declaracion = DeclaracionSaludPaciente::create([
@@ -72,12 +74,9 @@ final class CompletarPerfilClinicoInicialAction
                 'peso_kg' => $data['peso_kg'],
                 'altura_cm' => $data['altura_cm'],
                 'ocupacion' => $data['ocupacion'],
-                'nivel_actividad_fisica' =>
-                $data['nivel_actividad_fisica'],
-                'detalle_actividad_fisica' =>
-                $data['detalle_actividad_fisica'],
-                'estado' =>
-                DeclaracionSaludPaciente::ESTADO_PENDIENTE_REVISION,
+                'nivel_actividad_fisica' => $data['nivel_actividad_fisica'],
+                'detalle_actividad_fisica' => $data['detalle_actividad_fisica'],
+                'estado' => DeclaracionSaludPaciente::ESTADO_PENDIENTE_REVISION,
             ]);
 
             $items = $this->construirItems($data);
@@ -91,8 +90,7 @@ final class CompletarPerfilClinicoInicialAction
                 modulo: 'Perfiles',
                 auditable: $declaracion,
                 valoresNuevos: [
-                    'estado' =>
-                    DeclaracionSaludPaciente::ESTADO_PENDIENTE_REVISION,
+                    'estado' => DeclaracionSaludPaciente::ESTADO_PENDIENTE_REVISION,
                 ],
                 actor: $usuario
             );

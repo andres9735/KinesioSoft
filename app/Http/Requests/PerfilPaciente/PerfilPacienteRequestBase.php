@@ -15,11 +15,12 @@ abstract class PerfilPacienteRequestBase extends FormRequest
 
     /**
      * Reglas correspondientes al paso 1:
-     * datos personales, contacto y emergencia.
+     * datos personales, domicilio, contacto y emergencia.
      */
     protected function reglasPaso1(): array
     {
         $userId = $this->user()?->getAuthIdentifier();
+        $provinciaId = $this->input('provincia_id');
 
         return [
             'dni' => [
@@ -52,10 +53,41 @@ abstract class PerfilPacienteRequestBase extends FormRequest
                 'regex:/^[0-9+\-\s()]+$/',
             ],
 
-            'direccion' => [
+            'provincia_id' => [
+                'required',
+                'integer',
+                Rule::exists('provincias', 'id'),
+            ],
+
+            'localidad_id' => [
+                'required',
+                'integer',
+                Rule::exists('localidades', 'id')
+                    ->where('provincia_id', $provinciaId),
+            ],
+
+            'calle' => [
                 'required',
                 'string',
-                'max:255',
+                'max:150',
+            ],
+
+            'altura_domicilio' => [
+                'required',
+                'string',
+                'max:30',
+            ],
+
+            'piso_departamento' => [
+                'nullable',
+                'string',
+                'max:50',
+            ],
+
+            'referencia_domicilio' => [
+                'nullable',
+                'string',
+                'max:500',
             ],
 
             'contacto_emergencia_nombre' => [
@@ -186,7 +218,10 @@ abstract class PerfilPacienteRequestBase extends FormRequest
         $camposTexto = [
             'dni',
             'telefono',
-            'direccion',
+            'calle',
+            'altura_domicilio',
+            'piso_departamento',
+            'referencia_domicilio',
             'contacto_emergencia_nombre',
             'contacto_emergencia_telefono',
             'objetivo_salud',
@@ -200,7 +235,23 @@ abstract class PerfilPacienteRequestBase extends FormRequest
             $valor = $this->input($campo);
 
             if (is_string($valor)) {
-                $normalizados[$campo] = trim($valor);
+                $valor = trim($valor);
+
+                if (
+                    $valor === ''
+                    && in_array(
+                        $campo,
+                        [
+                            'piso_departamento',
+                            'referencia_domicilio',
+                        ],
+                        true
+                    )
+                ) {
+                    $valor = null;
+                }
+
+                $normalizados[$campo] = $valor;
             }
         }
 
@@ -244,7 +295,7 @@ abstract class PerfilPacienteRequestBase extends FormRequest
             }
 
             $valoresNormalizados = array_map(
-                static fn($valor) => is_string($valor)
+                static fn ($valor) => is_string($valor)
                     ? trim($valor)
                     : $valor,
                 $valores
@@ -253,8 +304,7 @@ abstract class PerfilPacienteRequestBase extends FormRequest
             $normalizados[$campo] = array_values(
                 array_filter(
                     $valoresNormalizados,
-                    static fn($valor) =>
-                    ! is_string($valor)
+                    static fn ($valor) => ! is_string($valor)
                         || $valor !== ''
                 )
             );
@@ -283,7 +333,7 @@ abstract class PerfilPacienteRequestBase extends FormRequest
             if (
                 $validator->errors()->has($respuesta)
                 || $validator->errors()->has($items)
-                || $validator->errors()->has($items . '.*')
+                || $validator->errors()->has($items.'.*')
             ) {
                 continue;
             }
@@ -294,8 +344,7 @@ abstract class PerfilPacienteRequestBase extends FormRequest
                 $this->input($items, [])
             )
                 ->filter(
-                    static fn($valor) =>
-                    is_string($valor)
+                    static fn ($valor) => is_string($valor)
                         && trim($valor) !== ''
                 );
 

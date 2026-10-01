@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Enums\RoleEnum;
 use Database\Factories\UserFactory;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -13,7 +13,7 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, HasRoles;
+    use HasFactory, HasRoles, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -107,7 +107,9 @@ class User extends Authenticatable implements MustVerifyEmail
         }
 
         $tieneDatosAdministrativosCompletos =
-            trim((string) $paciente->direccion) !== ''
+            $paciente->localidad_id !== null
+            && trim((string) $paciente->calle) !== ''
+            && trim((string) $paciente->altura_domicilio) !== ''
             && trim((string) $paciente->contacto_emergencia_nombre) !== ''
             && trim((string) $paciente->contacto_emergencia_telefono) !== '';
 

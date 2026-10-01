@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Enums\RoleEnum;
+use App\Models\Localidad;
 use App\Models\Paciente;
+use App\Models\Provincia;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
@@ -14,6 +16,10 @@ class PerfilAuthorizationTest extends TestCase
 {
     use RefreshDatabase;
 
+    private Provincia $provincia;
+
+    private Localidad $localidad;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -23,6 +29,18 @@ class PerfilAuthorizationTest extends TestCase
         foreach (RoleEnum::cases() as $role) {
             Role::findOrCreate($role->value, 'web');
         }
+
+        $this->provincia = Provincia::create([
+            'georef_id' => '54',
+            'nombre' => 'Misiones',
+        ]);
+
+        $this->localidad = Localidad::create([
+            'georef_id' => '54098010',
+            'provincia_id' => $this->provincia->id,
+            'nombre' => 'Posadas',
+            'departamento_nombre' => 'Capital',
+        ]);
     }
 
     private function usuarioConRol(RoleEnum $role): User
@@ -66,7 +84,12 @@ class PerfilAuthorizationTest extends TestCase
             'fecha_nacimiento' => '2001-02-06',
             'sexo' => 'masculino',
             'telefono' => '3758-409036',
-            'direccion' => 'Av. Mitre 1234',
+            'provincia_id' => $this->provincia->id,
+            'localidad_id' => $this->localidad->id,
+            'calle' => 'Avenida Mitre',
+            'altura_domicilio' => '1234 A',
+            'piso_departamento' => '2 B',
+            'referencia_domicilio' => 'Frente a la plaza',
             'contacto_emergencia_nombre' => 'María Pérez',
             'contacto_emergencia_telefono' => '3764123456',
         ];
@@ -75,14 +98,12 @@ class PerfilAuthorizationTest extends TestCase
     private function datosPaso2PacienteValidos(): array
     {
         return [
-            'objetivo_salud' =>
-            'Mejorar movilidad y reducir molestias.',
+            'objetivo_salud' => 'Mejorar movilidad y reducir molestias.',
             'peso_kg' => 72.50,
             'altura_cm' => 175.00,
             'ocupacion' => 'Docente',
             'nivel_actividad_fisica' => 'MODERADO',
-            'detalle_actividad_fisica' =>
-            'Caminatas tres veces por semana.',
+            'detalle_actividad_fisica' => 'Caminatas tres veces por semana.',
 
             'antecedentes_respuesta' => 'si',
             'antecedentes' => [
@@ -279,7 +300,7 @@ class PerfilAuthorizationTest extends TestCase
         $response->assertSessionHas(
             'success',
             'Perfil clínico inicial completado correctamente. '
-                . 'Verifique su correo electrónico para continuar.'
+                .'Verifique su correo electrónico para continuar.'
         );
 
         $this->assertNull(

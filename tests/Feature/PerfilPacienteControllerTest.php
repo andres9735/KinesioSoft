@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\Enums\RoleEnum;
 use App\Models\DeclaracionSaludPaciente;
+use App\Models\Localidad;
 use App\Models\Paciente;
+use App\Models\Provincia;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +20,10 @@ class PerfilPacienteControllerTest extends TestCase
 {
     use RefreshDatabase;
 
+    private Provincia $provincia;
+
+    private Localidad $localidad;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -25,6 +31,18 @@ class PerfilPacienteControllerTest extends TestCase
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
         Role::findOrCreate(RoleEnum::PACIENTE->value, 'web');
+
+        $this->provincia = Provincia::create([
+            'georef_id' => '54',
+            'nombre' => 'Misiones',
+        ]);
+
+        $this->localidad = Localidad::create([
+            'georef_id' => '54098010',
+            'provincia_id' => $this->provincia->id,
+            'nombre' => 'Posadas',
+            'departamento_nombre' => 'Capital',
+        ]);
     }
 
     private function pacienteIncompleto(): User
@@ -62,6 +80,9 @@ class PerfilPacienteControllerTest extends TestCase
         $paciente = Paciente::create([
             'user_id' => $user->id,
             'direccion' => 'Av. Mitre 1234',
+            'localidad_id' => $this->localidad->id,
+            'calle' => 'Avenida Mitre',
+            'altura_domicilio' => '1234',
             'contacto_emergencia_nombre' => 'María Pérez',
             'contacto_emergencia_telefono' => '3764123457',
             'activo' => true,
@@ -74,8 +95,7 @@ class PerfilPacienteControllerTest extends TestCase
             'altura_cm' => 175.00,
             'ocupacion' => 'Docente',
             'nivel_actividad_fisica' => 'MODERADO',
-            'detalle_actividad_fisica' =>
-            'Caminatas tres veces por semana.',
+            'detalle_actividad_fisica' => 'Caminatas tres veces por semana.',
             'estado' => 'PENDIENTE_REVISION',
         ]);
 
@@ -96,18 +116,21 @@ class PerfilPacienteControllerTest extends TestCase
                 'sexo' => 'masculino',
                 'telefono' => '3758-409036',
 
-                'direccion' => 'Av. Mitre 1234',
+                'provincia_id' => $this->provincia->id,
+                'localidad_id' => $this->localidad->id,
+                'calle' => 'Avenida Mitre',
+                'altura_domicilio' => '1234 A',
+                'piso_departamento' => '2 B',
+                'referencia_domicilio' => 'Frente a la plaza',
                 'contacto_emergencia_nombre' => 'María Pérez',
                 'contacto_emergencia_telefono' => '3764123456',
 
-                'objetivo_salud' =>
-                'Mejorar movilidad y reducir molestias.',
+                'objetivo_salud' => 'Mejorar movilidad y reducir molestias.',
                 'peso_kg' => 72.50,
                 'altura_cm' => 175.00,
                 'ocupacion' => 'Docente',
                 'nivel_actividad_fisica' => 'MODERADO',
-                'detalle_actividad_fisica' =>
-                'Caminatas tres veces por semana.',
+                'detalle_actividad_fisica' => 'Caminatas tres veces por semana.',
 
                 'antecedentes_respuesta' => 'si',
                 'antecedentes' => [
@@ -149,13 +172,376 @@ class PerfilPacienteControllerTest extends TestCase
         );
     }
 
+    private function htmlNormalizado(TestResponse $response): string
+    {
+        return str_replace(
+            '\\/',
+            '/',
+            html_entity_decode($response->getContent())
+        );
+    }
+
+    private function assertCampoTieneMaxlength(
+        string $html,
+        string $elemento,
+        string $nombre,
+        int $maxlength
+    ): void {
+        $this->assertMatchesRegularExpression(
+            sprintf(
+                '/<%s\b[\s\S]*?name="%s"[\s\S]{0,2000}?maxlength="%d"/',
+                preg_quote($elemento, '/'),
+                preg_quote($nombre, '/'),
+                $maxlength
+            ),
+            $html
+        );
+    }
+
     public function test_paciente_can_view_completar_perfil_screen(): void
     {
         $user = $this->pacienteIncompleto();
 
         $response = $this->actingAs($user)->get(route('perfil.completar'));
 
+        $response
+            ->assertOk()
+            ->assertSee('name="provincia_id"', false)
+            ->assertSee('name="localidad_id"', false)
+            ->assertSee('name="calle"', false)
+            ->assertSee('name="altura_domicilio"', false)
+            ->assertSee('name="piso_departamento"', false)
+            ->assertSee('name="referencia_domicilio"', false)
+            ->assertDontSee('name="direccion"', false)
+            ->assertDontSee('name="calle_id"', false);
+
+        $html = $this->htmlNormalizado($response);
+
+        $this->assertCampoTieneMaxlength($html, 'input', 'calle', 150);
+        $this->assertCampoTieneMaxlength(
+            $html,
+            'input',
+            'altura_domicilio',
+            30
+        );
+        $this->assertCampoTieneMaxlength(
+            $html,
+            'input',
+            'piso_departamento',
+            50
+        );
+        $this->assertCampoTieneMaxlength(
+            $html,
+            'textarea',
+            'referencia_domicilio',
+            500
+        );
+
+        $this->assertStringContainsString(
+            route('geografia.provincias.index'),
+            $html
+        );
+        $this->assertStringContainsString(
+            route('geografia.localidades.index', [
+                'provincia' => '__ID__',
+            ]),
+            $html
+        );
+        $this->assertStringContainsString(
+            route('geografia.calles.index', [
+                'localidad' => '__ID__',
+            ]),
+            $html
+        );
+    }
+
+    public function test_health_answers_start_without_any_selection(): void
+    {
+        $user = $this->pacienteIncompleto();
+
+        $response = $this->actingAs($user)->get(route('perfil.completar'));
+        $html = $this->htmlNormalizado($response);
+
         $response->assertOk();
+
+        foreach (
+            [
+                'antecedentes_respuesta' => 'antecedentesRespuesta',
+                'cirugias_respuesta' => 'cirugiasRespuesta',
+                'alergias_respuesta' => 'alergiasRespuesta',
+                'medicacion_respuesta' => 'medicacionRespuesta',
+            ] as $campo => $propiedad
+        ) {
+            $this->assertMatchesRegularExpression(
+                '/'.preg_quote($propiedad, '/').':\s*null/',
+                $html
+            );
+            $this->assertDoesNotMatchRegularExpression(
+                '/<input(?=[^>]*name="'.preg_quote($campo, '/').'"\s)[^>]*\schecked(?:\s|>)/',
+                $html
+            );
+            $this->assertStringContainsString(
+                "erroresDe('{$campo}')",
+                $html
+            );
+        }
+
+        $this->assertStringContainsString(
+            'x-text="textoRespuesta(antecedentesRespuesta)"',
+            $html
+        );
+        $this->assertStringContainsString(
+            "return 'No informado';",
+            $html
+        );
+    }
+
+    #[DataProvider('respuestasSaludParaOldInput')]
+    public function test_old_input_restores_explicit_health_answer(
+        string $campo,
+        string $propiedad,
+        string $respuesta
+    ): void {
+        $user = $this->pacienteIncompleto();
+
+        $response = $this
+            ->withSession([
+                '_old_input' => [
+                    $campo => $respuesta,
+                ],
+            ])
+            ->actingAs($user)
+            ->get(route('perfil.completar'));
+
+        $response->assertOk();
+
+        $this->assertMatchesRegularExpression(
+            '/'.preg_quote($propiedad, '/').':\s*[\'"]'.preg_quote($respuesta, '/').'[\'"]/',
+            $this->htmlNormalizado($response)
+        );
+    }
+
+    public static function respuestasSaludParaOldInput(): array
+    {
+        return [
+            'antecedentes sí' => [
+                'antecedentes_respuesta',
+                'antecedentesRespuesta',
+                'si',
+            ],
+            'antecedentes no' => [
+                'antecedentes_respuesta',
+                'antecedentesRespuesta',
+                'no',
+            ],
+            'cirugías sí' => [
+                'cirugias_respuesta',
+                'cirugiasRespuesta',
+                'si',
+            ],
+            'cirugías no' => [
+                'cirugias_respuesta',
+                'cirugiasRespuesta',
+                'no',
+            ],
+            'alergias sí' => [
+                'alergias_respuesta',
+                'alergiasRespuesta',
+                'si',
+            ],
+            'alergias no' => [
+                'alergias_respuesta',
+                'alergiasRespuesta',
+                'no',
+            ],
+            'medicación sí' => [
+                'medicacion_respuesta',
+                'medicacionRespuesta',
+                'si',
+            ],
+            'medicación no' => [
+                'medicacion_respuesta',
+                'medicacionRespuesta',
+                'no',
+            ],
+        ];
+    }
+
+    public function test_form_includes_persisted_structured_address_as_initial_state(): void
+    {
+        $user = $this->pacienteIncompleto();
+
+        $user->paciente->update([
+            'direccion' => 'Dirección histórica que no debe usarse',
+            'localidad_id' => $this->localidad->id,
+            'calle' => 'Calle Persistida',
+            'altura_domicilio' => '321 B',
+            'piso_departamento' => '4 C',
+            'referencia_domicilio' => 'Referencia persistida',
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->get(route('perfil.completar'));
+
+        $html = $this->htmlNormalizado($response);
+
+        $response->assertOk();
+        $this->assertMatchesRegularExpression(
+            '/provinciaIdInicial:\s*'.$this->provincia->id.'/',
+            $html
+        );
+        $this->assertMatchesRegularExpression(
+            '/localidadIdInicial:\s*'.$this->localidad->id.'/',
+            $html
+        );
+        $this->assertStringContainsString(
+            "calleInicial: 'Calle Persistida'",
+            $html
+        );
+        $this->assertStringContainsString(
+            "alturaDomicilioInicial: '321 B'",
+            $html
+        );
+        $this->assertStringContainsString(
+            "pisoDepartamentoInicial: '4 C'",
+            $html
+        );
+        $this->assertStringContainsString(
+            "referenciaDomicilioInicial: 'Referencia persistida'",
+            $html
+        );
+        $this->assertStringNotContainsString(
+            'Dirección histórica que no debe usarse',
+            $html
+        );
+    }
+
+    public function test_old_input_takes_precedence_over_persisted_address(): void
+    {
+        $user = $this->pacienteIncompleto();
+        $otraProvincia = Provincia::create([
+            'georef_id' => '18',
+            'nombre' => 'Corrientes',
+        ]);
+        $otraLocalidad = Localidad::create([
+            'georef_id' => '18070010',
+            'provincia_id' => $otraProvincia->id,
+            'nombre' => 'Goya',
+            'departamento_nombre' => 'Goya',
+        ]);
+
+        $user->paciente->update([
+            'localidad_id' => $this->localidad->id,
+            'calle' => 'Calle Persistida',
+            'altura_domicilio' => '100',
+            'piso_departamento' => '1 A',
+            'referencia_domicilio' => 'Referencia persistida',
+        ]);
+
+        $response = $this
+            ->withSession([
+                '_old_input' => [
+                    'provincia_id' => (string) $otraProvincia->id,
+                    'localidad_id' => (string) $otraLocalidad->id,
+                    'calle' => 'Calle Old',
+                    'altura_domicilio' => '200 A',
+                    'piso_departamento' => '2 B',
+                    'referencia_domicilio' => 'Referencia old',
+                ],
+            ])
+            ->actingAs($user)
+            ->get(route('perfil.completar'));
+
+        $html = $this->htmlNormalizado($response);
+
+        $response->assertOk();
+        $this->assertStringContainsString(
+            "provinciaIdInicial: '".$otraProvincia->id."'",
+            $html
+        );
+        $this->assertStringContainsString(
+            "localidadIdInicial: '".$otraLocalidad->id."'",
+            $html
+        );
+        $this->assertStringContainsString("calleInicial: 'Calle Old'", $html);
+        $this->assertStringContainsString(
+            "alturaDomicilioInicial: '200 A'",
+            $html
+        );
+        $this->assertStringContainsString(
+            "pisoDepartamentoInicial: '2 B'",
+            $html
+        );
+        $this->assertStringContainsString(
+            "referenciaDomicilioInicial: 'Referencia old'",
+            $html
+        );
+        $this->assertStringNotContainsString('Calle Persistida', $html);
+        $this->assertStringNotContainsString('Referencia persistida', $html);
+    }
+
+    public function test_empty_old_province_is_not_inferred_from_old_locality(): void
+    {
+        $user = $this->pacienteIncompleto();
+
+        $user->paciente->update([
+            'localidad_id' => $this->localidad->id,
+            'calle' => 'Calle Persistida',
+            'altura_domicilio' => '100',
+        ]);
+
+        $response = $this
+            ->withSession([
+                '_old_input' => [
+                    'provincia_id' => '',
+                    'localidad_id' => '999999',
+                    'calle' => '',
+                    'altura_domicilio' => '',
+                    'piso_departamento' => '',
+                    'referencia_domicilio' => '',
+                ],
+            ])
+            ->actingAs($user)
+            ->get(route('perfil.completar'));
+
+        $html = $this->htmlNormalizado($response);
+
+        $response->assertOk();
+        $this->assertStringContainsString("provinciaIdInicial: ''", $html);
+        $this->assertStringContainsString(
+            "localidadIdInicial: '999999'",
+            $html
+        );
+        $this->assertStringContainsString("calleInicial: ''", $html);
+        $this->assertStringContainsString(
+            "alturaDomicilioInicial: ''",
+            $html
+        );
+        $this->assertStringNotContainsString('Calle Persistida', $html);
+    }
+
+    public function test_legacy_address_does_not_prefill_structured_address(): void
+    {
+        $user = $this->pacienteIncompleto();
+
+        $user->paciente->update([
+            'direccion' => 'Av. Legacy 999',
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->get(route('perfil.completar'));
+
+        $html = $this->htmlNormalizado($response);
+
+        $response->assertOk();
+        $this->assertStringNotContainsString('Av. Legacy 999', $html);
+        $this->assertStringContainsString("calleInicial: ''", $html);
+        $this->assertStringContainsString(
+            "alturaDomicilioInicial: ''",
+            $html
+        );
     }
 
     public function test_step_1_validation_accepts_valid_data_without_persisting(): void
@@ -171,7 +557,12 @@ class PerfilPacienteControllerTest extends TestCase
                     'fecha_nacimiento' => '2001-02-06',
                     'sexo' => 'masculino',
                     'telefono' => '3758-409036',
-                    'direccion' => 'Av. Mitre 1234',
+                    'provincia_id' => $this->provincia->id,
+                    'localidad_id' => $this->localidad->id,
+                    'calle' => 'Pasaje Los Lapachos',
+                    'altura_domicilio' => '1234 A',
+                    'piso_departamento' => '2 B',
+                    'referencia_domicilio' => 'Frente a la plaza',
                     'contacto_emergencia_nombre' => 'María Pérez',
                     'contacto_emergencia_telefono' => '3764123456',
                 ]
@@ -188,6 +579,11 @@ class PerfilPacienteControllerTest extends TestCase
         $this->assertNull($user->telefono);
 
         $this->assertNull($user->paciente->direccion);
+        $this->assertNull($user->paciente->localidad_id);
+        $this->assertNull($user->paciente->calle);
+        $this->assertNull($user->paciente->altura_domicilio);
+        $this->assertNull($user->paciente->piso_departamento);
+        $this->assertNull($user->paciente->referencia_domicilio);
         $this->assertNull(
             $user->paciente->contacto_emergencia_nombre
         );
@@ -221,7 +617,10 @@ class PerfilPacienteControllerTest extends TestCase
                         ->format('Y-m-d'),
                     'sexo' => 'invalido',
                     'telefono' => 'telefono!',
-                    'direccion' => '',
+                    'provincia_id' => '',
+                    'localidad_id' => '',
+                    'calle' => '',
+                    'altura_domicilio' => '',
                     'contacto_emergencia_nombre' => '',
                     'contacto_emergencia_telefono' => 'telefono!',
                 ]
@@ -234,10 +633,40 @@ class PerfilPacienteControllerTest extends TestCase
                 'fecha_nacimiento',
                 'sexo',
                 'telefono',
-                'direccion',
+                'provincia_id',
+                'localidad_id',
+                'calle',
+                'altura_domicilio',
                 'contacto_emergencia_nombre',
                 'contacto_emergencia_telefono',
             ]);
+    }
+
+    public function test_structured_address_errors_reopen_step_one(): void
+    {
+        $user = $this->pacienteIncompleto();
+
+        $this
+            ->from(route('perfil.completar'))
+            ->actingAs($user)
+            ->post(
+                route('perfil.actualizar'),
+                $this->datosPerfilClinicoValido([
+                    'provincia_id' => '',
+                    'localidad_id' => '',
+                ])
+            )
+            ->assertRedirect(route('perfil.completar'))
+            ->assertSessionHasErrors([
+                'provincia_id',
+                'localidad_id',
+            ]);
+
+        $this
+            ->actingAs($user)
+            ->get(route('perfil.completar'))
+            ->assertOk()
+            ->assertSee('paso: 1', false);
     }
 
     public function test_step_validation_returns_readable_spanish_message(): void
@@ -278,14 +707,12 @@ class PerfilPacienteControllerTest extends TestCase
             ->postJson(
                 route('perfil.validar-paso-2'),
                 [
-                    'objetivo_salud' =>
-                    'Mejorar movilidad y reducir molestias.',
+                    'objetivo_salud' => 'Mejorar movilidad y reducir molestias.',
                     'peso_kg' => 72.50,
                     'altura_cm' => 175.00,
                     'ocupacion' => 'Docente',
                     'nivel_actividad_fisica' => 'MODERADO',
-                    'detalle_actividad_fisica' =>
-                    'Caminatas tres veces por semana.',
+                    'detalle_actividad_fisica' => 'Caminatas tres veces por semana.',
 
                     'antecedentes_respuesta' => 'si',
                     'antecedentes' => [
@@ -338,8 +765,7 @@ class PerfilPacienteControllerTest extends TestCase
                     'altura_cm' => 175.00,
                     'ocupacion' => 'Docente',
                     'nivel_actividad_fisica' => 'MODERADO',
-                    'detalle_actividad_fisica' =>
-                    'Caminatas tres veces por semana.',
+                    'detalle_actividad_fisica' => 'Caminatas tres veces por semana.',
 
                     'antecedentes_respuesta' => 'si',
                     'antecedentes' => [
@@ -383,8 +809,7 @@ class PerfilPacienteControllerTest extends TestCase
                     'altura_cm' => 175.00,
                     'ocupacion' => 'Docente',
                     'nivel_actividad_fisica' => 'MODERADO',
-                    'detalle_actividad_fisica' =>
-                    'Caminatas tres veces por semana.',
+                    'detalle_actividad_fisica' => 'Caminatas tres veces por semana.',
 
                     'antecedentes_respuesta' => 'no',
                     'antecedentes' => [
@@ -444,9 +869,17 @@ class PerfilPacienteControllerTest extends TestCase
             ->where('user_id', $user->id)
             ->sole();
 
+        $this->assertNull($paciente->direccion);
         $this->assertSame(
-            'Av. Mitre 1234',
-            $paciente->direccion
+            $this->localidad->id,
+            $paciente->localidad_id
+        );
+        $this->assertSame('Avenida Mitre', $paciente->calle);
+        $this->assertSame('1234 A', $paciente->altura_domicilio);
+        $this->assertSame('2 B', $paciente->piso_departamento);
+        $this->assertSame(
+            'Frente a la plaza',
+            $paciente->referencia_domicilio
         );
 
         $this->assertSame(
@@ -529,10 +962,8 @@ class PerfilPacienteControllerTest extends TestCase
             'altura_cm' => 170,
             'ocupacion' => 'Empleado',
             'nivel_actividad_fisica' => 'SEDENTARIO',
-            'detalle_actividad_fisica' =>
-            'Sin actividad física habitual.',
-            'estado' =>
-            DeclaracionSaludPaciente::ESTADO_PENDIENTE_REVISION,
+            'detalle_actividad_fisica' => 'Sin actividad física habitual.',
+            'estado' => DeclaracionSaludPaciente::ESTADO_PENDIENTE_REVISION,
         ]);
 
         $response = $this
@@ -632,8 +1063,8 @@ class PerfilPacienteControllerTest extends TestCase
         $response->assertSessionHas(
             'error',
             'No se pudo completar el perfil clínico inicial por un '
-                . 'inconveniente técnico. Los cambios no fueron '
-                . 'aplicados. Intente nuevamente.'
+                .'inconveniente técnico. Los cambios no fueron '
+                .'aplicados. Intente nuevamente.'
         );
 
         $response->assertSessionHasInput(
@@ -884,8 +1315,14 @@ class PerfilPacienteControllerTest extends TestCase
     public static function camposRequeridosRestantesUc15(): array
     {
         return [
-            'direccion' => [
-                'direccion',
+            'localidad' => [
+                'localidad_id',
+            ],
+            'calle' => [
+                'calle',
+            ],
+            'altura domicilio' => [
+                'altura_domicilio',
             ],
             'contacto emergencia nombre' => [
                 'contacto_emergencia_nombre',
@@ -925,7 +1362,6 @@ class PerfilPacienteControllerTest extends TestCase
             ],
         ];
     }
-
 
     #[DataProvider('valoresInvalidosAdicionalesUc15')]
     public function test_final_update_rejects_additional_invalid_values(
@@ -969,8 +1405,7 @@ class PerfilPacienteControllerTest extends TestCase
         return [
             'telefono emergencia formato invalido' => [
                 [
-                    'contacto_emergencia_telefono' =>
-                    'telefono-invalido!',
+                    'contacto_emergencia_telefono' => 'telefono-invalido!',
                 ],
                 'contacto_emergencia_telefono',
             ],
@@ -1327,8 +1762,7 @@ class PerfilPacienteControllerTest extends TestCase
             'declaraciones_salud_paciente',
             [
                 'paciente_id' => $user->paciente->id,
-                'estado' =>
-                DeclaracionSaludPaciente::ESTADO_PENDIENTE_REVISION,
+                'estado' => DeclaracionSaludPaciente::ESTADO_PENDIENTE_REVISION,
             ]
         );
     }

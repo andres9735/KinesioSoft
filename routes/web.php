@@ -8,6 +8,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DiagnosticoClinicoController;
 use App\Http\Controllers\EjercicioDomiciliarioController;
 use App\Http\Controllers\EspecialidadKinesiologiaController;
+use App\Http\Controllers\GeografiaController;
 use App\Http\Controllers\JurisdiccionController;
 use App\Http\Controllers\MisMatriculasProfesionalesController;
 use App\Http\Controllers\PerfilKinesiologaController;
@@ -59,6 +60,28 @@ Route::middleware(['auth', 'perfil.paciente'])->group(function () {
         [PerfilPacienteController::class, 'update']
     )->name('perfil.actualizar');
 });
+
+Route::middleware(['auth', 'perfil.paciente'])
+    ->prefix('geografia')
+    ->name('geografia.')
+    ->group(function () {
+        Route::get('/provincias', [GeografiaController::class, 'provincias'])
+            ->name('provincias.index');
+
+        Route::get(
+            '/provincias/{provincia}/localidades',
+            [GeografiaController::class, 'localidades']
+        )
+            ->whereNumber('provincia')
+            ->name('localidades.index');
+
+        Route::get(
+            '/localidades/{localidad}/calles',
+            [GeografiaController::class, 'calles']
+        )
+            ->whereNumber('localidad')
+            ->name('calles.index');
+    });
 
 /*
 |--------------------------------------------------------------------------

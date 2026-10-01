@@ -4,9 +4,12 @@ namespace Tests\Feature\Models;
 
 use App\Enums\RoleEnum;
 use App\Models\DeclaracionSaludPaciente;
+use App\Models\Localidad;
 use App\Models\Paciente;
+use App\Models\Provincia;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -55,13 +58,79 @@ class UserPerfilPacienteCompletoTest extends TestCase
         $this->assertFalse($user->perfilCompleto());
     }
 
-    public function test_paciente_without_direccion_is_incomplete(): void
+    public function test_integral_patient_profile_is_complete_without_legacy_address_or_optional_address_fields(): void
+    {
+        $user = $this->crearPacienteCompleto();
+
+        $this->assertNull($user->paciente->direccion);
+        $this->assertNull($user->paciente->piso_departamento);
+        $this->assertNull($user->paciente->referencia_domicilio);
+        $this->assertTrue($user->tienePerfilPacienteCompleto());
+        $this->assertTrue($user->perfilCompleto());
+    }
+
+    public function test_legacy_address_does_not_replace_locality(): void
     {
         $user = $this->crearPacienteCompleto(
-            paciente: ['direccion' => null]
+            paciente: [
+                'direccion' => 'Dirección histórica',
+                'localidad_id' => null,
+            ]
         );
 
+        $this->assertFalse($user->tienePerfilPacienteCompleto());
         $this->assertFalse($user->perfilCompleto());
+    }
+
+    public function test_legacy_address_does_not_replace_street(): void
+    {
+        $user = $this->crearPacienteCompleto(
+            paciente: [
+                'direccion' => 'Dirección histórica',
+                'calle' => null,
+            ]
+        );
+
+        $this->assertFalse($user->tienePerfilPacienteCompleto());
+        $this->assertFalse($user->perfilCompleto());
+    }
+
+    public function test_legacy_address_does_not_replace_street_number(): void
+    {
+        $user = $this->crearPacienteCompleto(
+            paciente: [
+                'direccion' => 'Dirección histórica',
+                'altura_domicilio' => null,
+            ]
+        );
+
+        $this->assertFalse($user->tienePerfilPacienteCompleto());
+        $this->assertFalse($user->perfilCompleto());
+    }
+
+    #[DataProvider('emptyStructuredAddressTexts')]
+    public function test_empty_or_whitespace_structured_address_text_is_incomplete(
+        string $field,
+        string $value
+    ): void {
+        $user = $this->crearPacienteCompleto(
+            paciente: [
+                $field => $value,
+            ]
+        );
+
+        $this->assertFalse($user->tienePerfilPacienteCompleto());
+        $this->assertFalse($user->perfilCompleto());
+    }
+
+    public static function emptyStructuredAddressTexts(): array
+    {
+        return [
+            'empty street' => ['calle', ''],
+            'whitespace street' => ['calle', '   '],
+            'empty street number' => ['altura_domicilio', ''],
+            'whitespace street number' => ['altura_domicilio', '   '],
+        ];
     }
 
     public function test_paciente_without_emergency_contact_name_is_incomplete(): void
@@ -142,7 +211,12 @@ class UserPerfilPacienteCompletoTest extends TestCase
 
         $pacienteModel = Paciente::create(array_merge([
             'user_id' => $userModel->id,
-            'direccion' => 'Av. Mitre 1234',
+            'direccion' => null,
+            'localidad_id' => $this->crearLocalidad()->id,
+            'calle' => 'Avenida Mitre',
+            'altura_domicilio' => '1234 A',
+            'piso_departamento' => null,
+            'referencia_domicilio' => null,
             'contacto_emergencia_nombre' => 'María Pérez',
             'contacto_emergencia_telefono' => '3764123457',
             'activo' => true,
@@ -156,12 +230,26 @@ class UserPerfilPacienteCompletoTest extends TestCase
                 'altura_cm' => 175.00,
                 'ocupacion' => 'Docente',
                 'nivel_actividad_fisica' => 'MODERADO',
-                'detalle_actividad_fisica' =>
-                    'Caminatas tres veces por semana.',
+                'detalle_actividad_fisica' => 'Caminatas tres veces por semana.',
                 'estado' => $estadoDeclaracion,
             ]);
         }
 
         return $userModel->fresh();
+    }
+
+    private function crearLocalidad(): Localidad
+    {
+        $provincia = Provincia::create([
+            'georef_id' => '54',
+            'nombre' => 'Misiones',
+        ]);
+
+        return Localidad::create([
+            'georef_id' => '54098010',
+            'provincia_id' => $provincia->id,
+            'nombre' => 'Posadas',
+            'departamento_nombre' => 'Capital',
+        ]);
     }
 }

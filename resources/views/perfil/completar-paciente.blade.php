@@ -1,27 +1,34 @@
 <x-app-layout>
     @php
-        $user = auth()->user();
-        $paciente = $user->paciente;
+        $tieneOldGeografico = session()->hasOldInput('provincia_id')
+            || session()->hasOldInput('localidad_id');
 
-        $antecedentesRespuesta = old(
-            'antecedentes_respuesta',
-            'no'
+        $provinciaIdInicial = $tieneOldGeografico
+            ? old('provincia_id')
+            : $paciente?->localidad?->provincia_id;
+
+        $localidadIdInicial = $tieneOldGeografico
+            ? old('localidad_id')
+            : $paciente?->localidad_id;
+
+        $calleInicial = old('calle', $paciente?->calle ?? '');
+        $alturaDomicilioInicial = old(
+            'altura_domicilio',
+            $paciente?->altura_domicilio ?? ''
+        );
+        $pisoDepartamentoInicial = old(
+            'piso_departamento',
+            $paciente?->piso_departamento ?? ''
+        );
+        $referenciaDomicilioInicial = old(
+            'referencia_domicilio',
+            $paciente?->referencia_domicilio ?? ''
         );
 
-        $cirugiasRespuesta = old(
-            'cirugias_respuesta',
-            'no'
-        );
-
-        $alergiasRespuesta = old(
-            'alergias_respuesta',
-            'no'
-        );
-
-        $medicacionRespuesta = old(
-            'medicacion_respuesta',
-            'no'
-        );
+        $antecedentesRespuesta = old('antecedentes_respuesta');
+        $cirugiasRespuesta = old('cirugias_respuesta');
+        $alergiasRespuesta = old('alergias_respuesta');
+        $medicacionRespuesta = old('medicacion_respuesta');
 
         $antecedentesIniciales = array_values(
             old('antecedentes', [])
@@ -72,7 +79,12 @@
             'fecha_nacimiento',
             'sexo',
             'telefono',
-            'direccion',
+            'provincia_id',
+            'localidad_id',
+            'calle',
+            'altura_domicilio',
+            'piso_departamento',
+            'referencia_domicilio',
             'contacto_emergencia_nombre',
             'contacto_emergencia_telefono',
         ];
@@ -210,6 +222,18 @@
                     : '';
             },
 
+            textoOpcionSeleccionada(formulario, nombre) {
+                const control = formulario.elements.namedItem(nombre);
+
+                if (! control || ! control.value) {
+                    return '';
+                }
+
+                return control.selectedOptions?.[0]
+                    ?.textContent
+                    ?.trim() ?? '';
+            },
+
             prepararResumen() {
                 const formulario = document.getElementById(
                     'perfil-paciente-form'
@@ -233,8 +257,30 @@
                         datos.get('telefono') ?? ''
                     ).trim(),
 
-                    direccion: String(
-                        datos.get('direccion') ?? ''
+                    provincia: this.textoOpcionSeleccionada(
+                        formulario,
+                        'provincia_id'
+                    ),
+
+                    ciudad: this.textoOpcionSeleccionada(
+                        formulario,
+                        'localidad_id'
+                    ),
+
+                    calle: String(
+                        datos.get('calle') ?? ''
+                    ).trim(),
+
+                    altura_domicilio: String(
+                        datos.get('altura_domicilio') ?? ''
+                    ).trim(),
+
+                    piso_departamento: String(
+                        datos.get('piso_departamento') ?? ''
+                    ).trim(),
+
+                    referencia_domicilio: String(
+                        datos.get('referencia_domicilio') ?? ''
                     ).trim(),
 
                     contacto_emergencia_nombre: String(
@@ -293,6 +339,30 @@
                 return valores[
                     this.resumen.nivel_actividad_fisica
                 ] ?? 'No informado';
+            },
+
+            textoRespuesta(respuesta) {
+                if (respuesta === 'si') {
+                    return 'Sí';
+                }
+
+                if (respuesta === 'no') {
+                    return 'No';
+                }
+
+                return 'No informado';
+            },
+
+            claseRespuesta(respuesta) {
+                if (respuesta === 'si') {
+                    return 'bg-amber-100 text-amber-800';
+                }
+
+                if (respuesta === 'no') {
+                    return 'bg-emerald-100 text-emerald-800';
+                }
+
+                return 'bg-slate-100 text-slate-600';
             },
 
             textoOValor(valor, sufijo = '') {
@@ -803,31 +873,457 @@
                                     />
                                 </div>
 
-                                {{-- Dirección --}}
-                                <div class="md:col-span-2">
-                                    <label
-                                        for="direccion"
-                                        class="block text-sm font-semibold text-slate-700"
-                                    >
-                                        Dirección
-                                        <span class="text-rose-500">*</span>
-                                    </label>
+                                {{-- Domicilio estructurado --}}
+                                <div
+                                    class="md:col-span-2"
+                                    x-data="domicilioPaciente({
+                                        urlProvincias: @js(route('geografia.provincias.index')),
+                                        urlLocalidadesTemplate: @js(route('geografia.localidades.index', ['provincia' => '__ID__'])),
+                                        urlCallesTemplate: @js(route('geografia.calles.index', ['localidad' => '__ID__'])),
+                                        provinciaIdInicial: @js($provinciaIdInicial),
+                                        localidadIdInicial: @js($localidadIdInicial),
+                                        calleInicial: @js($calleInicial),
+                                        alturaDomicilioInicial: @js($alturaDomicilioInicial),
+                                        pisoDepartamentoInicial: @js($pisoDepartamentoInicial),
+                                        referenciaDomicilioInicial: @js($referenciaDomicilioInicial)
+                                    })"
+                                >
+                                    <div class="mb-5 mt-2 border-b border-slate-200 pb-3">
+                                        <h3 class="text-base font-bold text-slate-900">
+                                            Domicilio
+                                        </h3>
 
-                                    <input
-                                        id="direccion"
-                                        name="direccion"
-                                        type="text"
-                                        value="{{ old('direccion', $paciente?->direccion) }}"
-                                        placeholder="Ej: Av. Mitre 1234"
-                                        required
-                                        autocomplete="street-address"
-                                        class="mt-2 block w-full rounded-xl border-slate-300 px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-indigo-500"
-                                    >
+                                        <p class="mt-1 text-sm text-slate-500">
+                                            Seleccione su ubicación e ingrese los datos de su domicilio.
+                                        </p>
+                                    </div>
 
-                                    <x-input-error
-                                        :messages="$errors->get('direccion')"
-                                        class="mt-2"
-                                    />
+                                    <div class="grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
+                                        {{-- Provincia --}}
+                                        <div>
+                                            <label
+                                                for="provincia_id"
+                                                class="block text-sm font-semibold text-slate-700"
+                                            >
+                                                Provincia
+                                                <span class="text-rose-500">*</span>
+                                            </label>
+
+                                            <select
+                                                id="provincia_id"
+                                                name="provincia_id"
+                                                x-model="provinciaId"
+                                                @change="onProvinciaChange()"
+                                                :disabled="cargandoProvincias || Boolean(errorProvincias) || provincias.length === 0"
+                                                :aria-invalid="(@js($errors->has('provincia_id')) || erroresDe('provincia_id').length > 0).toString()"
+                                                required
+                                                autocomplete="off"
+                                                class="mt-2 block w-full rounded-xl border-slate-300 px-4 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-indigo-500 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+                                            >
+                                                <option
+                                                    value=""
+                                                    x-text="placeholderProvincia()"
+                                                ></option>
+
+                                                <option
+                                                    x-show="provinciaId !== '' && ! provinciaSeleccionadaValida()"
+                                                    :value="provinciaId"
+                                                >
+                                                    Selección anterior no disponible
+                                                </option>
+
+                                                <template
+                                                    x-for="provincia in provincias"
+                                                    :key="provincia.id"
+                                                >
+                                                    <option
+                                                        :value="String(provincia.id)"
+                                                        x-text="provincia.nombre"
+                                                    ></option>
+                                                </template>
+                                            </select>
+
+                                            <p
+                                                x-show="cargandoProvincias"
+                                                x-cloak
+                                                class="mt-1.5 text-xs text-slate-500"
+                                                aria-live="polite"
+                                            >
+                                                Cargando provincias…
+                                            </p>
+
+                                            <div
+                                                x-show="errorProvincias"
+                                                x-cloak
+                                                class="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-rose-600"
+                                                aria-live="polite"
+                                            >
+                                                <span x-text="errorProvincias"></span>
+
+                                                <button
+                                                    type="button"
+                                                    @click="reintentarProvincias()"
+                                                    class="font-semibold text-indigo-600 hover:text-indigo-800"
+                                                >
+                                                    Reintentar
+                                                </button>
+                                            </div>
+
+                                            <x-input-error
+                                                :messages="$errors->get('provincia_id')"
+                                                class="mt-2"
+                                            />
+
+                                            <template
+                                                x-for="mensaje in erroresDe('provincia_id')"
+                                                :key="mensaje"
+                                            >
+                                                <p
+                                                    class="mt-2 text-sm text-red-600"
+                                                    x-text="mensaje"
+                                                ></p>
+                                            </template>
+                                        </div>
+
+                                        {{-- Ciudad --}}
+                                        <div>
+                                            <label
+                                                for="localidad_id"
+                                                class="block text-sm font-semibold text-slate-700"
+                                            >
+                                                Ciudad
+                                                <span class="text-rose-500">*</span>
+                                            </label>
+
+                                            <select
+                                                id="localidad_id"
+                                                name="localidad_id"
+                                                x-model="localidadId"
+                                                @change="onLocalidadChange()"
+                                                :disabled="! provinciaSeleccionadaValida() || cargandoLocalidades || Boolean(errorLocalidades) || localidades.length === 0"
+                                                :aria-invalid="(@js($errors->has('localidad_id')) || erroresDe('localidad_id').length > 0).toString()"
+                                                required
+                                                autocomplete="off"
+                                                class="mt-2 block w-full rounded-xl border-slate-300 px-4 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-indigo-500 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+                                            >
+                                                <option
+                                                    value=""
+                                                    x-text="placeholderLocalidad()"
+                                                ></option>
+
+                                                <option
+                                                    x-show="localidadId !== '' && ! localidadSeleccionadaValida()"
+                                                    :value="localidadId"
+                                                >
+                                                    Selección anterior no disponible
+                                                </option>
+
+                                                <template
+                                                    x-for="localidad in localidades"
+                                                    :key="localidad.id"
+                                                >
+                                                    <option
+                                                        :value="String(localidad.id)"
+                                                        x-text="localidad.etiqueta"
+                                                    ></option>
+                                                </template>
+                                            </select>
+
+                                            <p
+                                                x-show="cargandoLocalidades"
+                                                x-cloak
+                                                class="mt-1.5 text-xs text-slate-500"
+                                                aria-live="polite"
+                                            >
+                                                Cargando ciudades…
+                                            </p>
+
+                                            <div
+                                                x-show="errorLocalidades"
+                                                x-cloak
+                                                class="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-rose-600"
+                                                aria-live="polite"
+                                            >
+                                                <span x-text="errorLocalidades"></span>
+
+                                                <button
+                                                    type="button"
+                                                    @click="reintentarLocalidades()"
+                                                    class="font-semibold text-indigo-600 hover:text-indigo-800"
+                                                >
+                                                    Reintentar
+                                                </button>
+                                            </div>
+
+                                            <x-input-error
+                                                :messages="$errors->get('localidad_id')"
+                                                class="mt-2"
+                                            />
+
+                                            <template
+                                                x-for="mensaje in erroresDe('localidad_id')"
+                                                :key="mensaje"
+                                            >
+                                                <p
+                                                    class="mt-2 text-sm text-red-600"
+                                                    x-text="mensaje"
+                                                ></p>
+                                            </template>
+                                        </div>
+
+                                        {{-- Calle con autocomplete --}}
+                                        <div
+                                            class="relative"
+                                            @click.outside="cerrarSugerencias()"
+                                        >
+                                            <label
+                                                for="calle"
+                                                class="block text-sm font-semibold text-slate-700"
+                                            >
+                                                Calle
+                                                <span class="text-rose-500">*</span>
+                                            </label>
+
+                                            <div class="relative mt-2">
+                                                <input
+                                                    id="calle"
+                                                    name="calle"
+                                                    type="text"
+                                                    x-ref="calle"
+                                                    x-model="calle"
+                                                    @input="onCalleInput()"
+                                                    @focus="abrirSugerencias()"
+                                                    @keydown.arrow-down="if (mostrarSugerencias && sugerenciasCalles.length > 0) { $event.preventDefault(); moverSugerencia(1); }"
+                                                    @keydown.arrow-up="if (mostrarSugerencias && sugerenciasCalles.length > 0) { $event.preventDefault(); moverSugerencia(-1); }"
+                                                    @keydown.enter="if (seleccionarSugerenciaActiva()) { $event.preventDefault(); }"
+                                                    @keydown.escape="cerrarSugerencias()"
+                                                    @keydown.tab="cerrarSugerencias()"
+                                                    :disabled="! localidadSeleccionadaValida()"
+                                                    :aria-expanded="mostrarSugerencias.toString()"
+                                                    :aria-activedescendant="idSugerenciaActiva()"
+                                                    :aria-invalid="(@js($errors->has('calle')) || erroresDe('calle').length > 0).toString()"
+                                                    aria-autocomplete="list"
+                                                    aria-controls="calle-sugerencias"
+                                                    role="combobox"
+                                                    maxlength="150"
+                                                    placeholder="Ej: Avenida Mitre"
+                                                    required
+                                                    autocomplete="off"
+                                                    class="block w-full rounded-xl border-slate-300 px-4 py-2.5 pr-10 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+                                                >
+
+                                                <svg
+                                                    x-show="buscandoCalles"
+                                                    x-cloak
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    class="absolute inset-y-0 right-3 my-auto h-5 w-5 animate-spin text-indigo-600"
+                                                    aria-hidden="true"
+                                                >
+                                                    <circle
+                                                        class="opacity-25"
+                                                        cx="12"
+                                                        cy="12"
+                                                        r="9"
+                                                        stroke="currentColor"
+                                                        stroke-width="3"
+                                                    ></circle>
+
+                                                    <path
+                                                        class="opacity-75"
+                                                        fill="currentColor"
+                                                        d="M12 3a9 9 0 00-9 9H0A12 12 0 0112 0v3z"
+                                                    ></path>
+                                                </svg>
+
+                                                <ul
+                                                    id="calle-sugerencias"
+                                                    x-show="mostrarSugerencias"
+                                                    x-cloak
+                                                    role="listbox"
+                                                    class="absolute left-0 right-0 z-30 mt-1 max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+                                                >
+                                                    <template
+                                                        x-for="(sugerencia, indice) in sugerenciasCalles"
+                                                        :key="indice"
+                                                    >
+                                                        <li
+                                                            :id="'calle-sugerencia-' + indice"
+                                                            role="option"
+                                                            :aria-selected="(indiceSugerenciaActiva === indice).toString()"
+                                                        >
+                                                            <button
+                                                                type="button"
+                                                                tabindex="-1"
+                                                                @mouseenter="indiceSugerenciaActiva = indice"
+                                                                @mousedown.prevent
+                                                                @click="seleccionarSugerencia(sugerencia)"
+                                                                :class="indiceSugerenciaActiva === indice
+                                                                    ? 'bg-indigo-50 text-indigo-900'
+                                                                    : 'text-slate-700'"
+                                                                class="block w-full px-4 py-2.5 text-left text-sm transition hover:bg-indigo-50 hover:text-indigo-900"
+                                                                x-text="sugerencia.nombre"
+                                                            ></button>
+                                                        </li>
+                                                    </template>
+                                                </ul>
+                                            </div>
+
+                                            <p
+                                                x-show="buscandoCalles"
+                                                x-cloak
+                                                class="mt-1.5 text-xs text-slate-500"
+                                                aria-live="polite"
+                                            >
+                                                Buscando calles…
+                                            </p>
+
+                                            <p
+                                                x-show="busquedaSinResultados"
+                                                x-cloak
+                                                class="mt-1.5 text-xs text-slate-500"
+                                                aria-live="polite"
+                                            >
+                                                No encontramos coincidencias. Podés continuar con la calle ingresada.
+                                            </p>
+
+                                            <p
+                                                x-show="errorCalles"
+                                                x-cloak
+                                                class="mt-1.5 text-xs text-amber-700"
+                                                aria-live="polite"
+                                                x-text="errorCalles"
+                                            ></p>
+
+                                            <x-input-error
+                                                :messages="$errors->get('calle')"
+                                                class="mt-2"
+                                            />
+
+                                            <template
+                                                x-for="mensaje in erroresDe('calle')"
+                                                :key="mensaje"
+                                            >
+                                                <p
+                                                    class="mt-2 text-sm text-red-600"
+                                                    x-text="mensaje"
+                                                ></p>
+                                            </template>
+                                        </div>
+
+                                        {{-- Altura --}}
+                                        <div>
+                                            <label
+                                                for="altura_domicilio"
+                                                class="block text-sm font-semibold text-slate-700"
+                                            >
+                                                Altura
+                                                <span class="text-rose-500">*</span>
+                                            </label>
+
+                                            <input
+                                                id="altura_domicilio"
+                                                name="altura_domicilio"
+                                                type="text"
+                                                x-model="alturaDomicilio"
+                                                :aria-invalid="(@js($errors->has('altura_domicilio')) || erroresDe('altura_domicilio').length > 0).toString()"
+                                                maxlength="30"
+                                                placeholder="Ej: 1234 A o S/N"
+                                                required
+                                                autocomplete="off"
+                                                class="mt-2 block w-full rounded-xl border-slate-300 px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-indigo-500"
+                                            >
+
+                                            <x-input-error
+                                                :messages="$errors->get('altura_domicilio')"
+                                                class="mt-2"
+                                            />
+
+                                            <template
+                                                x-for="mensaje in erroresDe('altura_domicilio')"
+                                                :key="mensaje"
+                                            >
+                                                <p
+                                                    class="mt-2 text-sm text-red-600"
+                                                    x-text="mensaje"
+                                                ></p>
+                                            </template>
+                                        </div>
+
+                                        {{-- Piso / Departamento --}}
+                                        <div>
+                                            <label
+                                                for="piso_departamento"
+                                                class="block text-sm font-semibold text-slate-700"
+                                            >
+                                                Piso / Departamento
+                                            </label>
+
+                                            <input
+                                                id="piso_departamento"
+                                                name="piso_departamento"
+                                                type="text"
+                                                x-model="pisoDepartamento"
+                                                :aria-invalid="(@js($errors->has('piso_departamento')) || erroresDe('piso_departamento').length > 0).toString()"
+                                                maxlength="50"
+                                                placeholder="Ej: 2 B"
+                                                autocomplete="off"
+                                                class="mt-2 block w-full rounded-xl border-slate-300 px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-indigo-500"
+                                            >
+
+                                            <x-input-error
+                                                :messages="$errors->get('piso_departamento')"
+                                                class="mt-2"
+                                            />
+
+                                            <template
+                                                x-for="mensaje in erroresDe('piso_departamento')"
+                                                :key="mensaje"
+                                            >
+                                                <p
+                                                    class="mt-2 text-sm text-red-600"
+                                                    x-text="mensaje"
+                                                ></p>
+                                            </template>
+                                        </div>
+
+                                        {{-- Referencia --}}
+                                        <div class="md:col-span-2">
+                                            <label
+                                                for="referencia_domicilio"
+                                                class="block text-sm font-semibold text-slate-700"
+                                            >
+                                                Referencia
+                                            </label>
+
+                                            <textarea
+                                                id="referencia_domicilio"
+                                                name="referencia_domicilio"
+                                                x-model="referenciaDomicilio"
+                                                :aria-invalid="(@js($errors->has('referencia_domicilio')) || erroresDe('referencia_domicilio').length > 0).toString()"
+                                                rows="3"
+                                                maxlength="500"
+                                                placeholder="Ej: Entre calles, color del portón o indicaciones para llegar"
+                                                class="mt-2 block w-full rounded-xl border-slate-300 px-4 py-2.5 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-indigo-500"
+                                            ></textarea>
+
+                                            <x-input-error
+                                                :messages="$errors->get('referencia_domicilio')"
+                                                class="mt-2"
+                                            />
+
+                                            <template
+                                                x-for="mensaje in erroresDe('referencia_domicilio')"
+                                                :key="mensaje"
+                                            >
+                                                <p
+                                                    class="mt-2 text-sm text-red-600"
+                                                    x-text="mensaje"
+                                                ></p>
+                                            </template>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 {{-- Contacto de emergencia --}}
@@ -1229,6 +1725,21 @@
                                             </div>
                                         </div>
 
+                                        <x-input-error
+                                            :messages="$errors->get('antecedentes_respuesta')"
+                                            class="mt-2"
+                                        />
+
+                                        <template
+                                            x-for="mensaje in erroresDe('antecedentes_respuesta')"
+                                            :key="mensaje"
+                                        >
+                                            <p
+                                                class="mt-2 text-sm text-red-600"
+                                                x-text="mensaje"
+                                            ></p>
+                                        </template>
+
                                         <div
                                             x-show="antecedentesRespuesta === 'si'"
                                             x-cloak
@@ -1326,6 +1837,21 @@
                                                 </label>
                                             </div>
                                         </div>
+
+                                        <x-input-error
+                                            :messages="$errors->get('cirugias_respuesta')"
+                                            class="mt-2"
+                                        />
+
+                                        <template
+                                            x-for="mensaje in erroresDe('cirugias_respuesta')"
+                                            :key="mensaje"
+                                        >
+                                            <p
+                                                class="mt-2 text-sm text-red-600"
+                                                x-text="mensaje"
+                                            ></p>
+                                        </template>
 
                                         <div
                                             x-show="cirugiasRespuesta === 'si'"
@@ -1425,6 +1951,21 @@
                                             </div>
                                         </div>
 
+                                        <x-input-error
+                                            :messages="$errors->get('alergias_respuesta')"
+                                            class="mt-2"
+                                        />
+
+                                        <template
+                                            x-for="mensaje in erroresDe('alergias_respuesta')"
+                                            :key="mensaje"
+                                        >
+                                            <p
+                                                class="mt-2 text-sm text-red-600"
+                                                x-text="mensaje"
+                                            ></p>
+                                        </template>
+
                                         <div
                                             x-show="alergiasRespuesta === 'si'"
                                             x-cloak
@@ -1522,6 +2063,21 @@
                                                 </label>
                                             </div>
                                         </div>
+
+                                        <x-input-error
+                                            :messages="$errors->get('medicacion_respuesta')"
+                                            class="mt-2"
+                                        />
+
+                                        <template
+                                            x-for="mensaje in erroresDe('medicacion_respuesta')"
+                                            :key="mensaje"
+                                        >
+                                            <p
+                                                class="mt-2 text-sm text-red-600"
+                                                x-text="mensaje"
+                                            ></p>
+                                        </template>
 
                                         <div
                                             x-show="medicacionRespuesta === 'si'"
@@ -1669,14 +2225,69 @@
                                             ></dd>
                                         </div>
 
-                                        <div class="sm:col-span-2">
+                                        <div>
                                             <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                                Dirección
+                                                Provincia
                                             </dt>
 
                                             <dd
                                                 class="mt-1 text-sm font-medium text-slate-900"
-                                                x-text="textoOValor(resumen.direccion)"
+                                                x-text="textoOValor(resumen.provincia)"
+                                            ></dd>
+                                        </div>
+
+                                        <div>
+                                            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                                Ciudad
+                                            </dt>
+
+                                            <dd
+                                                class="mt-1 text-sm font-medium text-slate-900"
+                                                x-text="textoOValor(resumen.ciudad)"
+                                            ></dd>
+                                        </div>
+
+                                        <div>
+                                            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                                Calle
+                                            </dt>
+
+                                            <dd
+                                                class="mt-1 text-sm font-medium text-slate-900"
+                                                x-text="textoOValor(resumen.calle)"
+                                            ></dd>
+                                        </div>
+
+                                        <div>
+                                            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                                Altura
+                                            </dt>
+
+                                            <dd
+                                                class="mt-1 text-sm font-medium text-slate-900"
+                                                x-text="textoOValor(resumen.altura_domicilio)"
+                                            ></dd>
+                                        </div>
+
+                                        <div>
+                                            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                                Piso / Departamento
+                                            </dt>
+
+                                            <dd
+                                                class="mt-1 text-sm font-medium text-slate-900"
+                                                x-text="textoOValor(resumen.piso_departamento)"
+                                            ></dd>
+                                        </div>
+
+                                        <div class="sm:col-span-2">
+                                            <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                                Referencia
+                                            </dt>
+
+                                            <dd
+                                                class="mt-1 whitespace-pre-line text-sm font-medium text-slate-900"
+                                                x-text="textoOValor(resumen.referencia_domicilio)"
                                             ></dd>
                                         </div>
 
@@ -1808,12 +2419,8 @@
 
                                                 <span
                                                     class="rounded-full px-2.5 py-1 text-xs font-bold"
-                                                    :class="antecedentesRespuesta === 'si'
-                                                        ? 'bg-amber-100 text-amber-800'
-                                                        : 'bg-emerald-100 text-emerald-800'"
-                                                    x-text="antecedentesRespuesta === 'si'
-                                                        ? 'Sí'
-                                                        : 'No'"
+                                                    :class="claseRespuesta(antecedentesRespuesta)"
+                                                    x-text="textoRespuesta(antecedentesRespuesta)"
                                                 ></span>
                                             </div>
 
@@ -1838,12 +2445,8 @@
 
                                                 <span
                                                     class="rounded-full px-2.5 py-1 text-xs font-bold"
-                                                    :class="cirugiasRespuesta === 'si'
-                                                        ? 'bg-amber-100 text-amber-800'
-                                                        : 'bg-emerald-100 text-emerald-800'"
-                                                    x-text="cirugiasRespuesta === 'si'
-                                                        ? 'Sí'
-                                                        : 'No'"
+                                                    :class="claseRespuesta(cirugiasRespuesta)"
+                                                    x-text="textoRespuesta(cirugiasRespuesta)"
                                                 ></span>
                                             </div>
 
@@ -1868,12 +2471,8 @@
 
                                                 <span
                                                     class="rounded-full px-2.5 py-1 text-xs font-bold"
-                                                    :class="alergiasRespuesta === 'si'
-                                                        ? 'bg-amber-100 text-amber-800'
-                                                        : 'bg-emerald-100 text-emerald-800'"
-                                                    x-text="alergiasRespuesta === 'si'
-                                                        ? 'Sí'
-                                                        : 'No'"
+                                                    :class="claseRespuesta(alergiasRespuesta)"
+                                                    x-text="textoRespuesta(alergiasRespuesta)"
                                                 ></span>
                                             </div>
 
@@ -1898,12 +2497,8 @@
 
                                                 <span
                                                     class="rounded-full px-2.5 py-1 text-xs font-bold"
-                                                    :class="medicacionRespuesta === 'si'
-                                                        ? 'bg-amber-100 text-amber-800'
-                                                        : 'bg-emerald-100 text-emerald-800'"
-                                                    x-text="medicacionRespuesta === 'si'
-                                                        ? 'Sí'
-                                                        : 'No'"
+                                                    :class="claseRespuesta(medicacionRespuesta)"
+                                                    x-text="textoRespuesta(medicacionRespuesta)"
                                                 ></span>
                                             </div>
 
