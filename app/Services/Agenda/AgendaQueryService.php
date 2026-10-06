@@ -57,6 +57,30 @@ final class AgendaQueryService
             ->orderByDesc('id');
     }
 
+    public function historialConfiguracionesEn(
+        Kinesiologa $kinesiologa,
+        CarbonInterface $fecha
+    ): Builder {
+        return $this->configuracionesDe($kinesiologa)
+            ->where(function (Builder $query) use ($fecha): void {
+                $query
+                    ->whereNotNull('anulado_at')
+                    ->orWhere(function (Builder $query) use ($fecha): void {
+                        $query
+                            ->historicasEn($fecha);
+                    });
+            })
+            ->orderByDesc('vigencia_desde')
+            ->orderByDesc('id');
+    }
+
+    public function configuraciones(Kinesiologa $kinesiologa): Builder
+    {
+        return $this->configuracionesDe($kinesiologa)
+            ->orderByDesc('vigencia_desde')
+            ->orderByDesc('id');
+    }
+
     public function proximaEn(
         Kinesiologa $kinesiologa,
         CarbonInterface $fecha
@@ -187,6 +211,13 @@ final class AgendaQueryService
             ->noAnulados()
             ->orderBy('inicio_at')
             ->orderBy('id');
+    }
+
+    public function bloqueosTodos(Kinesiologa $kinesiologa): Builder
+    {
+        return $this->bloqueosDe($kinesiologa)
+            ->orderByDesc('inicio_at')
+            ->orderByDesc('id');
     }
 
     private function configuracionesDe(Kinesiologa $kinesiologa): Builder

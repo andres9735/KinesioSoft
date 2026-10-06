@@ -101,6 +101,49 @@ class AgendaQueryServiceTest extends TestCase
         $this->assertTrue($this->service->proximaEn($kinesiologa, $hoy)->is($primeraEmpatada));
     }
 
+    public function test_historial_incluye_historicas_y_anuladas_y_excluye_vigente_futuras_y_ajenas(): void
+    {
+        $kinesiologa = $this->kinesiologa();
+        $ajena = $this->kinesiologa();
+        $hoy = CarbonImmutable::parse('2026-10-05');
+        $historica = $this->configuracion($kinesiologa, '2026-09-01', '2026-10-04');
+        $anulada = $this->configuracion(
+            $kinesiologa,
+            '2026-11-01',
+            null,
+            '2026-10-01 10:00:00'
+        );
+        $this->configuracion($kinesiologa, '2026-10-01');
+        $this->configuracion($kinesiologa, '2026-12-01');
+        $this->configuracion($ajena, '2026-08-01', '2026-08-31');
+
+        $resultado = $this->service
+            ->historialConfiguracionesEn($kinesiologa, $hoy)
+            ->paginate(10);
+
+        $this->assertSame([$anulada->id, $historica->id], $resultado->getCollection()->modelKeys());
+        $this->assertSame(10, $resultado->perPage());
+    }
+
+    public function test_bloqueos_todos_incluye_anulados_y_no_anulados_solo_de_la_kinesiologa(): void
+    {
+        $kinesiologa = $this->kinesiologa();
+        $ajena = $this->kinesiologa();
+        $anterior = $this->bloqueo($kinesiologa, '2026-10-05 08:00:00', '2026-10-05 09:00:00');
+        $posteriorAnulado = $this->bloqueo(
+            $kinesiologa,
+            '2026-10-06 08:00:00',
+            '2026-10-06 09:00:00',
+            '2026-10-01 10:00:00'
+        );
+        $this->bloqueo($ajena, '2026-10-07 08:00:00', '2026-10-07 09:00:00');
+
+        $this->assertSame(
+            [$posteriorAnulado->id, $anterior->id],
+            $this->service->bloqueosTodos($kinesiologa)->pluck('id')->all()
+        );
+    }
+
     public function test_vecinos_eligen_los_mas_cercanos_e_ignoran_anuladas_ajenas_y_id_excluido(): void
     {
         $kinesiologa = $this->kinesiologa();

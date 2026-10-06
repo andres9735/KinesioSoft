@@ -1,14 +1,21 @@
 <?php
 
+use App\Http\Controllers\AgendaController;
+use App\Http\Controllers\AnulacionBloqueoAgendaController;
+use App\Http\Controllers\AnulacionConfiguracionAgendaController;
 use App\Http\Controllers\AuditoriaController;
+use App\Http\Controllers\BloqueoAgendaController;
+use App\Http\Controllers\CambioDuracionAgendaController;
 use App\Http\Controllers\CatalogoController;
 use App\Http\Controllers\CategoriaClinicaController;
 use App\Http\Controllers\ColegioEmisorController;
+use App\Http\Controllers\ConfiguracionAgendaController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DiagnosticoClinicoController;
 use App\Http\Controllers\EjercicioDomiciliarioController;
 use App\Http\Controllers\EspecialidadKinesiologiaController;
 use App\Http\Controllers\GeografiaController;
+use App\Http\Controllers\HistorialConfiguracionAgendaController;
 use App\Http\Controllers\JurisdiccionController;
 use App\Http\Controllers\MisMatriculasProfesionalesController;
 use App\Http\Controllers\PerfilKinesiologaController;
@@ -576,5 +583,68 @@ Route::middleware([
             });
     });
 });
+
+/*
+|--------------------------------------------------------------------------
+| Agenda de atenciÃ³n de la kinesiÃ³loga
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware([
+    'auth',
+    'verified',
+    'perfil.completo',
+    'perfil.kinesiologo',
+])
+    ->prefix('turnos/agenda')
+    ->name('turnos.agenda.')
+    ->group(function () {
+        Route::get('/', [AgendaController::class, 'index'])
+            ->name('index');
+
+        Route::get('/configuraciones/crear', [ConfiguracionAgendaController::class, 'create'])
+            ->name('configuraciones.create');
+        Route::post('/configuraciones', [ConfiguracionAgendaController::class, 'store'])
+            ->name('configuraciones.store');
+        Route::get('/configuraciones/historial', [HistorialConfiguracionAgendaController::class, 'index'])
+            ->name('configuraciones.historial');
+
+        Route::get('/duracion/crear', [CambioDuracionAgendaController::class, 'create'])
+            ->name('duracion.create');
+        Route::post('/duracion', [CambioDuracionAgendaController::class, 'store'])
+            ->name('duracion.store');
+
+        Route::get('/configuraciones/{configuracion}/editar', [ConfiguracionAgendaController::class, 'edit'])
+            ->whereNumber('configuracion')
+            ->name('configuraciones.edit');
+        Route::put('/configuraciones/{configuracion}', [ConfiguracionAgendaController::class, 'update'])
+            ->whereNumber('configuracion')
+            ->name('configuraciones.update');
+        Route::get('/configuraciones/{configuracion}/anular', [AnulacionConfiguracionAgendaController::class, 'create'])
+            ->whereNumber('configuracion')
+            ->name('configuraciones.anular.create');
+        Route::patch('/configuraciones/{configuracion}/anular', [AnulacionConfiguracionAgendaController::class, 'store'])
+            ->whereNumber('configuracion')
+            ->name('configuraciones.anular.store');
+        Route::get('/configuraciones/{configuracion}', [ConfiguracionAgendaController::class, 'show'])
+            ->whereNumber('configuracion')
+            ->name('configuraciones.show');
+
+        Route::get('/bloqueos/crear', [BloqueoAgendaController::class, 'create'])
+            ->name('bloqueos.create');
+        Route::post('/bloqueos/revisar', [BloqueoAgendaController::class, 'review'])
+            ->name('bloqueos.review');
+        Route::post('/bloqueos', [BloqueoAgendaController::class, 'store'])
+            ->name('bloqueos.store');
+        Route::get('/bloqueos/{bloqueo}/anular', [AnulacionBloqueoAgendaController::class, 'create'])
+            ->whereNumber('bloqueo')
+            ->name('bloqueos.anular.create');
+        Route::patch('/bloqueos/{bloqueo}/anular', [AnulacionBloqueoAgendaController::class, 'store'])
+            ->whereNumber('bloqueo')
+            ->name('bloqueos.anular.store');
+        Route::get('/bloqueos/{bloqueo}', [BloqueoAgendaController::class, 'show'])
+            ->whereNumber('bloqueo')
+            ->name('bloqueos.show');
+    });
 
 require __DIR__.'/auth.php';
