@@ -82,7 +82,7 @@ class BloqueoAgendaController extends Controller
 
             session()->flash(
                 'error',
-                'La agenda cambiÃ³ desde la revisiÃ³n. RevisÃ¡ nuevamente las advertencias antes de confirmar.'
+                'La agenda cambió desde la revisión. Revisá nuevamente las advertencias antes de confirmar.'
             );
 
             return view('agenda.bloqueos.create', [

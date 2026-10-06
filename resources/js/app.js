@@ -7,6 +7,7 @@ import { inicializarRelacionesColegioMatricula } from './components/colegio-matr
 import ejercicioCatalogo from './components/ejercicio-catalogo';
 import domicilioPaciente from './components/domicilio-paciente';
 import matrizSemanalAgenda from './agenda/matriz-semanal';
+import bloqueoAgendaForm from './agenda/bloqueo-form';
 
 window.Alpine = Alpine;
 window.Swal = Swal;
@@ -17,5 +18,6 @@ inicializarRelacionesColegioMatricula();
 Alpine.data('ejercicioCatalogo', ejercicioCatalogo);
 Alpine.data('domicilioPaciente', domicilioPaciente);
 Alpine.data('matrizSemanalAgenda', matrizSemanalAgenda);
+Alpine.data('bloqueoAgendaForm', bloqueoAgendaForm);
 
 Alpine.start();
