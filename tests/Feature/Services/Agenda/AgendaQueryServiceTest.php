@@ -2,10 +2,13 @@
 
 namespace Tests\Feature\Services\Agenda;
 
+use App\Enums\EstadoTurnoEnum;
 use App\Models\BloqueoAgenda;
 use App\Models\ConfiguracionAgenda;
 use App\Models\FranjaHorariaAgenda;
 use App\Models\Kinesiologa;
+use App\Models\Paciente;
+use App\Models\Turno;
 use App\Models\User;
 use App\Services\Agenda\AgendaQueryService;
 use Carbon\CarbonImmutable;
@@ -238,6 +241,82 @@ class AgendaQueryServiceTest extends TestCase
         );
     }
 
+    public function test_turnos_afectados_usa_overlap_semiabierto_y_orden_canonico(): void
+    {
+        $kinesiologa = $this->kinesiologa();
+        $casos = [
+            ['08:00:00', '10:00:00', false],
+            ['10:00:00', '12:00:00', true],
+            ['09:59:00', '10:01:00', true],
+            ['12:00:00', '13:00:00', false],
+            ['11:59:00', '13:00:00', true],
+        ];
+        $esperados = [];
+
+        foreach ([EstadoTurnoEnum::PENDIENTE, EstadoTurnoEnum::CONFIRMADO] as $estado) {
+            foreach ($casos as [$inicio, $fin, $afectado]) {
+                $turno = $this->turno(
+                    $kinesiologa,
+                    "2026-10-10 {$inicio}",
+                    "2026-10-10 {$fin}",
+                    $estado
+                );
+                if ($afectado) {
+                    $esperados[] = $turno;
+                }
+            }
+        }
+
+        $resultado = $this->service->turnosAfectadosPorIntervalo(
+            $kinesiologa,
+            CarbonImmutable::parse('2026-10-10 10:00:00'),
+            CarbonImmutable::parse('2026-10-10 12:00:00')
+        )->get();
+        $ordenEsperado = collect($esperados)->sortBy(fn (Turno $turno): array => [
+            $turno->inicio_at->format('Y-m-d H:i:s'),
+            $turno->fin_at->format('Y-m-d H:i:s'),
+            $turno->id,
+        ])->pluck('id')->values()->all();
+
+        $this->assertSame($ordenEsperado, $resultado->modelKeys());
+    }
+
+    public function test_turnos_afectados_excluye_estados_no_ocupantes_y_otras_kinesiologas(): void
+    {
+        $kinesiologa = $this->kinesiologa();
+        $otra = $this->kinesiologa();
+        $pendiente = $this->turno(
+            $kinesiologa,
+            '2026-10-10 10:00:00',
+            '2026-10-10 11:00:00',
+            EstadoTurnoEnum::PENDIENTE
+        );
+        $confirmado = $this->turno(
+            $kinesiologa,
+            '2026-10-10 11:00:00',
+            '2026-10-10 12:00:00',
+            EstadoTurnoEnum::CONFIRMADO
+        );
+
+        foreach ([
+            EstadoTurnoEnum::EN_ATENCION,
+            EstadoTurnoEnum::ATENDIDO,
+            EstadoTurnoEnum::AUSENTE,
+            EstadoTurnoEnum::CANCELADO,
+        ] as $estado) {
+            $this->turno($kinesiologa, '2026-10-10 10:30:00', '2026-10-10 11:30:00', $estado);
+        }
+        $this->turno($otra, '2026-10-10 10:30:00', '2026-10-10 11:30:00', EstadoTurnoEnum::PENDIENTE);
+
+        $resultado = $this->service->turnosAfectadosPorIntervalo(
+            $kinesiologa,
+            CarbonImmutable::parse('2026-10-10 10:00:00'),
+            CarbonImmutable::parse('2026-10-10 12:00:00')
+        )->get();
+
+        $this->assertSame([$pendiente->id, $confirmado->id], $resultado->modelKeys());
+    }
+
     private function aplicable(Kinesiologa $kinesiologa, string $fecha): ?ConfiguracionAgenda
     {
         return $this->service->configuracionAplicableEn(
@@ -253,6 +332,27 @@ class AgendaQueryServiceTest extends TestCase
             'titulo_profesional_id' => null,
             'consultorio_id' => null,
         ]);
+    }
+
+    private function turno(
+        Kinesiologa $kinesiologa,
+        string $inicio,
+        string $fin,
+        EstadoTurnoEnum $estado
+    ): Turno {
+        $paciente = Paciente::create([
+            'user_id' => User::factory()->create()->id,
+            'activo' => true,
+        ]);
+
+        return Turno::factory()
+            ->for($paciente)
+            ->for($kinesiologa)
+            ->create([
+                'estado' => $estado,
+                'inicio_at' => $inicio,
+                'fin_at' => $fin,
+            ]);
     }
 
     private function configuracion(

@@ -2,9 +2,11 @@
 
 namespace App\Services\Agenda;
 
+use App\Enums\EstadoTurnoEnum;
 use App\Models\BloqueoAgenda;
 use App\Models\ConfiguracionAgenda;
 use App\Models\Kinesiologa;
+use App\Models\Turno;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use LogicException;
@@ -119,6 +121,25 @@ final class AgendaQueryService
         )
             ->superpuestosCon($inicio, $fin)
             ->orderBy('inicio_at')
+            ->orderBy('fin_at')
+            ->orderBy('id');
+    }
+
+    public function turnosAfectadosPorIntervalo(
+        Kinesiologa $kinesiologa,
+        CarbonInterface $inicio,
+        CarbonInterface $fin
+    ): Builder {
+        return Turno::query()
+            ->where('kinesiologa_id', $kinesiologa->getKey())
+            ->whereIn('estado', [
+                EstadoTurnoEnum::PENDIENTE->value,
+                EstadoTurnoEnum::CONFIRMADO->value,
+            ])
+            ->where('inicio_at', '<', $fin)
+            ->where('fin_at', '>', $inicio)
+            ->orderBy('inicio_at')
+            ->orderBy('fin_at')
             ->orderBy('id');
     }
 
