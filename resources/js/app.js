@@ -6,6 +6,7 @@ import { inicializarRelacionesJurisdiccionColegio } from './components/jurisdicc
 import { inicializarRelacionesColegioMatricula } from './components/colegio-matricula';
 import ejercicioCatalogo from './components/ejercicio-catalogo';
 import domicilioPaciente from './components/domicilio-paciente';
+import matrizSemanalAgenda from './agenda/matriz-semanal';
 
 window.Alpine = Alpine;
 window.Swal = Swal;
@@ -15,5 +16,6 @@ inicializarRelacionesJurisdiccionColegio();
 inicializarRelacionesColegioMatricula();
 Alpine.data('ejercicioCatalogo', ejercicioCatalogo);
 Alpine.data('domicilioPaciente', domicilioPaciente);
+Alpine.data('matrizSemanalAgenda', matrizSemanalAgenda);
 
 Alpine.start();
