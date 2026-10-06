@@ -27,8 +27,19 @@ class HistorialConfiguracionAgendaController extends Controller
         $hoy = $this->reloj->hoy();
         $configuraciones = $this->queryService
             ->historialConfiguracionesEn($kinesiologa, $hoy)
+            ->with(['franjasHorarias:id,configuracion_agenda_id,dia_semana'])
             ->withCount('franjasHorarias')
             ->paginate(10);
+
+        $configuraciones->getCollection()->each(
+            fn (ConfiguracionAgenda $configuracion) => $configuracion->setAttribute(
+                'dias_atencion_count',
+                $configuracion->franjasHorarias
+                    ->map(fn ($franja): int => $franja->dia_semana->value)
+                    ->unique()
+                    ->count()
+            )
+        );
 
         if ($configuraciones->currentPage() > $configuraciones->lastPage()) {
             return redirect()->route('turnos.agenda.configuraciones.historial', [

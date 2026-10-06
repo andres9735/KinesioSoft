@@ -16,6 +16,7 @@ use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\View as ViewFacade;
 use Illuminate\View\View;
 use Mockery;
@@ -119,6 +120,51 @@ class AgendaReadControllersTest extends TestCase
         $this->assertDatabaseHas('configuraciones_agenda', ['id' => $anulada->id]);
     }
 
+    public function test_dashboard_informa_que_no_hay_bloqueos_cuando_no_existe_ninguno_propio(): void
+    {
+        $actor = $this->actor();
+        $request = $this->request($actor, '/turnos/agenda');
+        $datos = $this->capturarVista('agenda.index');
+
+        app(AgendaController::class)->index($request);
+
+        $this->assertFalse($datos()['hayBloqueos']);
+    }
+
+    public function test_dashboard_distingue_un_filtro_vacio_cuando_existen_otros_bloqueos_propios(): void
+    {
+        $actor = $this->actor();
+        $this->bloqueo(
+            $actor->kinesiologa,
+            '2026-10-06 09:00:00',
+            '2026-10-06 10:00:00'
+        );
+        $request = $this->request($actor, '/turnos/agenda?filtro=proximos');
+        $datos = $this->capturarVista('agenda.index');
+
+        app(AgendaController::class)->index($request);
+
+        $this->assertTrue($datos()['hayBloqueos']);
+        $this->assertSame(0, $datos()['bloqueos']->total());
+    }
+
+    public function test_dashboard_no_cuenta_bloqueos_de_otra_kinesiologa_para_el_estado_global(): void
+    {
+        $actor = $this->actor();
+        $otra = $this->actor('otra');
+        $this->bloqueo(
+            $otra->kinesiologa,
+            '2026-10-07 09:00:00',
+            '2026-10-07 10:00:00'
+        );
+        $request = $this->request($actor, '/turnos/agenda');
+        $datos = $this->capturarVista('agenda.index');
+
+        app(AgendaController::class)->index($request);
+
+        $this->assertFalse($datos()['hayBloqueos']);
+    }
+
     public function test_paginacion_de_bloqueos_conserva_solo_el_filtro_normalizado(): void
     {
         $actor = $this->actor();
@@ -167,6 +213,54 @@ class AgendaReadControllersTest extends TestCase
         $this->assertSame(10, $datos()['configuraciones']->perPage());
         $this->assertSame(11, $datos()['configuraciones']->total());
         $this->assertCount(10, $datos()['configuraciones']->items());
+    }
+
+    public function test_historial_entrega_conteos_de_franjas_y_dias_sin_n_mas_uno(): void
+    {
+        $actor = $this->actor();
+        $configuracion = ConfiguracionAgenda::factory()->for($actor->kinesiologa)->create([
+            'vigencia_desde' => '2026-09-01',
+            'vigencia_hasta' => '2026-09-30',
+        ]);
+        FranjaHorariaAgenda::factory()
+            ->for($configuracion, 'configuracionAgenda')
+            ->createMany([
+                ['dia_semana' => 1, 'hora_inicio' => '08:00:00', 'hora_fin' => '12:00:00'],
+                ['dia_semana' => 1, 'hora_inicio' => '14:00:00', 'hora_fin' => '18:00:00'],
+                ['dia_semana' => 3, 'hora_inicio' => '09:00:00', 'hora_fin' => '13:00:00'],
+            ]);
+        $sinFranjas = ConfiguracionAgenda::factory()->for($actor->kinesiologa)->create([
+            'vigencia_desde' => '2026-08-01',
+            'vigencia_hasta' => '2026-08-31',
+        ]);
+
+        foreach (range(1, 3) as $indice) {
+            $this->configuracion(
+                $actor->kinesiologa,
+                sprintf('2026-07-%02d', $indice),
+                sprintf('2026-07-%02d', $indice)
+            );
+        }
+
+        $consultasFranjas = 0;
+        DB::listen(function ($query) use (&$consultasFranjas): void {
+            if (str_contains($query->sql, 'franjas_horarias_agenda')) {
+                $consultasFranjas++;
+            }
+        });
+
+        $request = $this->request($actor, '/turnos/agenda/configuraciones/historial');
+        $datos = $this->capturarVista('agenda.configuraciones.historial');
+
+        app(HistorialConfiguracionAgendaController::class)->index($request);
+
+        $porId = $datos()['configuraciones']->getCollection()->keyBy('id');
+        $this->assertSame(3, $porId[$configuracion->id]->franjas_horarias_count);
+        $this->assertSame(2, $porId[$configuracion->id]->dias_atencion_count);
+        $this->assertSame(0, $porId[$sinFranjas->id]->franjas_horarias_count);
+        $this->assertSame(0, $porId[$sinFranjas->id]->dias_atencion_count);
+        $this->assertTrue($porId[$configuracion->id]->relationLoaded('franjasHorarias'));
+        $this->assertLessThanOrEqual(2, $consultasFranjas);
     }
 
     public function test_gets_protegidos_generan_snapshots_y_contexto_saneado(): void

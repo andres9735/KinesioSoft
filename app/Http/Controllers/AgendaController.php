@@ -57,6 +57,9 @@ class AgendaController extends Controller
         $cantidadBloqueosEnCurso = $this->queryService
             ->bloqueosEnCursoEn($kinesiologa, $ahora)
             ->count();
+        $hayBloqueos = $this->queryService
+            ->bloqueosTodos($kinesiologa)
+            ->exists();
         $bloqueos = $this->queryBloqueos($kinesiologa, $filtroBloqueos, $ahora)
             ->paginate(10, ['*'], 'bloqueos_page')
             ->appends(['filtro' => $filtroBloqueos]);
@@ -90,6 +93,7 @@ class AgendaController extends Controller
             'filtroBloqueos' => $filtroBloqueos,
             'filtrosBloqueos' => self::FILTROS_BLOQUEOS,
             'cantidadBloqueosEnCurso' => $cantidadBloqueosEnCurso,
+            'hayBloqueos' => $hayBloqueos,
         ]);
     }
 
