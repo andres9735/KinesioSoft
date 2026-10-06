@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Database;
 
+use App\Enums\EstadoTurnoEnum;
 use App\Models\CategoriaClinica;
 use App\Models\ColegioEmisor;
 use App\Models\EjercicioDomiciliario;
@@ -13,6 +14,7 @@ use App\Models\Paciente;
 use App\Models\RecursoEjercicio;
 use App\Models\TipoEquipoTerapeutico;
 use App\Models\TituloProfesional;
+use App\Models\Turno;
 use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -143,6 +145,58 @@ class ConservacionHistoricaForeignKeysTest extends TestCase
         $this->assertDatabaseHas('kinesiologa_especialidad', [
             'kinesiologa_id' => $kinesiologa->id,
             'especialidad_id' => $especialidad->id,
+        ]);
+    }
+
+    public function test_database_prevents_deleting_paciente_with_turno_history(): void
+    {
+        $paciente = Paciente::create([
+            'user_id' => User::factory()->create()->id,
+            'activo' => true,
+        ]);
+        $kinesiologa = Kinesiologa::create([
+            'user_id' => User::factory()->create()->id,
+            'titulo_profesional_id' => $this->tituloProfesional()->id,
+            'consultorio_id' => null,
+        ]);
+        $turno = Turno::factory()
+            ->for($paciente)
+            ->for($kinesiologa)
+            ->create([
+                'estado' => EstadoTurnoEnum::PENDIENTE,
+            ]);
+
+        $this->assertDeleteIsRestricted('pacientes', $paciente->id);
+
+        $this->assertDatabaseHas('turnos', [
+            'id' => $turno->id,
+            'paciente_id' => $paciente->id,
+        ]);
+    }
+
+    public function test_database_prevents_deleting_kinesiologa_with_turno_history(): void
+    {
+        $paciente = Paciente::create([
+            'user_id' => User::factory()->create()->id,
+            'activo' => true,
+        ]);
+        $kinesiologa = Kinesiologa::create([
+            'user_id' => User::factory()->create()->id,
+            'titulo_profesional_id' => $this->tituloProfesional()->id,
+            'consultorio_id' => null,
+        ]);
+        $turno = Turno::factory()
+            ->for($paciente)
+            ->for($kinesiologa)
+            ->create([
+                'estado' => EstadoTurnoEnum::CONFIRMADO,
+            ]);
+
+        $this->assertDeleteIsRestricted('kinesiologas', $kinesiologa->id);
+
+        $this->assertDatabaseHas('turnos', [
+            'id' => $turno->id,
+            'kinesiologa_id' => $kinesiologa->id,
         ]);
     }
 

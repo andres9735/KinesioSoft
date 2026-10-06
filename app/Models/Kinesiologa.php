@@ -41,6 +41,11 @@ class Kinesiologa extends Model
         return $this->hasMany(BloqueoAgenda::class);
     }
 
+    public function turnos(): HasMany
+    {
+        return $this->hasMany(Turno::class);
+    }
+
     public function especialidades()
     {
         return $this->belongsToMany(

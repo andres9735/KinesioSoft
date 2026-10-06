@@ -51,4 +51,9 @@ class Paciente extends Model
     {
         return $this->hasMany(DeclaracionSaludPaciente::class);
     }
+
+    public function turnos(): HasMany
+    {
+        return $this->hasMany(Turno::class);
+    }
 }
