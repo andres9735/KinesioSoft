@@ -116,15 +116,16 @@
                 </div>
 
                 <div class="mt-5">
-                    <label for="motivo_anulacion" class="block text-sm font-medium text-gray-700">Motivo de la anulación</label>
+                    <label for="motivo_anulacion" class="block text-sm font-medium text-gray-700">Motivo de la anulación <span class="text-red-700">(obligatorio)</span></label>
                     <textarea
                         id="motivo_anulacion"
                         name="motivo_anulacion"
                         rows="4"
                         maxlength="500"
                         required
-                        aria-describedby="ayuda-motivo-anulacion error-motivo-anulacion"
+                        aria-describedby="ayuda-motivo-anulacion{{ $errors->has('motivo_anulacion') ? ' error-motivo-anulacion' : '' }}"
                         aria-invalid="{{ $errors->has('motivo_anulacion') ? 'true' : 'false' }}"
+                        @if ($errors->has('motivo_anulacion')) autofocus @endif
                         class="mt-1 block min-h-28 w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     >{{ old('motivo_anulacion') }}</textarea>
                     <x-input-error id="error-motivo-anulacion" :messages="$errors->get('motivo_anulacion')" class="mt-2" />

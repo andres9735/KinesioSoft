@@ -18,7 +18,7 @@
                     <article class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
                         <h3 class="font-semibold text-gray-900">Horarios habituales</h3>
                         <p class="mt-2 text-sm text-gray-500">Definí una nueva vigencia con su matriz semanal.</p>
-                        <a href="{{ route('turnos.agenda.configuraciones.create') }}" class="mt-4 inline-flex rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                        <a href="{{ route('turnos.agenda.configuraciones.create') }}" class="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto">
                             {{ $hayAntecedentes ? 'Nueva configuración' : 'Crear primera configuración' }}
                         </a>
                     </article>
@@ -27,7 +27,7 @@
                         <h3 class="font-semibold text-gray-900">Duración estándar</h3>
                         <p class="mt-2 text-sm text-gray-500">Programá una duración diferente con efecto hacia adelante.</p>
                         @if ($puedeCambiarDuracion)
-                            <a href="{{ route('turnos.agenda.duracion.create') }}" class="mt-4 inline-flex rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Cambiar duración</a>
+                            <a href="{{ route('turnos.agenda.duracion.create') }}" class="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto">Cambiar duración</a>
                         @else
                             <p class="mt-4 text-sm font-medium text-gray-600">Primero necesitás una configuración vigente desde la cual conservar la matriz.</p>
                         @endif
@@ -36,7 +36,7 @@
                     <article class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100">
                         <h3 class="font-semibold text-gray-900">Bloqueos excepcionales</h3>
                         <p class="mt-2 text-sm text-gray-500">Registrá feriados, licencias u otras indisponibilidades.</p>
-                        <a href="{{ route('turnos.agenda.bloqueos.create') }}" class="mt-4 inline-flex rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Registrar bloqueo</a>
+                        <a href="{{ route('turnos.agenda.bloqueos.create') }}" class="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto">Registrar bloqueo</a>
                     </article>
                 </div>
             </section>
@@ -50,7 +50,7 @@
                     <div class="px-5 py-10 text-center sm:px-6">
                         <h3 class="text-lg font-semibold text-gray-900">Todavía no configuraste tu agenda</h3>
                         <p class="mx-auto mt-2 max-w-xl text-sm text-gray-500">Creá tu primera configuración para establecer la vigencia, duración y horarios habituales.</p>
-                        <a href="{{ route('turnos.agenda.configuraciones.create') }}" class="mt-5 inline-flex rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Crear primera configuración</a>
+                        <a href="{{ route('turnos.agenda.configuraciones.create') }}" class="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto">Crear primera configuración</a>
                     </div>
                 @elseif ($configuracionVigente === null)
                     <div class="px-5 py-8 sm:px-6">
@@ -72,7 +72,7 @@
                                     Desde {{ $configuracionVigente->vigencia_desde->format('d/m/Y') }} hasta {{ $configuracionVigente->vigencia_hasta?->format('d/m/Y') ?? 'Sin fecha de fin' }}
                                 </p>
                             </div>
-                            <a href="{{ route('turnos.agenda.configuraciones.show', ['configuracion' => $configuracionVigente, 'origen' => 'dashboard']) }}" class="inline-flex rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200">Consultar</a>
+                            <a href="{{ route('turnos.agenda.configuraciones.show', ['configuracion' => $configuracionVigente, 'origen' => 'dashboard']) }}" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">Consultar</a>
                         </div>
                         <dl class="grid gap-4 sm:grid-cols-3">
                             <div><dt class="text-sm text-gray-500">Duración estándar</dt><dd class="mt-1 font-semibold text-gray-900">{{ $configuracionVigente->duracion_turno_minutos }} minutos</dd></div>
@@ -93,13 +93,13 @@
                         <h2 id="configuraciones-futuras" class="text-lg font-semibold text-gray-900">Configuraciones futuras</h2>
                         <p class="mt-1 text-sm text-gray-500">Cambios programados que todavía no comenzaron.</p>
                     </div>
-                    <a href="{{ route('turnos.agenda.configuraciones.create') }}" class="text-sm font-semibold text-indigo-700 hover:text-indigo-900">Nueva configuración</a>
+                    <a href="{{ route('turnos.agenda.configuraciones.create') }}" class="inline-flex min-h-11 items-center rounded-lg text-sm font-semibold text-indigo-700 hover:text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Nueva configuración</a>
                 </div>
 
                 @if ($configuracionesFuturas->isEmpty())
                     <div class="mt-5 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-5 py-8 text-center">
                         <h3 class="font-semibold text-gray-900">No hay configuraciones futuras programadas</h3>
-                        <a href="{{ route('turnos.agenda.configuraciones.create') }}" class="mt-4 inline-flex text-sm font-semibold text-indigo-700 hover:text-indigo-900">Nueva configuración</a>
+                        <a href="{{ route('turnos.agenda.configuraciones.create') }}" class="mt-4 inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-indigo-700 hover:text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Nueva configuración</a>
                     </div>
                 @else
                     <div class="mt-5 space-y-5">
@@ -115,15 +115,15 @@
                                 <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                     <div>
                                         <x-agenda.estado-configuracion-badge estado="FUTURA" :proxima="$proximaConfiguracion?->is($configuracion) ?? false" />
-                                        <h3 class="mt-3 font-semibold text-gray-900">Desde {{ $configuracion->vigencia_desde->format('d/m/Y') }} hasta {{ $configuracion->vigencia_hasta?->format('d/m/Y') ?? 'Sin fecha de fin' }}</h3>
+                                        <h3 class="mt-3 break-words font-semibold text-gray-900">Desde {{ $configuracion->vigencia_desde->format('d/m/Y') }} hasta {{ $configuracion->vigencia_hasta?->format('d/m/Y') ?? 'Sin fecha de fin' }}</h3>
                                     </div>
-                                    <div class="flex flex-wrap gap-2">
-                                        <a href="{{ route('turnos.agenda.configuraciones.show', ['configuracion' => $configuracion, 'origen' => 'dashboard']) }}" class="rounded-lg bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200">Consultar</a>
+                                    <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                                        <a href="{{ route('turnos.agenda.configuraciones.show', ['configuracion' => $configuracion, 'origen' => 'dashboard']) }}" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">Consultar</a>
                                         @if ($acciones['puede_editar'] ?? false)
-                                            <a href="{{ route('turnos.agenda.configuraciones.edit', ['configuracion' => $configuracion, 'origen' => 'dashboard']) }}" class="rounded-lg bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100">Editar</a>
+                                            <a href="{{ route('turnos.agenda.configuraciones.edit', ['configuracion' => $configuracion, 'origen' => 'dashboard']) }}" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Editar</a>
                                         @endif
                                         @if ($acciones['puede_anular'] ?? false)
-                                            <a href="{{ route('turnos.agenda.configuraciones.anular.create', ['configuracion' => $configuracion, 'origen' => 'dashboard']) }}" class="rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">Anular</a>
+                                            <a href="{{ route('turnos.agenda.configuraciones.anular.create', ['configuracion' => $configuracion, 'origen' => 'dashboard']) }}" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">Anular</a>
                                         @endif
                                     </div>
                                 </div>
@@ -145,7 +145,7 @@
                         <h2 id="resumen-historial" class="text-lg font-semibold text-gray-900">Historial de configuraciones</h2>
                         <p class="mt-1 text-sm text-gray-500">{{ $cantidadHistorial }} configuración(es) histórica(s) o anulada(s).</p>
                     </div>
-                    <a href="{{ route('turnos.agenda.configuraciones.historial') }}" class="inline-flex text-sm font-semibold text-indigo-700 hover:text-indigo-900">Ver historial completo</a>
+                    <a href="{{ route('turnos.agenda.configuraciones.historial') }}" class="inline-flex min-h-11 items-center rounded-lg text-sm font-semibold text-indigo-700 hover:text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Ver historial completo</a>
                 </div>
             </section>
 
@@ -173,19 +173,19 @@
                             <p class="mt-1 text-sm text-gray-500">{{ $bloqueos->total() }} resultado(s) para el filtro actual.</p>
                         </div>
                         @if ($cantidadBloqueosEnCurso > 0)
-                            <a href="{{ route('turnos.agenda.index', ['filtro' => 'en_curso']) }}" class="text-sm font-semibold text-amber-700 hover:text-amber-900">En curso: {{ $cantidadBloqueosEnCurso }}</a>
+                            <a href="{{ route('turnos.agenda.index', ['filtro' => 'en_curso']) }}" class="inline-flex min-h-11 items-center rounded-lg text-sm font-semibold text-amber-800 hover:text-amber-950 focus:outline-none focus:ring-2 focus:ring-amber-600 focus:ring-offset-2">En curso: {{ $cantidadBloqueosEnCurso }}</a>
                         @endif
                     </div>
                     <form method="GET" action="{{ route('turnos.agenda.index') }}" class="flex flex-col gap-3 sm:flex-row sm:items-end">
                         <div class="flex-1 sm:max-w-xs">
                             <label for="filtro-bloqueos" class="block text-sm font-medium text-gray-700">Filtrar bloqueos</label>
-                            <select id="filtro-bloqueos" name="filtro" class="mt-1 block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            <select id="filtro-bloqueos" name="filtro" class="mt-1 block min-h-11 w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                                 @foreach ($filtrosBloqueos as $filtro)
                                     <option value="{{ $filtro }}" @selected($filtroBloqueos === $filtro)>{{ $labelsFiltros[$filtro] }}</option>
                                 @endforeach
                             </select>
                         </div>
-                        <button type="submit" class="inline-flex justify-center rounded-lg bg-gray-800 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">Aplicar</button>
+                        <button type="submit" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-gray-800 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">Aplicar filtro</button>
                     </form>
                 </div>
 
@@ -194,11 +194,11 @@
                         @if (! $hayBloqueos)
                             <h3 class="font-semibold text-gray-900">No hay bloqueos registrados</h3>
                             <p class="mt-2 text-sm text-gray-500">Cuando necesites indicar una indisponibilidad excepcional, podés registrarla desde aquí.</p>
-                            <a href="{{ route('turnos.agenda.bloqueos.create') }}" class="mt-5 inline-flex rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Registrar bloqueo</a>
+                            <a href="{{ route('turnos.agenda.bloqueos.create') }}" class="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto">Registrar bloqueo</a>
                         @else
                             <h3 class="font-semibold text-gray-900">No hay bloqueos {{ $etiquetaVacia }}</h3>
                             <p class="mt-2 text-sm text-gray-500">Existen bloqueos registrados, pero ninguno coincide con este filtro.</p>
-                            <a href="{{ route('turnos.agenda.index', ['filtro' => 'todos']) }}" class="mt-5 inline-flex text-sm font-semibold text-indigo-700 hover:text-indigo-900">Ver todos</a>
+                            <a href="{{ route('turnos.agenda.index', ['filtro' => 'todos']) }}" class="mt-5 inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-indigo-700 hover:text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Ver todos</a>
                         @endif
                     </div>
                 @else
@@ -222,9 +222,9 @@
                                         <td class="px-5 py-4 sm:px-6"><x-agenda.estado-bloqueo-badge :estado="$estadoBloqueo" /></td>
                                         <td class="px-5 py-4 sm:px-6">
                                             <div class="flex flex-wrap justify-end gap-2">
-                                                <a href="{{ route('turnos.agenda.bloqueos.show', ['bloqueo' => $bloqueo, 'origen' => 'bloqueos', 'filtro' => $filtroBloqueos, 'bloqueos_page' => $bloqueos->currentPage()]) }}" class="rounded-lg bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-200">Consultar</a>
+                                                <a href="{{ route('turnos.agenda.bloqueos.show', ['bloqueo' => $bloqueo, 'origen' => 'bloqueos', 'filtro' => $filtroBloqueos, 'bloqueos_page' => $bloqueos->currentPage()]) }}" class="inline-flex min-h-11 items-center rounded-lg bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">Consultar</a>
                                                 @can('anular', $bloqueo)
-                                                    <a href="{{ route('turnos.agenda.bloqueos.anular.create', ['bloqueo' => $bloqueo, 'origen' => 'bloqueos', 'filtro' => $filtroBloqueos, 'bloqueos_page' => $bloqueos->currentPage()]) }}" class="rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100">Anular</a>
+                                                    <a href="{{ route('turnos.agenda.bloqueos.anular.create', ['bloqueo' => $bloqueo, 'origen' => 'bloqueos', 'filtro' => $filtroBloqueos, 'bloqueos_page' => $bloqueos->currentPage()]) }}" class="inline-flex min-h-11 items-center rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">Anular</a>
                                                 @endcan
                                             </div>
                                         </td>
@@ -239,14 +239,14 @@
                             @php($estadoBloqueo = $bloqueo->estadoEn($ahora))
                             <article class="space-y-3 p-5">
                                 <div class="flex items-start justify-between gap-3">
-                                    <h3 class="font-semibold text-gray-900">{{ $bloqueo->motivo }}</h3>
+                                    <h3 class="break-words font-semibold text-gray-900">{{ $bloqueo->motivo }}</h3>
                                     <x-agenda.estado-bloqueo-badge :estado="$estadoBloqueo" class="shrink-0" />
                                 </div>
                                 <p class="text-sm text-gray-700"><span class="block"><span class="font-medium">Desde:</span> {{ $bloqueo->inicio_at->format('d/m/Y H:i') }}</span><span class="block"><span class="font-medium">Hasta:</span> {{ $bloqueo->fin_at->format('d/m/Y H:i') }}</span></p>
-                                <div class="flex flex-wrap gap-2">
-                                    <a href="{{ route('turnos.agenda.bloqueos.show', ['bloqueo' => $bloqueo, 'origen' => 'bloqueos', 'filtro' => $filtroBloqueos, 'bloqueos_page' => $bloqueos->currentPage()]) }}" class="rounded-lg bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-700">Consultar</a>
+                                <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                                    <a href="{{ route('turnos.agenda.bloqueos.show', ['bloqueo' => $bloqueo, 'origen' => 'bloqueos', 'filtro' => $filtroBloqueos, 'bloqueos_page' => $bloqueos->currentPage()]) }}" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">Consultar</a>
                                     @can('anular', $bloqueo)
-                                        <a href="{{ route('turnos.agenda.bloqueos.anular.create', ['bloqueo' => $bloqueo, 'origen' => 'bloqueos', 'filtro' => $filtroBloqueos, 'bloqueos_page' => $bloqueos->currentPage()]) }}" class="rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">Anular</a>
+                                        <a href="{{ route('turnos.agenda.bloqueos.anular.create', ['bloqueo' => $bloqueo, 'origen' => 'bloqueos', 'filtro' => $filtroBloqueos, 'bloqueos_page' => $bloqueos->currentPage()]) }}" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">Anular</a>
                                     @endcan
                                 </div>
                             </article>

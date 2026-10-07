@@ -48,7 +48,7 @@
                     <ul class="mt-5 space-y-3">
                         @foreach ($otrosBloqueosSuperpuestos as $otroBloqueo)
                             <li class="rounded-xl border border-gray-200 p-4">
-                                <p class="font-semibold text-gray-900">{{ $otroBloqueo->motivo }}</p>
+                                <p class="break-words font-semibold text-gray-900">{{ $otroBloqueo->motivo }}</p>
                                 <p class="mt-1 text-sm text-gray-600">Desde {{ $otroBloqueo->inicio_at->format('d/m/Y H:i') }} hasta {{ $otroBloqueo->fin_at->format('d/m/Y H:i') }}</p>
                             </li>
                         @endforeach
@@ -57,9 +57,9 @@
             </section>
 
             <nav class="flex flex-col-reverse gap-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 sm:flex-row sm:justify-end" aria-label="Acciones del bloqueo">
-                <a href="{{ route('turnos.agenda.index', $parametrosVolver) }}" class="inline-flex justify-center rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-300">Volver</a>
+                <a href="{{ route('turnos.agenda.index', $parametrosVolver) }}" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">Volver</a>
                 @if ($puedeAnular)
-                    <a href="{{ route('turnos.agenda.bloqueos.anular.create', ['bloqueo' => $bloqueo, 'origen' => 'detalle', ...$parametrosVolver]) }}" class="inline-flex justify-center rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">Anular bloqueo</a>
+                    <a href="{{ route('turnos.agenda.bloqueos.anular.create', ['bloqueo' => $bloqueo, 'origen' => 'detalle', ...$parametrosVolver]) }}" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">Anular bloqueo</a>
                 @endif
             </nav>
         </div>

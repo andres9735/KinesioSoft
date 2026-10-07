@@ -89,10 +89,10 @@
                         </ul>
                     </div>
 
-                    <fieldset id="selector-modo-bloqueo" tabindex="-1">
+                    <fieldset id="selector-modo-bloqueo" tabindex="-1" aria-describedby="ayuda-modo-bloqueo">
                         <legend class="text-base font-semibold text-gray-900">Modo del intervalo</legend>
                         <p id="ayuda-modo-bloqueo" class="mt-1 text-sm text-gray-600">Elegí días completos o un intervalo continuo con horas específicas.</p>
-                        <div class="mt-4 grid gap-3 sm:grid-cols-2" aria-describedby="ayuda-modo-bloqueo">
+                        <div class="mt-4 grid gap-3 sm:grid-cols-2">
                             <label class="flex cursor-pointer gap-3 rounded-xl border p-4 focus-within:ring-2 focus-within:ring-indigo-500" :class="modo === 'completo' ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200'">
                                 <input
                                     type="radio"
@@ -124,7 +124,7 @@
 
                     <div class="grid gap-5 sm:grid-cols-2">
                         <div>
-                            <label for="fecha-inicio-bloqueo" class="block text-sm font-medium text-gray-700">Fecha inicial <span aria-hidden="true">*</span></label>
+                            <label for="fecha-inicio-bloqueo" class="block text-sm font-medium text-gray-700">Fecha inicial <span class="text-red-700">(obligatorio)</span></label>
                             <input
                                 id="fecha-inicio-bloqueo"
                                 type="date"
@@ -142,7 +142,7 @@
                         </div>
 
                         <div x-show="modo === 'parcial'" x-cloak>
-                            <label for="hora-inicio-bloqueo" class="block text-sm font-medium text-gray-700">Hora inicial <span aria-hidden="true">*</span></label>
+                            <label for="hora-inicio-bloqueo" class="block text-sm font-medium text-gray-700">Hora inicial <span class="text-red-700">(obligatorio)</span></label>
                             <input
                                 id="hora-inicio-bloqueo"
                                 type="time"
@@ -151,12 +151,13 @@
                                 x-model="horaInicio"
                                 @input="campoModificado()"
                                 class="mt-1 block min-h-11 w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                aria-describedby="ayuda-intervalo-continuo"
+                                aria-describedby="ayuda-intervalo-continuo{{ $errors->has('inicio_at') ? ' error-inicio-bloqueo' : '' }}"
+                                aria-invalid="{{ $errors->has('inicio_at') ? 'true' : 'false' }}"
                             >
                         </div>
 
                         <div>
-                            <label for="fecha-fin-bloqueo" class="block text-sm font-medium text-gray-700">Fecha final <span aria-hidden="true">*</span></label>
+                            <label for="fecha-fin-bloqueo" class="block text-sm font-medium text-gray-700">Fecha final <span class="text-red-700">(obligatorio)</span></label>
                             <input
                                 id="fecha-fin-bloqueo"
                                 type="date"
@@ -174,7 +175,7 @@
                         </div>
 
                         <div x-show="modo === 'parcial'" x-cloak>
-                            <label for="hora-fin-bloqueo" class="block text-sm font-medium text-gray-700">Hora final <span aria-hidden="true">*</span></label>
+                            <label for="hora-fin-bloqueo" class="block text-sm font-medium text-gray-700">Hora final <span class="text-red-700">(obligatorio)</span></label>
                             <input
                                 id="hora-fin-bloqueo"
                                 type="time"
@@ -183,7 +184,8 @@
                                 x-model="horaFin"
                                 @input="campoModificado()"
                                 class="mt-1 block min-h-11 w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                aria-describedby="ayuda-intervalo-continuo"
+                                aria-describedby="ayuda-intervalo-continuo{{ $errors->has('fin_at') ? ' error-fin-bloqueo' : '' }}"
+                                aria-invalid="{{ $errors->has('fin_at') ? 'true' : 'false' }}"
                             >
                         </div>
                     </div>
@@ -195,10 +197,10 @@
                     <div>
                         <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                             <div>
-                                <label for="motivo" class="block text-sm font-medium text-gray-700">Motivo <span aria-hidden="true">*</span></label>
+                                <label for="motivo" class="block text-sm font-medium text-gray-700">Motivo <span class="text-red-700">(obligatorio)</span></label>
                                 <p id="ayuda-motivo" class="mt-1 text-xs text-gray-500">Texto libre, hasta 500 caracteres. Los botones son ayudas editables.</p>
                             </div>
-                            <span class="text-xs text-gray-500" aria-live="polite"><span x-text="motivo.length"></span>/500</span>
+                            <span class="text-xs text-gray-500"><span x-text="motivo.length"></span>/500</span>
                         </div>
                         <textarea
                             id="motivo"
@@ -208,7 +210,7 @@
                             required
                             x-model="motivo"
                             @input="campoModificado()"
-                            @class(['mt-2 block w-full rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500', 'border-red-400' => $errors->has('motivo'), 'border-gray-300' => ! $errors->has('motivo')])
+                            @class(['mt-2 block min-h-28 w-full rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500', 'border-red-400' => $errors->has('motivo'), 'border-gray-300' => ! $errors->has('motivo')])
                             aria-describedby="ayuda-motivo{{ $errors->has('motivo') ? ' error-motivo' : '' }}"
                             aria-invalid="{{ $errors->has('motivo') ? 'true' : 'false' }}"
                         >{{ $motivoInicial }}</textarea>
@@ -370,8 +372,8 @@
                                     <tbody class="divide-y divide-gray-100">
                                         @foreach ($revision['bloqueos_superpuestos'] as $bloqueoSuperpuesto)
                                             <tr>
-                                                <td class="px-6 py-4 font-medium text-gray-900">{{ $formatearFechaHora($bloqueoSuperpuesto['inicio_at']) }}</td>
-                                                <td class="px-6 py-4 text-gray-700">{{ $formatearFechaHora($bloqueoSuperpuesto['fin_at']) }}</td>
+                                                <td class="break-words px-6 py-4 font-medium text-gray-900">{{ $formatearFechaHora($bloqueoSuperpuesto['inicio_at']) }}</td>
+                                                <td class="break-words px-6 py-4 text-gray-700">{{ $formatearFechaHora($bloqueoSuperpuesto['fin_at']) }}</td>
                                                 <td class="break-words px-6 py-4 text-gray-700">{{ $bloqueoSuperpuesto['motivo'] }}</td>
                                             </tr>
                                         @endforeach

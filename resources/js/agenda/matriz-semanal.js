@@ -73,6 +73,7 @@ export default function matrizSemanalAgenda(config = {}) {
         permiteInicioHoy: config.permiteInicioHoy === true,
         confirmacion: config.confirmacion || {},
         enviando: false,
+        hayCambios: config.tieneErroresServidor === true,
 
         init() {
             if (config.tieneErroresServidor) {
@@ -173,11 +174,35 @@ export default function matrizSemanalAgenda(config = {}) {
             }, -1);
 
             this.franjas.push(franja);
+            this.hayCambios = true;
             this.$nextTick(() => document.getElementById(this.idCampo(franja, 'inicio'))?.focus());
         },
 
         quitarFranja(key) {
+            const franjaEliminada = this.franjas.find((franja) => franja.key === key);
+
+            if (!franjaEliminada) {
+                return;
+            }
+
+            const franjasDelDia = this.franjasDia(franjaEliminada.diaSemana);
+            const posicion = franjasDelDia.findIndex((franja) => franja.key === key);
             this.franjas = this.franjas.filter((franja) => franja.key !== key);
+            this.hayCambios = true;
+
+            this.$nextTick(() => {
+                const restantes = this.franjasDia(franjaEliminada.diaSemana);
+                const vecina = restantes[Math.min(posicion, restantes.length - 1)];
+                const destino = vecina
+                    ? document.getElementById(this.idCampo(vecina, 'inicio'))
+                    : document.getElementById(`agenda-agregar-franja-${franjaEliminada.diaSemana}`);
+
+                destino?.focus();
+            });
+        },
+
+        marcarCambios() {
+            this.hayCambios = true;
         },
 
         limpiarErrorServidor(franja, campo) {
@@ -319,6 +344,30 @@ export default function matrizSemanalAgenda(config = {}) {
 
                 this.enviando = true;
                 this.$nextTick(() => form.requestSubmit());
+            });
+        },
+
+        confirmarCancelacion(event) {
+            if (!this.hayCambios || !window.Swal) {
+                return;
+            }
+
+            event.preventDefault();
+            const destino = event.currentTarget.href;
+
+            window.Swal.fire({
+                icon: 'warning',
+                title: '¿Descartar los cambios?',
+                text: 'Los datos ingresados en el formulario se perderán.',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, descartar',
+                cancelButtonText: 'Continuar editando',
+                reverseButtons: true,
+                focusCancel: true,
+            }).then((resultado) => {
+                if (resultado.isConfirmed) {
+                    window.location.assign(destino);
+                }
             });
         },
     };

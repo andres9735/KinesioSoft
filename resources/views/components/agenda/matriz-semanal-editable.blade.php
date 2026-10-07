@@ -75,6 +75,7 @@
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <legend class="text-base font-semibold text-gray-900">{{ $nombreDia }}</legend>
                     <button
+                        id="agenda-agregar-franja-{{ $numeroDia }}"
                         type="button"
                         class="inline-flex min-h-11 items-center justify-center rounded-lg bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                         @click="agregarFranja({{ $numeroDia }})"
@@ -112,6 +113,7 @@
                                         class="mt-1 block min-h-11 w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         :id="idCampo(franja, 'inicio')"
                                         :name="'franjas[' + indiceFranja(franja) + '][hora_inicio]'"
+                                        :aria-label="'Hora de inicio de {{ $nombreDia }}, franja ' + (posicion + 1)"
                                         x-model="franja.horaInicio"
                                         @input="limpiarErrorServidor(franja, 'hora_inicio')"
                                         :aria-describedby="idErroresFila(franja)"
@@ -128,6 +130,7 @@
                                         class="mt-1 block min-h-11 w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         :id="idCampo(franja, 'fin')"
                                         :name="'franjas[' + indiceFranja(franja) + '][hora_fin]'"
+                                        :aria-label="'Hora de fin de {{ $nombreDia }}, franja ' + (posicion + 1)"
                                         x-model="franja.horaFin"
                                         @input="limpiarErrorServidor(franja, 'hora_fin')"
                                         :aria-describedby="idErroresFila(franja)"
@@ -151,7 +154,7 @@
                                 </span>
                             </div>
 
-                            <div :id="idErroresFila(franja)" class="mt-2 space-y-1 text-sm font-medium text-red-700" aria-live="polite">
+                            <div :id="idErroresFila(franja)" class="mt-2 space-y-1 text-sm font-medium text-red-700">
                                 <p x-show="errorCampoServidor(franja, 'fila')" x-text="errorCampoServidor(franja, 'fila')"></p>
                                 <p x-show="errorCampoServidor(franja, 'dia_semana')" x-text="errorCampoServidor(franja, 'dia_semana')"></p>
                                 <p x-show="errorCampoServidor(franja, 'hora_inicio')" x-text="errorCampoServidor(franja, 'hora_inicio')"></p>

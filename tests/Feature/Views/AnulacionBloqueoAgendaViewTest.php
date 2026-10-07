@@ -38,6 +38,8 @@ class AnulacionBloqueoAgendaViewTest extends AgendaViewTestCase
             ->assertSee('Congreso profesional')
             ->assertSee($bloqueo->created_at->format('d/m/Y H:i'))
             ->assertSee('name="motivo_anulacion"', false)
+            ->assertSee('Motivo de la anulación <span class="text-red-700">(obligatorio)</span>', false)
+            ->assertSee('aria-describedby="ayuda-motivo-anulacion"', false)
             ->assertSee('maxlength="500"', false)
             ->assertSee('required', false)
             ->assertSee('name="snapshot"', false)
@@ -202,6 +204,7 @@ class AnulacionBloqueoAgendaViewTest extends AgendaViewTestCase
             ->assertOk()
             ->assertSee($motivo)
             ->assertSee('aria-invalid="true"', false)
+            ->assertSee('autofocus', false)
             ->assertSee('id="error-motivo-anulacion"', false)
             ->assertSee('motivo de anulación no debe tener más de 500 caracteres')
             ->assertSee(route('turnos.agenda.bloqueos.show', [

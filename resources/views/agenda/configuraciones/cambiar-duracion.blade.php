@@ -41,6 +41,7 @@
                 action="{{ route('turnos.agenda.duracion.store') }}"
                 class="space-y-6"
                 x-data="matrizSemanalAgenda(@js($configuracionMatriz))"
+                @input="marcarCambios()"
                 @submit="confirmarEnvio($event)"
             >
                 @csrf
@@ -111,7 +112,7 @@
                 <div class="flex flex-col-reverse gap-3 rounded-2xl bg-white px-5 py-4 shadow-sm ring-1 ring-gray-100 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                     <p class="text-sm text-gray-500">La configuración de origen se vuelve a comprobar antes de escribir.</p>
                     <div class="flex flex-col gap-3 sm:flex-row">
-                        <a href="{{ route('turnos.agenda.index') }}" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-gray-100 px-5 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">Cancelar</a>
+                        <a href="{{ route('turnos.agenda.index') }}" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-gray-100 px-5 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2" @click="confirmarCancelacion($event)">Cancelar</a>
                         <button type="submit" :disabled="tieneErroresLocales || enviando" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-300">Guardar nueva duración</button>
                     </div>
                 </div>

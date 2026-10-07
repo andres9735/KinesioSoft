@@ -54,12 +54,12 @@
             </section>
 
             <nav class="flex flex-col-reverse gap-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 sm:flex-row sm:justify-end" aria-label="Acciones de la configuración">
-                <a href="{{ $rutaVolver }}" class="inline-flex justify-center rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-300">Volver</a>
+                <a href="{{ $rutaVolver }}" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">Volver</a>
                 @if ($puedeEditar)
-                    <a href="{{ route('turnos.agenda.configuraciones.edit', ['configuracion' => $configuracion, 'origen' => 'detalle']) }}" class="inline-flex justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Editar</a>
+                    <a href="{{ route('turnos.agenda.configuraciones.edit', ['configuracion' => $configuracion, 'origen' => 'detalle']) }}" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Editar</a>
                 @endif
                 @if ($puedeAnular)
-                    <a href="{{ route('turnos.agenda.configuraciones.anular.create', ['configuracion' => $configuracion, 'origen' => 'detalle']) }}" class="inline-flex justify-center rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">Anular</a>
+                    <a href="{{ route('turnos.agenda.configuraciones.anular.create', ['configuracion' => $configuracion, 'origen' => 'detalle']) }}" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">Anular</a>
                 @endif
             </nav>
         </div>

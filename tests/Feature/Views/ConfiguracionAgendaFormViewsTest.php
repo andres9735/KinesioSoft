@@ -322,8 +322,15 @@ class ConfiguracionAgendaFormViewsTest extends AgendaViewTestCase
             ->assertSee('step="60"', false)
             ->assertSee('aria-live="polite"', false)
             ->assertSee('Quitar franja de Lunes', false)
+            ->assertSee('id="agenda-agregar-franja-1"', false)
+            ->assertSee("'Hora de inicio de Lunes, franja ' + (posicion + 1)", false)
             ->assertSee('x-text="resumenMatriz"', false)
             ->assertSee('x-show="franjasDia(7).length === 0"', false);
+
+        $js = file_get_contents(resource_path('js/agenda/matriz-semanal.js'));
+        $this->assertIsString($js);
+        $this->assertStringContainsString('confirmarCancelacion(event)', $js);
+        $this->assertStringContainsString('destino?.focus()', $js);
 
         $this->assertStringNotContainsString('[frontend_key]', $html);
         $this->assertStringNotContainsString('[key]', $html);
