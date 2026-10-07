@@ -117,6 +117,7 @@
                                 confirmButtonText: confirmButtonText,
                                 cancelButtonText: cancelButtonText,
                                 reverseButtons: true,
+                                focusCancel: form.dataset.confirmFocusCancel === 'true',
                             }).then((result) => {
                                 if (result.isConfirmed) {
                                     form.submit();
