@@ -28,12 +28,6 @@
 
     <div class="py-8 sm:py-10">
         <div class="mx-auto max-w-5xl space-y-6 px-4 sm:px-6 lg:px-8">
-            @if (session('error'))
-                <div class="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800" role="alert">
-                    {{ session('error') }}
-                </div>
-            @endif
-
             @if ($errors->has('agenda'))
                 <div class="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800" role="alert">
                     {{ $errors->first('agenda') }}
@@ -166,7 +160,9 @@
                         required
                         aria-describedby="ayuda-motivo-anulacion{{ $errors->has('motivo_anulacion') ? ' error-motivo-anulacion' : '' }}"
                         aria-invalid="{{ $errors->has('motivo_anulacion') ? 'true' : 'false' }}"
-                        @if ($errors->has('motivo_anulacion')) autofocus @endif
+                        @if ($errors->has('motivo_anulacion'))
+                            autofocus
+                        @endif
                         class="mt-1 block min-h-28 w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     >{{ old('motivo_anulacion') }}</textarea>
                     <x-input-error id="error-motivo-anulacion" :messages="$errors->get('motivo_anulacion')" class="mt-2" />

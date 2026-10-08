@@ -14,8 +14,8 @@ return new class extends Migration
             $table->unsignedTinyInteger('dia_semana');
             $table->time('hora_inicio');
             $table->time('hora_fin');
-            $table->timestamp('created_at');
-            $table->timestamp('updated_at');
+            $table->timestamp('created_at')->useCurrent();
+            $table->timestamp('updated_at')->useCurrent();
 
             $table->index(['configuracion_agenda_id', 'dia_semana']);
 

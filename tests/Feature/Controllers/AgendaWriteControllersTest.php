@@ -30,6 +30,7 @@ class AgendaWriteControllersTest extends TestCase
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         Role::findOrCreate(RoleEnum::KINESIOLOGO->value, 'web');
+
         CarbonImmutable::setTestNow(CarbonImmutable::create(
             2026,
             10,
@@ -39,6 +40,7 @@ class AgendaWriteControllersTest extends TestCase
             0,
             config('app.timezone')
         ));
+
         $this->withoutMiddleware([
             EnsureUserProfileIsComplete::class,
         ]);
@@ -47,6 +49,7 @@ class AgendaWriteControllersTest extends TestCase
     protected function tearDown(): void
     {
         CarbonImmutable::setTestNow();
+
         parent::tearDown();
     }
 
@@ -61,21 +64,31 @@ class AgendaWriteControllersTest extends TestCase
 
         $response
             ->assertRedirect(route('turnos.agenda.index'))
-            ->assertSessionHas('success', 'ConfiguraciÃ³n registrada correctamente.');
+            ->assertSessionHas('success', 'Configuración registrada correctamente.');
+
         $this->assertDatabaseHas('configuraciones_agenda', [
             'kinesiologa_id' => $actor->kinesiologa->id,
             'vigencia_desde' => '2026-10-07 00:00:00',
             'duracion_turno_minutos' => 45,
         ]);
+
         $this->assertDatabaseCount('franjas_horarias_agenda', 1);
     }
 
     public function test_update_usa_binding_snapshot_y_contexto_seguro_sin_open_redirect(): void
     {
         $actor = $this->actor();
-        $configuracion = $this->configuracion($actor->kinesiologa, '2026-10-10');
+
+        $configuracion = $this->configuracion(
+            $actor->kinesiologa,
+            '2026-10-10'
+        );
+
         $snapshot = app(AgendaSnapshotService::class)
-            ->generarParaConfiguracion($configuracion->load('franjasHorarias'));
+            ->generarParaConfiguracion(
+                $configuracion->load('franjasHorarias')
+            );
+
         $payload = $this->payloadConfiguracion([
             'vigencia_desde' => '2026-10-10',
             'duracion_turno_minutos' => 60,
@@ -85,9 +98,23 @@ class AgendaWriteControllersTest extends TestCase
         ]);
 
         $this->actingAs($actor)
-            ->put(route('turnos.agenda.configuraciones.update', $configuracion), $payload)
-            ->assertRedirect(route('turnos.agenda.configuraciones.show', $configuracion))
-            ->assertSessionHas('success', 'ConfiguraciÃ³n futura actualizada correctamente.');
+            ->put(
+                route(
+                    'turnos.agenda.configuraciones.update',
+                    $configuracion
+                ),
+                $payload
+            )
+            ->assertRedirect(
+                route(
+                    'turnos.agenda.configuraciones.show',
+                    $configuracion
+                )
+            )
+            ->assertSessionHas(
+                'success',
+                'Configuración futura actualizada correctamente.'
+            );
 
         $this->assertDatabaseHas('configuraciones_agenda', [
             'id' => $configuracion->id,
@@ -95,10 +122,18 @@ class AgendaWriteControllersTest extends TestCase
         ]);
 
         $ajena = $this->actor('ajena');
-        $configuracionAjena = $this->configuracion($ajena->kinesiologa, '2026-10-20');
+
+        $configuracionAjena = $this->configuracion(
+            $ajena->kinesiologa,
+            '2026-10-20'
+        );
+
         $this->actingAs($actor)
             ->put(
-                route('turnos.agenda.configuraciones.update', $configuracionAjena),
+                route(
+                    'turnos.agenda.configuraciones.update',
+                    $configuracionAjena
+                ),
                 $this->payloadConfiguracion([
                     'vigencia_desde' => '2026-10-20',
                     'snapshot' => 'token',
@@ -110,9 +145,16 @@ class AgendaWriteControllersTest extends TestCase
     public function test_cambio_de_duracion_crea_nueva_vigencia_y_redirige(): void
     {
         $actor = $this->actor();
-        $origen = $this->configuracion($actor->kinesiologa, '2026-10-01');
+
+        $origen = $this->configuracion(
+            $actor->kinesiologa,
+            '2026-10-01'
+        );
+
         $snapshot = app(AgendaSnapshotService::class)
-            ->generarParaConfiguracion($origen->load('franjasHorarias'));
+            ->generarParaConfiguracion(
+                $origen->load('franjasHorarias')
+            );
 
         $this->actingAs($actor)
             ->post(route('turnos.agenda.duracion.store'), [
@@ -126,7 +168,10 @@ class AgendaWriteControllersTest extends TestCase
                 'snapshot' => $snapshot,
             ])
             ->assertRedirect(route('turnos.agenda.index'))
-            ->assertSessionHas('success', 'Cambio de duraciÃ³n programado correctamente.');
+            ->assertSessionHas(
+                'success',
+                'Cambio de duración programado correctamente.'
+            );
 
         $this->assertDatabaseHas('configuraciones_agenda', [
             'kinesiologa_id' => $actor->kinesiologa->id,
@@ -138,23 +183,41 @@ class AgendaWriteControllersTest extends TestCase
     public function test_snapshot_stale_de_configuracion_no_se_presenta_como_success(): void
     {
         $actor = $this->actor();
-        $configuracion = $this->configuracion($actor->kinesiologa, '2026-10-10');
+
+        $configuracion = $this->configuracion(
+            $actor->kinesiologa,
+            '2026-10-10'
+        );
+
         $snapshot = app(AgendaSnapshotService::class)
-            ->generarParaConfiguracion($configuracion->load('franjasHorarias'));
-        $configuracion->update(['duracion_turno_minutos' => 60]);
+            ->generarParaConfiguracion(
+                $configuracion->load('franjasHorarias')
+            );
+
+        $configuracion->update([
+            'duracion_turno_minutos' => 60,
+        ]);
 
         $this->actingAs($actor)
             ->put(
-                route('turnos.agenda.configuraciones.update', $configuracion),
+                route(
+                    'turnos.agenda.configuraciones.update',
+                    $configuracion
+                ),
                 $this->payloadConfiguracion([
                     'vigencia_desde' => '2026-10-10',
                     'snapshot' => $snapshot,
                 ])
             )
-            ->assertRedirect(route('turnos.agenda.configuraciones.edit', [
-                'configuracion' => $configuracion,
-                'origen' => 'dashboard',
-            ]))
+            ->assertRedirect(
+                route(
+                    'turnos.agenda.configuraciones.edit',
+                    [
+                        'configuracion' => $configuracion,
+                        'origen' => 'dashboard',
+                    ]
+                )
+            )
             ->assertSessionHas('error')
             ->assertSessionMissing('success');
     }
@@ -163,33 +226,59 @@ class AgendaWriteControllersTest extends TestCase
     {
         $actor = $this->actor();
         $payload = $this->payloadBloqueo();
+
         $datosVista = null;
+
         $vista = Mockery::mock(View::class);
         $vista->shouldReceive('render')->andReturn('');
-        ViewFacade::shouldReceive('share')->zeroOrMoreTimes()->andReturnNull();
+
+        ViewFacade::shouldReceive('share')
+            ->zeroOrMoreTimes()
+            ->andReturnNull();
+
         ViewFacade::shouldReceive('make')
             ->once()
-            ->with('agenda.bloqueos.create', Mockery::on(function (array $datos) use (&$datosVista): bool {
-                $datosVista = $datos;
+            ->with(
+                'agenda.bloqueos.create',
+                Mockery::on(
+                    function (array $datos) use (&$datosVista): bool {
+                        $datosVista = $datos;
 
-                return true;
-            }), [])
+                        return true;
+                    }
+                ),
+                []
+            )
             ->andReturn($vista);
 
         $this->actingAs($actor)
-            ->post(route('turnos.agenda.bloqueos.review'), $payload)
+            ->post(
+                route('turnos.agenda.bloqueos.review'),
+                $payload
+            )
             ->assertOk();
 
         $this->assertDatabaseCount('bloqueos_agenda', 0);
         $this->assertIsArray($datosVista['revision']);
 
         $this->actingAs($actor)
-            ->post(route('turnos.agenda.bloqueos.store'), [
-                ...$payload,
-                'snapshot' => $datosVista['revision']['snapshot'],
-            ])
-            ->assertRedirect(route('turnos.agenda.index', ['filtro' => 'proximos']))
-            ->assertSessionHas('success', 'Bloqueo registrado correctamente.');
+            ->post(
+                route('turnos.agenda.bloqueos.store'),
+                [
+                    ...$payload,
+                    'snapshot' => $datosVista['revision']['snapshot'],
+                ]
+            )
+            ->assertRedirect(
+                route(
+                    'turnos.agenda.index',
+                    ['filtro' => 'proximos']
+                )
+            )
+            ->assertSessionHas(
+                'success',
+                'Bloqueo registrado correctamente.'
+            );
 
         $this->assertDatabaseCount('bloqueos_agenda', 1);
     }
@@ -198,123 +287,254 @@ class AgendaWriteControllersTest extends TestCase
     {
         $actor = $this->actor();
         $payload = $this->payloadBloqueo();
-        $revisionOriginal = app(RevisarBloqueoAgendaAction::class)
-            ->ejecutar($actor, $payload);
+
+        $revisionOriginal = app(
+            RevisarBloqueoAgendaAction::class
+        )->ejecutar(
+            $actor,
+            $payload
+        );
+
         $superpuesto = $this->bloqueo(
             $actor->kinesiologa,
             '2026-10-07 11:00:00',
             '2026-10-07 13:00:00'
         );
+
         $datosVista = null;
+
         $vista = Mockery::mock(View::class);
         $vista->shouldReceive('render')->andReturn('');
-        ViewFacade::shouldReceive('share')->zeroOrMoreTimes()->andReturnNull();
+
+        ViewFacade::shouldReceive('share')
+            ->zeroOrMoreTimes()
+            ->andReturnNull();
+
         ViewFacade::shouldReceive('make')
             ->once()
-            ->with('agenda.bloqueos.create', Mockery::on(function (array $datos) use (&$datosVista): bool {
-                $datosVista = $datos;
+            ->with(
+                'agenda.bloqueos.create',
+                Mockery::on(
+                    function (array $datos) use (&$datosVista): bool {
+                        $datosVista = $datos;
 
-                return true;
-            }), [])
+                        return true;
+                    }
+                ),
+                []
+            )
             ->andReturn($vista);
 
+        $mensajeStale = 'La agenda cambió desde la revisión. '
+            .'Revisá nuevamente las advertencias antes de confirmar.';
+
         $this->actingAs($actor)
-            ->post(route('turnos.agenda.bloqueos.store'), [
-                ...$payload,
-                'snapshot' => $revisionOriginal['snapshot'],
-            ])
+            ->post(
+                route('turnos.agenda.bloqueos.store'),
+                [
+                    ...$payload,
+                    'snapshot' => $revisionOriginal['snapshot'],
+                ]
+            )
             ->assertOk()
-            ->assertSessionHas('error')
+            ->assertSessionMissing('error')
             ->assertSessionMissing('success');
 
-        $this->assertSame(1, $datosVista['revision']['cantidad_bloqueos_superpuestos']);
-        $this->assertSame($superpuesto->id, $datosVista['revision']['bloqueos_superpuestos'][0]['id']);
-        $this->assertNotSame($revisionOriginal['snapshot'], $datosVista['revision']['snapshot']);
+        $this->assertSame(
+            $mensajeStale,
+            $datosVista['mensajeRevisionObsoleta']
+        );
+
+        $this->assertSame(
+            1,
+            $datosVista['revision']['cantidad_bloqueos_superpuestos']
+        );
+
+        $this->assertSame(
+            $superpuesto->id,
+            $datosVista['revision']['bloqueos_superpuestos'][0]['id']
+        );
+
+        $this->assertNotSame(
+            $revisionOriginal['snapshot'],
+            $datosVista['revision']['snapshot']
+        );
+
         $this->assertDatabaseCount('bloqueos_agenda', 1);
     }
 
     public function test_anulaciones_usan_actions_snapshots_y_redirects_internos(): void
     {
         $actor = $this->actor();
+
         $bloqueo = $this->bloqueo(
             $actor->kinesiologa,
             '2026-10-05 09:00:00',
             '2026-10-05 10:00:00'
         );
-        $snapshotBloqueo = app(AgendaSnapshotService::class)->generarParaBloqueo($bloqueo);
+
+        $snapshotBloqueo = app(
+            AgendaSnapshotService::class
+        )->generarParaBloqueo(
+            $bloqueo
+        );
 
         $this->actingAs($actor)
-            ->patch(route('turnos.agenda.bloqueos.anular.store', $bloqueo), [
-                'motivo_anulacion' => 'CorrecciÃ³n de carga',
-                'snapshot' => $snapshotBloqueo,
-                'filtro' => 'pasados',
-                'bloqueos_page' => 2,
-                'return_to' => 'https://example.com',
-            ])
-            ->assertRedirect(route('turnos.agenda.index', [
-                'filtro' => 'pasados',
-                'bloqueos_page' => 2,
-            ]))
-            ->assertSessionHas('success', 'Bloqueo anulado correctamente.');
+            ->patch(
+                route(
+                    'turnos.agenda.bloqueos.anular.store',
+                    $bloqueo
+                ),
+                [
+                    'motivo_anulacion' => 'Corrección de carga',
+                    'snapshot' => $snapshotBloqueo,
+                    'filtro' => 'pasados',
+                    'bloqueos_page' => 2,
+                    'return_to' => 'https://example.com',
+                ]
+            )
+            ->assertRedirect(
+                route(
+                    'turnos.agenda.index',
+                    [
+                        'filtro' => 'pasados',
+                        'bloqueos_page' => 2,
+                    ]
+                )
+            )
+            ->assertSessionHas(
+                'success',
+                'Bloqueo anulado correctamente.'
+            );
 
-        $configuracion = $this->configuracion($actor->kinesiologa, '2026-10-10');
-        $snapshotConfiguracion = app(AgendaSnapshotService::class)
-            ->generarParaConfiguracion($configuracion->load('franjasHorarias'));
+        $configuracion = $this->configuracion(
+            $actor->kinesiologa,
+            '2026-10-10'
+        );
+
+        $snapshotConfiguracion = app(
+            AgendaSnapshotService::class
+        )->generarParaConfiguracion(
+            $configuracion->load('franjasHorarias')
+        );
 
         $this->actingAs($actor)
-            ->patch(route('turnos.agenda.configuraciones.anular.store', $configuracion), [
-                'motivo_anulacion' => 'Cambio de planificaciÃ³n',
-                'snapshot' => $snapshotConfiguracion,
-            ])
+            ->patch(
+                route(
+                    'turnos.agenda.configuraciones.anular.store',
+                    $configuracion
+                ),
+                [
+                    'motivo_anulacion' => 'Cambio de planificación',
+                    'snapshot' => $snapshotConfiguracion,
+                ]
+            )
             ->assertRedirect(route('turnos.agenda.index'))
-            ->assertSessionHas('success', 'ConfiguraciÃ³n futura anulada y continuidad recalculada.');
+            ->assertSessionHas(
+                'success',
+                'Configuración futura anulada y continuidad recalculada.'
+            );
 
-        $this->assertNotNull($bloqueo->fresh()->anulado_at);
-        $this->assertNotNull($configuracion->fresh()->anulado_at);
+        $this->assertNotNull(
+            $bloqueo->fresh()->anulado_at
+        );
+
+        $this->assertNotNull(
+            $configuracion->fresh()->anulado_at
+        );
     }
 
     public function test_snapshots_stale_de_anulacion_no_generan_success(): void
     {
         $actor = $this->actor();
+
         $bloqueo = $this->bloqueo(
             $actor->kinesiologa,
             '2026-10-07 09:00:00',
             '2026-10-07 10:00:00'
         );
-        $snapshotBloqueo = app(AgendaSnapshotService::class)->generarParaBloqueo($bloqueo);
-        $bloqueo->forceFill(['motivo' => 'Cambio concurrente'])->save();
+
+        $snapshotBloqueo = app(
+            AgendaSnapshotService::class
+        )->generarParaBloqueo(
+            $bloqueo
+        );
+
+        $bloqueo
+            ->forceFill([
+                'motivo' => 'Cambio concurrente',
+            ])
+            ->save();
 
         $this->actingAs($actor)
-            ->patch(route('turnos.agenda.bloqueos.anular.store', $bloqueo), [
-                'motivo_anulacion' => 'CorrecciÃ³n',
-                'snapshot' => $snapshotBloqueo,
-            ])
-            ->assertRedirect(route('turnos.agenda.bloqueos.anular.create', [
-                'bloqueo' => $bloqueo,
-                'origen' => 'bloqueos',
-                'filtro' => 'proximos',
-            ]))
+            ->patch(
+                route(
+                    'turnos.agenda.bloqueos.anular.store',
+                    $bloqueo
+                ),
+                [
+                    'motivo_anulacion' => 'Corrección',
+                    'snapshot' => $snapshotBloqueo,
+                ]
+            )
+            ->assertRedirect(
+                route(
+                    'turnos.agenda.bloqueos.anular.create',
+                    [
+                        'bloqueo' => $bloqueo,
+                        'origen' => 'bloqueos',
+                        'filtro' => 'proximos',
+                    ]
+                )
+            )
             ->assertSessionHas('error')
             ->assertSessionMissing('success');
-        $this->assertNull($bloqueo->fresh()->anulado_at);
 
-        $configuracion = $this->configuracion($actor->kinesiologa, '2026-10-10');
-        $snapshotConfiguracion = app(AgendaSnapshotService::class)
-            ->generarParaConfiguracion($configuracion->load('franjasHorarias'));
-        $configuracion->update(['duracion_turno_minutos' => 60]);
+        $this->assertNull(
+            $bloqueo->fresh()->anulado_at
+        );
+
+        $configuracion = $this->configuracion(
+            $actor->kinesiologa,
+            '2026-10-10'
+        );
+
+        $snapshotConfiguracion = app(
+            AgendaSnapshotService::class
+        )->generarParaConfiguracion(
+            $configuracion->load('franjasHorarias')
+        );
+
+        $configuracion->update([
+            'duracion_turno_minutos' => 60,
+        ]);
 
         $this->actingAs($actor)
-            ->patch(route('turnos.agenda.configuraciones.anular.store', $configuracion), [
-                'motivo_anulacion' => 'Cambio de planificaciÃ³n',
-                'snapshot' => $snapshotConfiguracion,
-            ])
-            ->assertRedirect(route('turnos.agenda.configuraciones.anular.create', [
-                'configuracion' => $configuracion,
-                'origen' => 'dashboard',
-            ]))
+            ->patch(
+                route(
+                    'turnos.agenda.configuraciones.anular.store',
+                    $configuracion
+                ),
+                [
+                    'motivo_anulacion' => 'Cambio de planificación',
+                    'snapshot' => $snapshotConfiguracion,
+                ]
+            )
+            ->assertRedirect(
+                route(
+                    'turnos.agenda.configuraciones.anular.create',
+                    [
+                        'configuracion' => $configuracion,
+                        'origen' => 'dashboard',
+                    ]
+                )
+            )
             ->assertSessionHas('error')
             ->assertSessionMissing('success');
-        $this->assertNull($configuracion->fresh()->anulado_at);
+
+        $this->assertNull(
+            $configuracion->fresh()->anulado_at
+        );
     }
 
     private function actor(string $prefijo = 'actor'): User
@@ -324,15 +544,22 @@ class AgendaWriteControllersTest extends TestCase
             'email_verified_at' => now(),
             'activo' => true,
         ]);
-        $user->assignRole(RoleEnum::KINESIOLOGO->value);
-        Kinesiologa::create(['user_id' => $user->id]);
+
+        $user->assignRole(
+            RoleEnum::KINESIOLOGO->value
+        );
+
+        Kinesiologa::create([
+            'user_id' => $user->id,
+        ]);
 
         return $user->fresh('kinesiologa');
     }
 
     /** @return array<string, mixed> */
-    private function payloadConfiguracion(array $cambios = []): array
-    {
+    private function payloadConfiguracion(
+        array $cambios = []
+    ): array {
         return array_replace([
             'vigencia_desde' => '2026-10-07',
             'vigencia_hasta' => null,
@@ -360,12 +587,18 @@ class AgendaWriteControllersTest extends TestCase
         string $desde,
         ?string $hasta = null
     ): ConfiguracionAgenda {
-        $configuracion = ConfiguracionAgenda::factory()->for($kinesiologa)->create([
-            'vigencia_desde' => $desde,
-            'vigencia_hasta' => $hasta,
-        ]);
+        $configuracion = ConfiguracionAgenda::factory()
+            ->for($kinesiologa)
+            ->create([
+                'vigencia_desde' => $desde,
+                'vigencia_hasta' => $hasta,
+            ]);
+
         FranjaHorariaAgenda::factory()
-            ->for($configuracion, 'configuracionAgenda')
+            ->for(
+                $configuracion,
+                'configuracionAgenda'
+            )
             ->create([
                 'dia_semana' => 1,
                 'hora_inicio' => '08:00:00',
@@ -380,9 +613,11 @@ class AgendaWriteControllersTest extends TestCase
         string $inicio,
         string $fin
     ): BloqueoAgenda {
-        return BloqueoAgenda::factory()->for($kinesiologa)->create([
-            'inicio_at' => $inicio,
-            'fin_at' => $fin,
-        ]);
+        return BloqueoAgenda::factory()
+            ->for($kinesiologa)
+            ->create([
+                'inicio_at' => $inicio,
+                'fin_at' => $fin,
+            ]);
     }
 }

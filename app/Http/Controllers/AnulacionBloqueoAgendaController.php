@@ -33,11 +33,14 @@ class AnulacionBloqueoAgendaController extends Controller
         private readonly RelojAplicacion $reloj
     ) {}
 
-    public function create(Request $request, BloqueoAgenda $bloqueo): View
-    {
+    public function create(
+        Request $request,
+        BloqueoAgenda $bloqueo
+    ): View {
         Gate::authorize('anular', $bloqueo);
 
         $ahora = $this->reloj->ahora();
+
         $otrosBloqueos = $this->queryService
             ->bloqueosSuperpuestosCon(
                 $bloqueo->kinesiologa,
@@ -70,54 +73,102 @@ class AnulacionBloqueoAgendaController extends Controller
             );
         } catch (BloqueoAgendaNoElegibleException $exception) {
             return redirect()
-                ->route('turnos.agenda.bloqueos.show', [
-                    'bloqueo' => $bloqueo,
-                    ...$contexto,
-                ])
+                ->route(
+                    'turnos.agenda.bloqueos.show',
+                    [
+                        'bloqueo' => $bloqueo,
+                        ...$contexto,
+                    ]
+                )
                 ->with('error', $exception->getMessage());
         } catch (SnapshotAgendaDesactualizadoException $exception) {
             $bloqueo->refresh();
+
             $route = Gate::allows('anular', $bloqueo)
                 ? 'turnos.agenda.bloqueos.anular.create'
                 : 'turnos.agenda.bloqueos.show';
 
             return redirect()
-                ->route($route, ['bloqueo' => $bloqueo, ...$contexto])
+                ->route(
+                    $route,
+                    [
+                        'bloqueo' => $bloqueo,
+                        ...$contexto,
+                    ]
+                )
                 ->withInput()
                 ->with('error', $this->mensajeSnapshot());
         } catch (InvalidArgumentException $exception) {
             return redirect()
-                ->route('turnos.agenda.bloqueos.anular.create', [
-                    'bloqueo' => $bloqueo,
-                    ...$contexto,
+                ->route(
+                    'turnos.agenda.bloqueos.anular.create',
+                    [
+                        'bloqueo' => $bloqueo,
+                        ...$contexto,
+                    ]
+                )
+                ->withErrors([
+                    'bloqueo' => $exception->getMessage(),
                 ])
-                ->withErrors(['bloqueo' => $exception->getMessage()])
                 ->withInput();
         }
 
         return redirect()
-            ->route('turnos.agenda.index', array_filter([
-                'filtro' => $contexto['filtro'],
-                'bloqueos_page' => $contexto['bloqueos_page'] ?? null,
-            ], fn (mixed $valor): bool => $valor !== null))
-            ->with('success', 'Bloqueo anulado correctamente.');
+            ->route(
+                'turnos.agenda.index',
+                array_filter(
+                    [
+                        'filtro' => $contexto['filtro'],
+                        'bloqueos_page' => $contexto['bloqueos_page'] ?? null,
+                    ],
+                    fn (mixed $valor): bool => $valor !== null
+                )
+            )
+            ->with(
+                'success',
+                'Bloqueo anulado correctamente.'
+            );
     }
 
     /** @return array{origen: string, filtro: string, bloqueos_page?: int} */
     private function contextoRetorno(Request $request): array
     {
         $origen = $request->input('origen');
-        $origen = is_string($origen) && in_array($origen, ['dashboard', 'detalle', 'bloqueos'], true)
+
+        $origen = is_string($origen)
+            && in_array(
+                $origen,
+                ['dashboard', 'detalle', 'bloqueos'],
+                true
+            )
             ? $origen
             : 'bloqueos';
+
         $filtro = $request->input('filtro');
-        $filtro = is_string($filtro) && in_array($filtro, self::FILTROS_BLOQUEOS, true)
+
+        $filtro = is_string($filtro)
+            && in_array(
+                $filtro,
+                self::FILTROS_BLOQUEOS,
+                true
+            )
             ? $filtro
             : 'proximos';
-        $contexto = ['origen' => $origen, 'filtro' => $filtro];
-        $page = filter_var($request->input('bloqueos_page'), FILTER_VALIDATE_INT, [
-            'options' => ['min_range' => 1],
-        ]);
+
+        $contexto = [
+            'origen' => $origen,
+            'filtro' => $filtro,
+        ];
+
+        $page = filter_var(
+            $request->input('bloqueos_page'),
+            FILTER_VALIDATE_INT,
+            [
+                'options' => [
+                    'min_range' => 1,
+                ],
+            ]
+        );
 
         if ($page !== false) {
             $contexto['bloqueos_page'] = $page;
@@ -128,6 +179,6 @@ class AnulacionBloqueoAgendaController extends Controller
 
     private function mensajeSnapshot(): string
     {
-        return 'La informaciÃ³n cambiÃ³ desde que abriste esta pantalla. RevisÃ¡ el estado actual antes de confirmar nuevamente.';
+        return 'La información cambió desde que abriste esta pantalla. Revisá el estado actual antes de confirmar nuevamente.';
     }
 }

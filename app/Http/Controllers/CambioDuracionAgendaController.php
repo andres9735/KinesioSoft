@@ -37,6 +37,7 @@ class CambioDuracionAgendaController extends Controller
         $kinesiologa = $this->kinesiologaAutenticada($request);
         $hoy = $this->reloj->hoy();
         $vigenciaDesde = $this->fechaEfecto($request, $hoy);
+
         $origen = $this->queryService->configuracionAplicableEn(
             $kinesiologa,
             $vigenciaDesde->subDay()
@@ -45,7 +46,10 @@ class CambioDuracionAgendaController extends Controller
         if ($origen === null) {
             return redirect()
                 ->route('turnos.agenda.index')
-                ->with('error', 'No existe una configuraciÃ³n de origen aplicable para conservar su matriz. Primero registrÃ¡ una configuraciÃ³n completa.');
+                ->with(
+                    'error',
+                    'No existe una configuración de origen aplicable para conservar su matriz. Primero registrá una configuración completa.'
+                );
         }
 
         $sucesora = $this->queryService->sucesoraDe($kinesiologa, $vigenciaDesde);
@@ -63,7 +67,10 @@ class CambioDuracionAgendaController extends Controller
     public function store(StoreCambioDuracionAgendaRequest $request): RedirectResponse
     {
         try {
-            $this->cambiarDuracionAction->ejecutar($request->user(), $request->validated());
+            $this->cambiarDuracionAction->ejecutar(
+                $request->user(),
+                $request->validated()
+            );
         } catch (SnapshotAgendaDesactualizadoException $exception) {
             return redirect()
                 ->route('turnos.agenda.duracion.create', [
@@ -82,11 +89,13 @@ class CambioDuracionAgendaController extends Controller
 
         return redirect()
             ->route('turnos.agenda.index')
-            ->with('success', 'Cambio de duraciÃ³n programado correctamente.');
+            ->with('success', 'Cambio de duración programado correctamente.');
     }
 
-    private function fechaEfecto(Request $request, CarbonImmutable $hoy): CarbonImmutable
-    {
+    private function fechaEfecto(
+        Request $request,
+        CarbonImmutable $hoy
+    ): CarbonImmutable {
         $valor = $request->query('vigencia_desde');
 
         if (! is_string($valor)) {
@@ -94,7 +103,11 @@ class CambioDuracionAgendaController extends Controller
         }
 
         try {
-            $fecha = CarbonImmutable::createFromFormat('!Y-m-d', $valor, config('app.timezone'));
+            $fecha = CarbonImmutable::createFromFormat(
+                '!Y-m-d',
+                $valor,
+                config('app.timezone')
+            );
         } catch (Throwable) {
             return $hoy->addDay();
         }
@@ -117,6 +130,6 @@ class CambioDuracionAgendaController extends Controller
 
     private function mensajeSnapshot(): string
     {
-        return 'La informaciÃ³n cambiÃ³ desde que abriste esta pantalla. RevisÃ¡ el estado actual antes de confirmar nuevamente.';
+        return 'La información cambió desde que abriste esta pantalla. Revisá el estado actual antes de confirmar nuevamente.';
     }
 }

@@ -3,7 +3,7 @@
     $inicioInicial = old('inicio_at', $revision['inicio_at'] ?? '');
     $finInicial = old('fin_at', $revision['fin_at'] ?? '');
     $motivoInicial = old('motivo', $revision['motivo'] ?? '');
-    $mensajeStale = session('error');
+    $mensajeStale = $mensajeRevisionObsoleta ?? null;
     $configuracionFormulario = [
         'tieneRevision' => $tieneRevision,
         'tieneErrores' => $errors->any(),

@@ -16,15 +16,15 @@ return new class extends Migration
             $table->unsignedSmallInteger('duracion_turno_minutos');
             $table->dateTime('anulado_at')->nullable();
             $table->string('motivo_anulacion', 500)->nullable();
-            $table->timestamp('created_at');
-            $table->timestamp('updated_at');
+            $table->timestamp('created_at')->useCurrent();
+            $table->timestamp('updated_at')->useCurrent();
 
             $table->index([
                 'kinesiologa_id',
                 'anulado_at',
                 'vigencia_desde',
                 'vigencia_hasta',
-            ]);
+            ], 'idx_config_agenda_kine_anulado_vigencia');
 
             $table->foreign('kinesiologa_id')
                 ->references('id')

@@ -16,8 +16,8 @@ return new class extends Migration
             $table->string('motivo', 500);
             $table->dateTime('anulado_at')->nullable();
             $table->string('motivo_anulacion', 500)->nullable();
-            $table->timestamp('created_at');
-            $table->timestamp('updated_at');
+            $table->timestamp('created_at')->useCurrent();
+            $table->timestamp('updated_at')->useCurrent();
 
             $table->index([
                 'kinesiologa_id',

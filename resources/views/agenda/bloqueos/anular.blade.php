@@ -24,11 +24,6 @@
 
     <div class="py-8 sm:py-10">
         <div class="mx-auto max-w-4xl space-y-6 px-4 sm:px-6 lg:px-8">
-            @if (session('error'))
-                <div class="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800" role="alert">
-                    {{ session('error') }}
-                </div>
-            @endif
 
             @if ($errors->has('bloqueo'))
                 <div class="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800" role="alert">

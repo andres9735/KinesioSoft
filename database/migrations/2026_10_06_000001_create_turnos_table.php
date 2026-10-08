@@ -18,8 +18,8 @@ return new class extends Migration
             $table->dateTime('fin_at');
             $table->string('motivo_solicitud', 500)->nullable();
             $table->dateTime('recordatorio_enviado_at')->nullable();
-            $table->timestamp('created_at');
-            $table->timestamp('updated_at');
+            $table->timestamp('created_at')->useCurrent();
+            $table->timestamp('updated_at')->useCurrent();
 
             $table->index([
                 'kinesiologa_id',

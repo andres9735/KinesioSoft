@@ -80,14 +80,10 @@ class BloqueoAgendaController extends Controller
                     ->withInput();
             }
 
-            session()->flash(
-                'error',
-                'La agenda cambió desde la revisión. Revisá nuevamente las advertencias antes de confirmar.'
-            );
-
             return view('agenda.bloqueos.create', [
                 'revision' => $revision,
                 'contextoRetorno' => $this->contextoRetorno($request),
+                'mensajeRevisionObsoleta' => 'La agenda cambió desde la revisión. Revisá nuevamente las advertencias antes de confirmar.',
             ]);
         } catch (BloqueoAgendaNoElegibleException|InvalidArgumentException $exception) {
             return redirect()

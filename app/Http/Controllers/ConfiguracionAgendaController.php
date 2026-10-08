@@ -61,7 +61,7 @@ class ConfiguracionAgendaController extends Controller
 
         return redirect()
             ->route('turnos.agenda.index')
-            ->with('success', 'ConfiguraciÃ³n registrada correctamente.');
+            ->with('success', 'Configuración registrada correctamente.');
     }
 
     public function show(Request $request, ConfiguracionAgenda $configuracion): View
@@ -133,7 +133,7 @@ class ConfiguracionAgendaController extends Controller
             ? redirect()->route('turnos.agenda.configuraciones.show', $actualizada)
             : redirect()->route('turnos.agenda.index');
 
-        return $destino->with('success', 'ConfiguraciÃ³n futura actualizada correctamente.');
+        return $destino->with('success', 'Configuración futura actualizada correctamente.');
     }
 
     private function cargarFranjas(ConfiguracionAgenda $configuracion): void
@@ -152,7 +152,9 @@ class ConfiguracionAgendaController extends Controller
         $origen = is_string($origen) && in_array($origen, ['dashboard', 'detalle', 'historial'], true)
             ? $origen
             : 'dashboard';
+
         $contexto = ['origen' => $origen];
+
         $page = filter_var($request->input('page'), FILTER_VALIDATE_INT, [
             'options' => ['min_range' => 1],
         ]);
@@ -190,6 +192,6 @@ class ConfiguracionAgendaController extends Controller
 
     private function mensajeSnapshot(): string
     {
-        return 'La informaciÃ³n cambiÃ³ desde que abriste esta pantalla. RevisÃ¡ el estado actual antes de confirmar nuevamente.';
+        return 'La información cambió desde que abriste esta pantalla. Revisá el estado actual antes de confirmar nuevamente.';
     }
 }

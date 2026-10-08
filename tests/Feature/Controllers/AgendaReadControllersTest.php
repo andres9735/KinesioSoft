@@ -35,6 +35,7 @@ class AgendaReadControllersTest extends TestCase
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         Role::findOrCreate(RoleEnum::KINESIOLOGO->value, 'web');
+
         CarbonImmutable::setTestNow(CarbonImmutable::create(
             2026,
             10,
@@ -49,6 +50,7 @@ class AgendaReadControllersTest extends TestCase
     protected function tearDown(): void
     {
         CarbonImmutable::setTestNow();
+
         parent::tearDown();
     }
 
@@ -60,26 +62,64 @@ class AgendaReadControllersTest extends TestCase
     ): void {
         $actor = $this->actor();
         $otra = $this->actor('otra');
-        $this->bloqueo($actor->kinesiologa, '2026-10-06 13:00:00', '2026-10-06 14:00:00');
-        $this->bloqueo($actor->kinesiologa, '2026-10-06 11:00:00', '2026-10-06 13:00:00');
-        $this->bloqueo($actor->kinesiologa, '2026-10-06 09:00:00', '2026-10-06 10:00:00');
+
+        $this->bloqueo(
+            $actor->kinesiologa,
+            '2026-10-06 13:00:00',
+            '2026-10-06 14:00:00'
+        );
+
+        $this->bloqueo(
+            $actor->kinesiologa,
+            '2026-10-06 11:00:00',
+            '2026-10-06 13:00:00'
+        );
+
+        $this->bloqueo(
+            $actor->kinesiologa,
+            '2026-10-06 09:00:00',
+            '2026-10-06 10:00:00'
+        );
+
         $this->bloqueo(
             $actor->kinesiologa,
             '2026-10-06 15:00:00',
             '2026-10-06 16:00:00',
             '2026-10-05 10:00:00'
         );
-        $this->bloqueo($otra->kinesiologa, '2026-10-06 13:00:00', '2026-10-06 14:00:00');
-        $request = $this->request($actor, "/turnos/agenda?filtro={$filtroSolicitado}");
+
+        $this->bloqueo(
+            $otra->kinesiologa,
+            '2026-10-06 13:00:00',
+            '2026-10-06 14:00:00'
+        );
+
+        $request = $this->request(
+            $actor,
+            "/turnos/agenda?filtro={$filtroSolicitado}"
+        );
+
         $datos = $this->capturarVista('agenda.index');
 
         $resultado = app(AgendaController::class)->index($request);
 
         $this->assertInstanceOf(View::class, $resultado);
-        $this->assertSame($filtroEsperado, $datos()['filtroBloqueos']);
-        $this->assertCount($cantidadEsperada, $datos()['bloqueos']->items());
-        $this->assertSame(10, $datos()['bloqueos']->perPage());
-        $this->assertSame(1, $datos()['cantidadBloqueosEnCurso']);
+        $this->assertSame(
+            $filtroEsperado,
+            $datos()['filtroBloqueos']
+        );
+        $this->assertCount(
+            $cantidadEsperada,
+            $datos()['bloqueos']->items()
+        );
+        $this->assertSame(
+            10,
+            $datos()['bloqueos']->perPage()
+        );
+        $this->assertSame(
+            1,
+            $datos()['cantidadBloqueosEnCurso']
+        );
     }
 
     public static function filtrosBloqueos(): array
@@ -97,72 +137,141 @@ class AgendaReadControllersTest extends TestCase
     public function test_dashboard_conserva_hueco_como_null_y_separa_futuras_e_historial(): void
     {
         $actor = $this->actor();
-        $historica = $this->configuracion($actor->kinesiologa, '2026-09-01', '2026-10-05');
-        $futura = $this->configuracion($actor->kinesiologa, '2026-10-10');
+
+        $historica = $this->configuracion(
+            $actor->kinesiologa,
+            '2026-09-01',
+            '2026-10-05'
+        );
+
+        $futura = $this->configuracion(
+            $actor->kinesiologa,
+            '2026-10-10'
+        );
+
         $anulada = $this->configuracion(
             $actor->kinesiologa,
             '2026-10-08',
             '2026-10-09',
             '2026-10-05 09:00:00'
         );
-        $request = $this->request($actor, '/turnos/agenda');
+
+        $request = $this->request(
+            $actor,
+            '/turnos/agenda'
+        );
+
         $datos = $this->capturarVista('agenda.index');
 
         app(AgendaController::class)->index($request);
 
-        $this->assertNull($datos()['configuracionVigente']);
-        $this->assertSame([$futura->id], $datos()['configuracionesFuturas']->modelKeys());
-        $this->assertTrue($datos()['proximaConfiguracion']->is($futura));
-        $this->assertSame(2, $datos()['cantidadHistorial']);
-        $this->assertTrue($datos()['hayAntecedentes']);
-        $this->assertFalse($datos()['puedeCambiarDuracion']);
-        $this->assertDatabaseHas('configuraciones_agenda', ['id' => $historica->id]);
-        $this->assertDatabaseHas('configuraciones_agenda', ['id' => $anulada->id]);
+        $this->assertNull(
+            $datos()['configuracionVigente']
+        );
+
+        $this->assertSame(
+            [$futura->id],
+            $datos()['configuracionesFuturas']->modelKeys()
+        );
+
+        $this->assertTrue(
+            $datos()['proximaConfiguracion']->is($futura)
+        );
+
+        $this->assertSame(
+            2,
+            $datos()['cantidadHistorial']
+        );
+
+        $this->assertTrue(
+            $datos()['hayAntecedentes']
+        );
+
+        $this->assertFalse(
+            $datos()['puedeCambiarDuracion']
+        );
+
+        $this->assertDatabaseHas(
+            'configuraciones_agenda',
+            ['id' => $historica->id]
+        );
+
+        $this->assertDatabaseHas(
+            'configuraciones_agenda',
+            ['id' => $anulada->id]
+        );
     }
 
     public function test_dashboard_informa_que_no_hay_bloqueos_cuando_no_existe_ninguno_propio(): void
     {
         $actor = $this->actor();
-        $request = $this->request($actor, '/turnos/agenda');
+
+        $request = $this->request(
+            $actor,
+            '/turnos/agenda'
+        );
+
         $datos = $this->capturarVista('agenda.index');
 
         app(AgendaController::class)->index($request);
 
-        $this->assertFalse($datos()['hayBloqueos']);
+        $this->assertFalse(
+            $datos()['hayBloqueos']
+        );
     }
 
     public function test_dashboard_distingue_un_filtro_vacio_cuando_existen_otros_bloqueos_propios(): void
     {
         $actor = $this->actor();
+
         $this->bloqueo(
             $actor->kinesiologa,
             '2026-10-06 09:00:00',
             '2026-10-06 10:00:00'
         );
-        $request = $this->request($actor, '/turnos/agenda?filtro=proximos');
+
+        $request = $this->request(
+            $actor,
+            '/turnos/agenda?filtro=proximos'
+        );
+
         $datos = $this->capturarVista('agenda.index');
 
         app(AgendaController::class)->index($request);
 
-        $this->assertTrue($datos()['hayBloqueos']);
-        $this->assertSame(0, $datos()['bloqueos']->total());
+        $this->assertTrue(
+            $datos()['hayBloqueos']
+        );
+
+        $this->assertSame(
+            0,
+            $datos()['bloqueos']->total()
+        );
     }
 
     public function test_dashboard_no_cuenta_bloqueos_de_otra_kinesiologa_para_el_estado_global(): void
     {
         $actor = $this->actor();
         $otra = $this->actor('otra');
+
         $this->bloqueo(
             $otra->kinesiologa,
             '2026-10-07 09:00:00',
             '2026-10-07 10:00:00'
         );
-        $request = $this->request($actor, '/turnos/agenda');
+
+        $request = $this->request(
+            $actor,
+            '/turnos/agenda'
+        );
+
         $datos = $this->capturarVista('agenda.index');
 
         app(AgendaController::class)->index($request);
 
-        $this->assertFalse($datos()['hayBloqueos']);
+        $this->assertFalse(
+            $datos()['hayBloqueos']
+        );
     }
 
     public function test_paginacion_de_bloqueos_conserva_solo_el_filtro_normalizado(): void
@@ -172,8 +281,14 @@ class AgendaReadControllersTest extends TestCase
         foreach (range(1, 11) as $indice) {
             $this->bloqueo(
                 $actor->kinesiologa,
-                sprintf('2026-10-07 %02d:00:00', $indice),
-                sprintf('2026-10-07 %02d:30:00', $indice)
+                sprintf(
+                    '2026-10-07 %02d:00:00',
+                    $indice
+                ),
+                sprintf(
+                    '2026-10-07 %02d:30:00',
+                    $indice
+                )
             );
         }
 
@@ -181,14 +296,27 @@ class AgendaReadControllersTest extends TestCase
             $actor,
             '/turnos/agenda?filtro=proximos&return_to=https://example.com'
         );
+
         $datos = $this->capturarVista('agenda.index');
 
         app(AgendaController::class)->index($request);
 
         $urlSegundaPagina = $datos()['bloqueos']->url(2);
-        $this->assertStringContainsString('filtro=proximos', $urlSegundaPagina);
-        $this->assertStringContainsString('bloqueos_page=2', $urlSegundaPagina);
-        $this->assertStringNotContainsString('return_to', $urlSegundaPagina);
+
+        $this->assertStringContainsString(
+            'filtro=proximos',
+            $urlSegundaPagina
+        );
+
+        $this->assertStringContainsString(
+            'bloqueos_page=2',
+            $urlSegundaPagina
+        );
+
+        $this->assertStringNotContainsString(
+            'return_to',
+            $urlSegundaPagina
+        );
     }
 
     public function test_historial_pagina_diez_y_excluye_vigente_y_futuras_activas(): void
@@ -203,36 +331,85 @@ class AgendaReadControllersTest extends TestCase
             );
         }
 
-        $this->configuracion($actor->kinesiologa, '2026-10-06');
-        $this->configuracion($actor->kinesiologa, '2026-12-01');
-        $request = $this->request($actor, '/turnos/agenda/configuraciones/historial');
-        $datos = $this->capturarVista('agenda.configuraciones.historial');
+        $this->configuracion(
+            $actor->kinesiologa,
+            '2026-10-06'
+        );
 
-        app(HistorialConfiguracionAgendaController::class)->index($request);
+        $this->configuracion(
+            $actor->kinesiologa,
+            '2026-12-01'
+        );
 
-        $this->assertSame(10, $datos()['configuraciones']->perPage());
-        $this->assertSame(11, $datos()['configuraciones']->total());
-        $this->assertCount(10, $datos()['configuraciones']->items());
+        $request = $this->request(
+            $actor,
+            '/turnos/agenda/configuraciones/historial'
+        );
+
+        $datos = $this->capturarVista(
+            'agenda.configuraciones.historial'
+        );
+
+        app(
+            HistorialConfiguracionAgendaController::class
+        )->index($request);
+
+        $this->assertSame(
+            10,
+            $datos()['configuraciones']->perPage()
+        );
+
+        $this->assertSame(
+            11,
+            $datos()['configuraciones']->total()
+        );
+
+        $this->assertCount(
+            10,
+            $datos()['configuraciones']->items()
+        );
     }
 
     public function test_historial_entrega_conteos_de_franjas_y_dias_sin_n_mas_uno(): void
     {
         $actor = $this->actor();
-        $configuracion = ConfiguracionAgenda::factory()->for($actor->kinesiologa)->create([
-            'vigencia_desde' => '2026-09-01',
-            'vigencia_hasta' => '2026-09-30',
-        ]);
-        FranjaHorariaAgenda::factory()
-            ->for($configuracion, 'configuracionAgenda')
-            ->createMany([
-                ['dia_semana' => 1, 'hora_inicio' => '08:00:00', 'hora_fin' => '12:00:00'],
-                ['dia_semana' => 1, 'hora_inicio' => '14:00:00', 'hora_fin' => '18:00:00'],
-                ['dia_semana' => 3, 'hora_inicio' => '09:00:00', 'hora_fin' => '13:00:00'],
+
+        $configuracion = ConfiguracionAgenda::factory()
+            ->for($actor->kinesiologa)
+            ->create([
+                'vigencia_desde' => '2026-09-01',
+                'vigencia_hasta' => '2026-09-30',
             ]);
-        $sinFranjas = ConfiguracionAgenda::factory()->for($actor->kinesiologa)->create([
-            'vigencia_desde' => '2026-08-01',
-            'vigencia_hasta' => '2026-08-31',
-        ]);
+
+        FranjaHorariaAgenda::factory()
+            ->for(
+                $configuracion,
+                'configuracionAgenda'
+            )
+            ->createMany([
+                [
+                    'dia_semana' => 1,
+                    'hora_inicio' => '08:00:00',
+                    'hora_fin' => '12:00:00',
+                ],
+                [
+                    'dia_semana' => 1,
+                    'hora_inicio' => '14:00:00',
+                    'hora_fin' => '18:00:00',
+                ],
+                [
+                    'dia_semana' => 3,
+                    'hora_inicio' => '09:00:00',
+                    'hora_fin' => '13:00:00',
+                ],
+            ]);
+
+        $sinFranjas = ConfiguracionAgenda::factory()
+            ->for($actor->kinesiologa)
+            ->create([
+                'vigencia_desde' => '2026-08-01',
+                'vigencia_hasta' => '2026-08-31',
+            ]);
 
         foreach (range(1, 3) as $indice) {
             $this->configuracion(
@@ -243,30 +420,75 @@ class AgendaReadControllersTest extends TestCase
         }
 
         $consultasFranjas = 0;
-        DB::listen(function ($query) use (&$consultasFranjas): void {
-            if (str_contains($query->sql, 'franjas_horarias_agenda')) {
-                $consultasFranjas++;
+
+        DB::listen(
+            function ($query) use (&$consultasFranjas): void {
+                if (str_contains(
+                    $query->sql,
+                    'franjas_horarias_agenda'
+                )) {
+                    $consultasFranjas++;
+                }
             }
-        });
+        );
 
-        $request = $this->request($actor, '/turnos/agenda/configuraciones/historial');
-        $datos = $this->capturarVista('agenda.configuraciones.historial');
+        $request = $this->request(
+            $actor,
+            '/turnos/agenda/configuraciones/historial'
+        );
 
-        app(HistorialConfiguracionAgendaController::class)->index($request);
+        $datos = $this->capturarVista(
+            'agenda.configuraciones.historial'
+        );
 
-        $porId = $datos()['configuraciones']->getCollection()->keyBy('id');
-        $this->assertSame(3, $porId[$configuracion->id]->franjas_horarias_count);
-        $this->assertSame(2, $porId[$configuracion->id]->dias_atencion_count);
-        $this->assertSame(0, $porId[$sinFranjas->id]->franjas_horarias_count);
-        $this->assertSame(0, $porId[$sinFranjas->id]->dias_atencion_count);
-        $this->assertTrue($porId[$configuracion->id]->relationLoaded('franjasHorarias'));
-        $this->assertLessThanOrEqual(2, $consultasFranjas);
+        app(
+            HistorialConfiguracionAgendaController::class
+        )->index($request);
+
+        $porId = $datos()['configuraciones']
+            ->getCollection()
+            ->keyBy('id');
+
+        $this->assertSame(
+            3,
+            $porId[$configuracion->id]->franjas_horarias_count
+        );
+
+        $this->assertSame(
+            2,
+            $porId[$configuracion->id]->dias_atencion_count
+        );
+
+        $this->assertSame(
+            0,
+            $porId[$sinFranjas->id]->franjas_horarias_count
+        );
+
+        $this->assertSame(
+            0,
+            $porId[$sinFranjas->id]->dias_atencion_count
+        );
+
+        $this->assertTrue(
+            $porId[$configuracion->id]
+                ->relationLoaded('franjasHorarias')
+        );
+
+        $this->assertLessThanOrEqual(
+            2,
+            $consultasFranjas
+        );
     }
 
     public function test_gets_protegidos_generan_snapshots_y_contexto_saneado(): void
     {
         $actor = $this->actor();
-        $configuracion = $this->configuracion($actor->kinesiologa, '2026-10-10');
+
+        $configuracion = $this->configuracion(
+            $actor->kinesiologa,
+            '2026-10-10'
+        );
+
         $bloqueo = $this->bloqueo(
             $actor->kinesiologa,
             '2026-10-05 09:00:00',
@@ -275,45 +497,113 @@ class AgendaReadControllersTest extends TestCase
 
         $requestConfig = $this->request(
             $actor,
-            '/turnos/agenda/configuraciones/'.$configuracion->id.'/editar?origen=https://example.com&page=-5'
+            '/turnos/agenda/configuraciones/'
+                .$configuracion->id
+                .'/editar?origen=https://example.com&page=-5'
         );
-        $datosConfig = $this->capturarVista('agenda.configuraciones.edit');
-        app(ConfiguracionAgendaController::class)->edit($requestConfig, $configuracion);
 
-        $this->assertNotSame('', $datosConfig()['snapshot']);
-        $this->assertSame(['origen' => 'dashboard'], $datosConfig()['contextoRetorno']);
+        $datosConfig = $this->capturarVista(
+            'agenda.configuraciones.edit'
+        );
+
+        app(
+            ConfiguracionAgendaController::class
+        )->edit(
+            $requestConfig,
+            $configuracion
+        );
+
+        $this->assertNotSame(
+            '',
+            $datosConfig()['snapshot']
+        );
+
+        $this->assertSame(
+            ['origen' => 'dashboard'],
+            $datosConfig()['contextoRetorno']
+        );
 
         $requestAnulacionConfig = $this->request(
             $actor,
-            '/turnos/agenda/configuraciones/'.$configuracion->id.'/anular?origen=detalle'
+            '/turnos/agenda/configuraciones/'
+                .$configuracion->id
+                .'/anular?origen=detalle'
         );
-        $datosAnulacionConfig = $this->capturarVista('agenda.configuraciones.anular');
-        app(AnulacionConfiguracionAgendaController::class)->create(
+
+        $datosAnulacionConfig = $this->capturarVista(
+            'agenda.configuraciones.anular'
+        );
+
+        app(
+            AnulacionConfiguracionAgendaController::class
+        )->create(
             $requestAnulacionConfig,
             $configuracion
         );
 
-        $this->assertNotSame('', $datosAnulacionConfig()['snapshot']);
-        $this->assertArrayHasKey('predecesoraVinculada', $datosAnulacionConfig());
+        $this->assertNotSame(
+            '',
+            $datosAnulacionConfig()['snapshot']
+        );
+
+        $this->assertArrayHasKey(
+            'predecesoraVinculada',
+            $datosAnulacionConfig()
+        );
 
         $requestBloqueo = $this->request(
             $actor,
-            '/turnos/agenda/bloqueos/'.$bloqueo->id.'/anular?filtro=pasados&bloqueos_page=2'
+            '/turnos/agenda/bloqueos/'
+                .$bloqueo->id
+                .'/anular?filtro=pasados&bloqueos_page=2'
         );
-        $datosBloqueo = $this->capturarVista('agenda.bloqueos.anular');
-        app(AnulacionBloqueoAgendaController::class)->create($requestBloqueo, $bloqueo);
 
-        $this->assertNotSame('', $datosBloqueo()['snapshot']);
-        $this->assertSame('pasados', $datosBloqueo()['contextoRetorno']['filtro']);
-        $this->assertSame(2, $datosBloqueo()['contextoRetorno']['bloqueos_page']);
+        $datosBloqueo = $this->capturarVista(
+            'agenda.bloqueos.anular'
+        );
+
+        app(
+            AnulacionBloqueoAgendaController::class
+        )->create(
+            $requestBloqueo,
+            $bloqueo
+        );
+
+        $this->assertNotSame(
+            '',
+            $datosBloqueo()['snapshot']
+        );
+
+        $this->assertSame(
+            'pasados',
+            $datosBloqueo()['contextoRetorno']['filtro']
+        );
+
+        $this->assertSame(
+            2,
+            $datosBloqueo()['contextoRetorno']['bloqueos_page']
+        );
     }
 
-    private function request(User $actor, string $uri): Request
-    {
+    private function request(
+        User $actor,
+        string $uri
+    ): Request {
         $this->actingAs($actor);
-        $request = Request::create($uri, 'GET');
-        $request->setUserResolver(fn (): User => $actor);
-        app()->instance('request', $request);
+
+        $request = Request::create(
+            $uri,
+            'GET'
+        );
+
+        $request->setUserResolver(
+            fn (): User => $actor
+        );
+
+        app()->instance(
+            'request',
+            $request
+        );
 
         return $request;
     }
@@ -323,13 +613,20 @@ class AgendaReadControllersTest extends TestCase
     {
         $datos = null;
         $vista = Mockery::mock(View::class);
+
         ViewFacade::shouldReceive('make')
             ->once()
-            ->with($nombre, Mockery::on(function (array $recibidos) use (&$datos): bool {
-                $datos = $recibidos;
+            ->with(
+                $nombre,
+                Mockery::on(
+                    function (array $recibidos) use (&$datos): bool {
+                        $datos = $recibidos;
 
-                return true;
-            }), [])
+                        return true;
+                    }
+                ),
+                []
+            )
             ->andReturn($vista);
 
         return function () use (&$datos): array {
@@ -339,14 +636,21 @@ class AgendaReadControllersTest extends TestCase
         };
     }
 
-    private function actor(string $prefijo = 'actor'): User
-    {
+    private function actor(
+        string $prefijo = 'actor'
+    ): User {
         $user = User::factory()->create([
             'email' => $prefijo.'_'.uniqid().'@example.com',
             'activo' => true,
         ]);
-        $user->assignRole(RoleEnum::KINESIOLOGO->value);
-        Kinesiologa::create(['user_id' => $user->id]);
+
+        $user->assignRole(
+            RoleEnum::KINESIOLOGO->value
+        );
+
+        Kinesiologa::create([
+            'user_id' => $user->id,
+        ]);
 
         return $user->fresh('kinesiologa');
     }
@@ -357,14 +661,22 @@ class AgendaReadControllersTest extends TestCase
         ?string $hasta = null,
         ?string $anuladoAt = null
     ): ConfiguracionAgenda {
-        $configuracion = ConfiguracionAgenda::factory()->for($kinesiologa)->create([
-            'vigencia_desde' => $desde,
-            'vigencia_hasta' => $hasta,
-            'anulado_at' => $anuladoAt,
-            'motivo_anulacion' => $anuladoAt === null ? null : 'AnulaciÃ³n de prueba',
-        ]);
+        $configuracion = ConfiguracionAgenda::factory()
+            ->for($kinesiologa)
+            ->create([
+                'vigencia_desde' => $desde,
+                'vigencia_hasta' => $hasta,
+                'anulado_at' => $anuladoAt,
+                'motivo_anulacion' => $anuladoAt === null
+                    ? null
+                    : 'Anulación de prueba',
+            ]);
+
         FranjaHorariaAgenda::factory()
-            ->for($configuracion, 'configuracionAgenda')
+            ->for(
+                $configuracion,
+                'configuracionAgenda'
+            )
             ->create();
 
         return $configuracion;
@@ -376,11 +688,15 @@ class AgendaReadControllersTest extends TestCase
         string $fin,
         ?string $anuladoAt = null
     ): BloqueoAgenda {
-        return BloqueoAgenda::factory()->for($kinesiologa)->create([
-            'inicio_at' => $inicio,
-            'fin_at' => $fin,
-            'anulado_at' => $anuladoAt,
-            'motivo_anulacion' => $anuladoAt === null ? null : 'AnulaciÃ³n de prueba',
-        ]);
+        return BloqueoAgenda::factory()
+            ->for($kinesiologa)
+            ->create([
+                'inicio_at' => $inicio,
+                'fin_at' => $fin,
+                'anulado_at' => $anuladoAt,
+                'motivo_anulacion' => $anuladoAt === null
+                    ? null
+                    : 'Anulación de prueba',
+            ]);
     }
 }
