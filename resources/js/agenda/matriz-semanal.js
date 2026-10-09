@@ -28,6 +28,36 @@ const fechaLegible = (fecha) => {
     return `${dia}/${mes}/${anio}`;
 };
 
+const restarDiaCalendario = (fecha) => {
+    if (typeof fecha !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+        return '';
+    }
+
+    const [anio, mes, dia] = fecha.split('-').map(Number);
+    const resultado = new Date(Date.UTC(anio, mes - 1, dia - 1));
+
+    return resultado.toISOString().slice(0, 10);
+};
+
+export const formatearDuracionMinutos = (duracion) => {
+    if (!Number.isInteger(duracion) || duracion <= 0) {
+        return '';
+    }
+
+    const horas = Math.floor(duracion / 60);
+    const minutos = duracion % 60;
+
+    if (horas === 0) {
+        return `${minutos} min`;
+    }
+
+    if (minutos === 0) {
+        return `${horas} h`;
+    }
+
+    return `${horas} h ${minutos} min`;
+};
+
 export default function matrizSemanalAgenda(config = {}) {
     let contadorClaves = 0;
 
@@ -58,6 +88,10 @@ export default function matrizSemanalAgenda(config = {}) {
             hora_inicio: primerError(indice, 'hora_inicio'),
             hora_fin: primerError(indice, 'hora_fin'),
         },
+        camposTocados: {
+            hora_inicio: false,
+            hora_fin: false,
+        },
     });
 
     return {
@@ -72,8 +106,13 @@ export default function matrizSemanalAgenda(config = {}) {
         hoy: config.hoy || '',
         permiteInicioHoy: config.permiteInicioHoy === true,
         confirmacion: config.confirmacion || {},
+        esPrimeraConfiguracion: config.esPrimeraConfiguracion === true,
+        vigenciasExistentes: Array.isArray(config.vigenciasExistentes)
+            ? config.vigenciasExistentes
+            : [],
         enviando: false,
         hayCambios: config.tieneErroresServidor === true,
+        huboInteraccion: config.tieneErroresServidor === true,
 
         init() {
             if (config.tieneErroresServidor) {
@@ -127,6 +166,10 @@ export default function matrizSemanalAgenda(config = {}) {
                 || this.franjas.some((franja) => this.erroresFranja(franja).length > 0);
         },
 
+        get mostrarResumenValidacionLocal() {
+            return this.huboInteraccion && this.tieneErroresLocales;
+        },
+
         get resumenMatriz() {
             const dias = this.cantidadDiasAtencion;
             const franjas = this.cantidadFranjas;
@@ -152,6 +195,39 @@ export default function matrizSemanalAgenda(config = {}) {
             return this.permiteInicioHoy
                 && this.vigenciaDesde !== ''
                 && this.vigenciaDesde === this.hoy;
+        },
+
+        get vistaPreviaReconciliacion() {
+            if (this.esPrimeraConfiguracion
+                || !/^\d{4}-\d{2}-\d{2}$/.test(this.vigenciaDesde)
+                || (this.vigenciaHasta && !this.periodoValido)) {
+                return '';
+            }
+
+            const ordenadas = [...this.vigenciasExistentes]
+                .filter((vigencia) => typeof vigencia?.desde === 'string')
+                .sort((a, b) => a.desde.localeCompare(b.desde));
+
+            if (ordenadas.some((vigencia) => vigencia.desde === this.vigenciaDesde)) {
+                return '';
+            }
+
+            const predecesoras = ordenadas
+                .filter((vigencia) => vigencia.desde < this.vigenciaDesde);
+            const predecesora = predecesoras[predecesoras.length - 1];
+            const sucesora = ordenadas.find((vigencia) => vigencia.desde > this.vigenciaDesde);
+
+            if (!predecesora
+                || (predecesora.hasta && predecesora.hasta < this.vigenciaDesde)
+                || (sucesora && (!this.vigenciaHasta || this.vigenciaHasta >= sucesora.desde))) {
+                return '';
+            }
+
+            const finProyectado = restarDiaCalendario(this.vigenciaDesde);
+
+            return finProyectado
+                ? `La configuración anterior finalizará el ${fechaLegible(finProyectado)} para dar lugar a esta nueva vigencia.`
+                : '';
         },
 
         franjasDia(dia) {
@@ -205,6 +281,17 @@ export default function matrizSemanalAgenda(config = {}) {
             this.hayCambios = true;
         },
 
+        marcarInteraccion() {
+            this.marcarCambios();
+            this.huboInteraccion = true;
+        },
+
+        marcarCampoTocado(franja, campo) {
+            franja.camposTocados[campo] = true;
+            this.marcarInteraccion();
+            this.limpiarErrorServidor(franja, campo);
+        },
+
         limpiarErrorServidor(franja, campo) {
             franja.erroresServidor[campo] = '';
         },
@@ -234,17 +321,23 @@ export default function matrizSemanalAgenda(config = {}) {
             return fin - inicio;
         },
 
-        erroresFranja(franja) {
+        duracionFranjaLegible(franja) {
+            return formatearDuracionMinutos(this.duracionFranja(franja));
+        },
+
+        erroresFranja(franja, soloVisibles = false) {
             const errores = [];
             const dia = this.dias.find((item) => item.numero === franja.diaSemana)?.nombre || 'Día';
             const inicio = minutosDesdeHora(franja.horaInicio);
             const fin = minutosDesdeHora(franja.horaFin);
 
-            if (!franja.horaInicio) {
+            if (!franja.horaInicio
+                && (!soloVisibles || franja.camposTocados.hora_inicio)) {
                 errores.push(`${dia}: la hora de inicio es obligatoria.`);
             }
 
-            if (!franja.horaFin) {
+            if (!franja.horaFin
+                && (!soloVisibles || franja.camposTocados.hora_fin)) {
                 errores.push(`${dia}: la hora de fin es obligatoria.`);
             }
 
@@ -285,8 +378,12 @@ export default function matrizSemanalAgenda(config = {}) {
             return errores;
         },
 
+        erroresFranjaVisibles(franja) {
+            return this.erroresFranja(franja, true);
+        },
+
         filaInvalida(franja) {
-            return this.erroresFranja(franja).length > 0
+            return this.erroresFranjaVisibles(franja).length > 0
                 || Object.values(franja.erroresServidor).some(Boolean);
         },
 

@@ -41,7 +41,7 @@
                 action="{{ route('turnos.agenda.duracion.store') }}"
                 class="space-y-6"
                 x-data="matrizSemanalAgenda(@js($configuracionMatriz))"
-                @input="marcarCambios()"
+                @input="marcarInteraccion()"
                 @submit="confirmarEnvio($event)"
             >
                 @csrf

@@ -40,11 +40,26 @@ class ConfiguracionAgendaController extends Controller
         $esPrimeraConfiguracion = ! $this->queryService
             ->configuraciones($kinesiologa)
             ->exists();
+        $vigenciasExistentes = collect([
+            $this->queryService->configuracionAplicableEn($kinesiologa, $hoy),
+        ])
+            ->filter()
+            ->concat($this->queryService->futurasEn($kinesiologa, $hoy)->get([
+                'vigencia_desde',
+                'vigencia_hasta',
+            ]))
+            ->map(fn (ConfiguracionAgenda $configuracion): array => [
+                'desde' => $configuracion->vigencia_desde->toDateString(),
+                'hasta' => $configuracion->vigencia_hasta?->toDateString(),
+            ])
+            ->values()
+            ->all();
 
         return view('agenda.configuraciones.create', [
             'hoy' => $hoy,
             'esPrimeraConfiguracion' => $esPrimeraConfiguracion,
             'defaults' => $esPrimeraConfiguracion ? $this->defaultsPrimeraConfiguracion() : null,
+            'vigenciasExistentes' => $vigenciasExistentes,
         ]);
     }
 

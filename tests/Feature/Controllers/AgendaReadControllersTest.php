@@ -585,6 +585,31 @@ class AgendaReadControllersTest extends TestCase
         );
     }
 
+    public function test_create_entrega_solo_vigencia_aplicable_y_futuras_no_anuladas_para_presentacion(): void
+    {
+        $actor = $this->actor();
+
+        $this->configuracion($actor->kinesiologa, '2026-09-01', '2026-09-30');
+        $this->configuracion($actor->kinesiologa, '2026-10-01', '2026-10-19');
+        $this->configuracion($actor->kinesiologa, '2026-10-20');
+        $this->configuracion(
+            $actor->kinesiologa,
+            '2026-11-01',
+            null,
+            '2026-10-05 09:00:00'
+        );
+
+        $request = $this->request($actor, '/turnos/agenda/configuraciones/crear');
+        $datos = $this->capturarVista('agenda.configuraciones.create');
+
+        app(ConfiguracionAgendaController::class)->create($request);
+
+        $this->assertSame([
+            ['desde' => '2026-10-01', 'hasta' => '2026-10-19'],
+            ['desde' => '2026-10-20', 'hasta' => null],
+        ], $datos()['vigenciasExistentes']);
+    }
+
     private function request(
         User $actor,
         string $uri

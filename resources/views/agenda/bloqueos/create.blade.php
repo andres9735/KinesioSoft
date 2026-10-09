@@ -20,6 +20,20 @@
         $valor,
         config('app.timezone')
     )->setTimezone(config('app.timezone'))->format('d/m/Y H:i');
+    $formatearInterseccion = function (array $bloqueoSuperpuesto) use ($revision): string {
+        $inicioCandidato = \Carbon\CarbonImmutable::parse($revision['inicio_at'], config('app.timezone'));
+        $finCandidato = \Carbon\CarbonImmutable::parse($revision['fin_at'], config('app.timezone'));
+        $inicioExistente = \Carbon\CarbonImmutable::parse($bloqueoSuperpuesto['inicio_at'], config('app.timezone'));
+        $finExistente = \Carbon\CarbonImmutable::parse($bloqueoSuperpuesto['fin_at'], config('app.timezone'));
+        $inicioInterseccion = $inicioCandidato->greaterThan($inicioExistente) ? $inicioCandidato : $inicioExistente;
+        $finInterseccion = $finCandidato->lessThan($finExistente) ? $finCandidato : $finExistente;
+
+        if ($inicioInterseccion->isSameDay($finInterseccion)) {
+            return $inicioInterseccion->format('d/m/Y H:i').' → '.$finInterseccion->format('H:i');
+        }
+
+        return $inicioInterseccion->format('d/m/Y H:i').' → '.$finInterseccion->format('d/m/Y H:i');
+    };
 @endphp
 
 <x-app-layout>
@@ -249,8 +263,8 @@
                         </button>
                         <button
                             type="submit"
-                            class="inline-flex min-h-11 justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
-                            :disabled="enviando"
+                            class="inline-flex min-h-11 justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-600"
+                            :disabled="enviando || !capturaCompleta"
                         >
                             Revisar bloqueo
                         </button>
@@ -301,7 +315,7 @@
                             <h3 id="turnos-afectados-titulo" class="text-lg font-semibold text-gray-900">Turnos afectados</h3>
                             @if ($revision['cantidad_turnos_afectados'] > 0)
                                 <div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950" role="status">
-                                    <p class="font-semibold">Hay {{ $revision['cantidad_turnos_afectados'] }} turno(s) otorgado(s) dentro de este intervalo.</p>
+                                    <p class="font-semibold">Hay {{ $revision['cantidad_turnos_afectados'] }} {{ $revision['cantidad_turnos_afectados'] === 1 ? 'turno otorgado' : 'turnos otorgados' }} dentro de este intervalo.</p>
                                     <p class="mt-1">Registrar el bloqueo no reprogramará ni cancelará estos turnos. Deberán gestionarse por separado.</p>
                                 </div>
                             @else
@@ -350,7 +364,7 @@
                             <h3 id="bloqueos-superpuestos-titulo" class="text-lg font-semibold text-gray-900">Otros bloqueos superpuestos</h3>
                             @if ($revision['cantidad_bloqueos_superpuestos'] > 0)
                                 <div class="mt-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950" role="status">
-                                    <p class="font-semibold">El intervalo se superpone con {{ $revision['cantidad_bloqueos_superpuestos'] }} bloqueo(s) existente(s).</p>
+                                    <p class="font-semibold">El intervalo se superpone con {{ $revision['cantidad_bloqueos_superpuestos'] }} {{ $revision['cantidad_bloqueos_superpuestos'] === 1 ? 'bloqueo existente' : 'bloqueos existentes' }}.</p>
                                     <p class="mt-1">Podés continuar: los bloqueos se conservarán como registros independientes.</p>
                                 </div>
                             @else
@@ -364,9 +378,10 @@
                                     <caption class="sr-only">Detalle cronológico de bloqueos superpuestos</caption>
                                     <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                                         <tr>
-                                            <th scope="col" class="w-1/3 px-6 py-3">Inicio</th>
-                                            <th scope="col" class="w-1/3 px-6 py-3">Finalización</th>
-                                            <th scope="col" class="w-1/3 px-6 py-3">Motivo</th>
+                                            <th scope="col" class="w-1/4 px-6 py-3">Inicio</th>
+                                            <th scope="col" class="w-1/4 px-6 py-3">Finalización</th>
+                                            <th scope="col" class="w-1/4 px-6 py-3">Superposición</th>
+                                            <th scope="col" class="w-1/4 px-6 py-3">Motivo</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-gray-100">
@@ -374,6 +389,7 @@
                                             <tr>
                                                 <td class="break-words px-6 py-4 font-medium text-gray-900">{{ $formatearFechaHora($bloqueoSuperpuesto['inicio_at']) }}</td>
                                                 <td class="break-words px-6 py-4 text-gray-700">{{ $formatearFechaHora($bloqueoSuperpuesto['fin_at']) }}</td>
+                                                <td class="break-words px-6 py-4 font-medium text-blue-900">{{ $formatearInterseccion($bloqueoSuperpuesto) }}</td>
                                                 <td class="break-words px-6 py-4 text-gray-700">{{ $bloqueoSuperpuesto['motivo'] }}</td>
                                             </tr>
                                         @endforeach
@@ -386,6 +402,7 @@
                                         <p class="font-semibold text-gray-900">{{ $bloqueoSuperpuesto['motivo'] }}</p>
                                         <p class="text-sm text-gray-700"><span class="font-medium">Desde:</span> {{ $formatearFechaHora($bloqueoSuperpuesto['inicio_at']) }}</p>
                                         <p class="text-sm text-gray-700"><span class="font-medium">Hasta:</span> {{ $formatearFechaHora($bloqueoSuperpuesto['fin_at']) }}</p>
+                                        <p class="text-sm text-blue-900"><span class="font-medium">Superposición:</span> {{ $formatearInterseccion($bloqueoSuperpuesto) }}</p>
                                     </li>
                                 @endforeach
                             </ul>

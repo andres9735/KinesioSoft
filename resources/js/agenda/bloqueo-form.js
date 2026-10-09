@@ -155,6 +155,14 @@ export default function bloqueoAgendaForm(config = {}) {
                 && this.inicioAt < this.finAt;
         },
 
+        get capturaCompleta() {
+            const fechasCompletas = this.fechaInicio !== '' && this.fechaFin !== '';
+            const horasCompletas = this.modo === 'completo'
+                || (this.horaInicio !== '' && this.horaFin !== '');
+
+            return fechasCompletas && horasCompletas && this.motivo.trim() !== '';
+        },
+
         cambiarModo(modo) {
             this.modo = modo;
             this.dirty = true;

@@ -17,6 +17,9 @@ class ConfiguracionAgendaFormViewsTest extends AgendaViewTestCase
             ->assertOk()
             ->assertViewIs('agenda.configuraciones.create')
             ->assertSee('Crear primera configuración')
+            ->assertSee('Puede comenzar hoy porque será la primera configuración de la agenda.')
+            ->assertSee('Esta será la primera vigencia de tu agenda.')
+            ->assertDontSee('fecha de fin de su predecesora')
             ->assertSeeInOrder(['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'])
             ->assertSee('08:00')
             ->assertSee('17:00')
@@ -50,11 +53,37 @@ class ConfiguracionAgendaFormViewsTest extends AgendaViewTestCase
             ->assertOk()
             ->assertSee('Nueva configuración de agenda')
             ->assertSee('La nueva configuración comienza vacía')
+            ->assertSee('Debe ser posterior a hoy y respetar la continuidad de las vigencias existentes.')
+            ->assertSee('x-show="vistaPreviaReconciliacion"', false)
+            ->assertSee('x-text="vistaPreviaReconciliacion"', false)
+            ->assertDontSee('id="resumen-errores"', false)
+            ->assertSee('x-show="mostrarResumenValidacionLocal"', false)
+            ->assertSee('x-cloak', false)
+            ->assertSee(':disabled="tieneErroresLocales || enviando"', false)
             ->assertDontSee('08:00')
             ->assertDontSee('17:00');
 
+        $this->assertSame([], $response->viewData('vigenciasExistentes'));
+
         $this->assertSame(1, ConfiguracionAgenda::query()->count());
         $this->assertSame(1, FranjaHorariaAgenda::query()->count());
+    }
+
+    public function test_nueva_configuracion_expone_metadata_presentacional_para_previsualizar_reconciliacion(): void
+    {
+        $actor = $this->actor();
+        $this->configuracion($actor->kinesiologa, '2026-10-01', null);
+
+        $response = $this->actingAs($actor)->get(route('turnos.agenda.configuraciones.create'));
+
+        $response
+            ->assertOk()
+            ->assertSee('x-text="vistaPreviaReconciliacion"', false)
+            ->assertSee('Guardar una nueva vigencia puede ajustar hacia adelante la fecha de fin de su predecesora.');
+
+        $this->assertSame([
+            ['desde' => '2026-10-01', 'hasta' => null],
+        ], $response->viewData('vigenciasExistentes'));
     }
 
     public function test_edicion_precarga_multiples_franjas_ordenadas_snapshot_y_retorno_permitido(): void
@@ -325,12 +354,20 @@ class ConfiguracionAgendaFormViewsTest extends AgendaViewTestCase
             ->assertSee('id="agenda-agregar-franja-1"', false)
             ->assertSee("'Hora de inicio de Lunes, franja ' + (posicion + 1)", false)
             ->assertSee('x-text="resumenMatriz"', false)
+            ->assertSee('Duración de la franja de atención')
+            ->assertSee('x-text="duracionFranjaLegible(franja)"', false)
             ->assertSee('x-show="franjasDia(7).length === 0"', false);
 
         $js = file_get_contents(resource_path('js/agenda/matriz-semanal.js'));
         $this->assertIsString($js);
         $this->assertStringContainsString('confirmarCancelacion(event)', $js);
         $this->assertStringContainsString('destino?.focus()', $js);
+        $this->assertStringContainsString('camposTocados', $js);
+        $this->assertStringContainsString('erroresFranjaVisibles(franja)', $js);
+        $this->assertStringContainsString("document.getElementById(this.idCampo(franja, 'inicio'))?.focus()", $js);
+        $this->assertStringContainsString('formatearDuracionMinutos', $js);
+        $this->assertStringContainsString('`${horas} h ${minutos} min`', $js);
+        $this->assertStringContainsString('La configuración anterior finalizará el', $js);
 
         $this->assertStringNotContainsString('[frontend_key]', $html);
         $this->assertStringNotContainsString('[key]', $html);

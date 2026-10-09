@@ -14,6 +14,8 @@
     ];
 @endphp
 
+<style>[x-cloak] { display: none !important; }</style>
+
 <section {{ $attributes->class(['space-y-5']) }} aria-labelledby="matriz-semanal-titulo">
     <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -33,7 +35,8 @@
         id="resumen-validacion-local"
         tabindex="-1"
         class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 focus:outline-none focus:ring-2 focus:ring-red-500"
-        x-show="tieneErroresLocales"
+        x-show="mostrarResumenValidacionLocal"
+        x-cloak
         role="alert"
     >
         <p class="font-semibold">Revisá la matriz antes de guardar.</p>
@@ -115,7 +118,8 @@
                                         :name="'franjas[' + indiceFranja(franja) + '][hora_inicio]'"
                                         :aria-label="'Hora de inicio de {{ $nombreDia }}, franja ' + (posicion + 1)"
                                         x-model="franja.horaInicio"
-                                        @input="limpiarErrorServidor(franja, 'hora_inicio')"
+                                        @input="marcarCampoTocado(franja, 'hora_inicio')"
+                                        @blur="marcarCampoTocado(franja, 'hora_inicio')"
                                         :aria-describedby="idErroresFila(franja)"
                                         :aria-invalid="filaInvalida(franja).toString()"
                                     >
@@ -132,7 +136,8 @@
                                         :name="'franjas[' + indiceFranja(franja) + '][hora_fin]'"
                                         :aria-label="'Hora de fin de {{ $nombreDia }}, franja ' + (posicion + 1)"
                                         x-model="franja.horaFin"
-                                        @input="limpiarErrorServidor(franja, 'hora_fin')"
+                                        @input="marcarCampoTocado(franja, 'hora_fin')"
+                                        @blur="marcarCampoTocado(franja, 'hora_fin')"
                                         :aria-describedby="idErroresFila(franja)"
                                         :aria-invalid="filaInvalida(franja).toString()"
                                     >
@@ -150,7 +155,7 @@
 
                             <div class="mt-3 text-sm text-gray-600">
                                 <span x-show="duracionFranja(franja) !== null">
-                                    Duración de la franja: <strong x-text="duracionFranja(franja) + ' min'"></strong>
+                                    Duración de la franja de atención: <strong x-text="duracionFranjaLegible(franja)"></strong>
                                 </span>
                             </div>
 
@@ -159,7 +164,7 @@
                                 <p x-show="errorCampoServidor(franja, 'dia_semana')" x-text="errorCampoServidor(franja, 'dia_semana')"></p>
                                 <p x-show="errorCampoServidor(franja, 'hora_inicio')" x-text="errorCampoServidor(franja, 'hora_inicio')"></p>
                                 <p x-show="errorCampoServidor(franja, 'hora_fin')" x-text="errorCampoServidor(franja, 'hora_fin')"></p>
-                                <template x-for="error in erroresFranja(franja)" :key="error">
+                                <template x-for="error in erroresFranjaVisibles(franja)" :key="error">
                                     <p x-text="error"></p>
                                 </template>
                             </div>

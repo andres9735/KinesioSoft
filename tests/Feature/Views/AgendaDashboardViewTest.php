@@ -62,7 +62,10 @@ class AgendaDashboardViewTest extends AgendaViewTestCase
         $response
             ->assertOk()
             ->assertSee('Vigente')
-            ->assertSee('Sin fecha de fin')
+            ->assertSee('Desde 01/10/2026')
+            ->assertSee('· Sin fecha de fin')
+            ->assertDontSee('hasta Sin fecha de fin')
+            ->assertDontSee('Hasta Sin fecha de fin')
             ->assertSeeInOrder(['Lunes', '08:00', '12:00', '14:00', '18:00', 'Martes', 'Sin atención', 'Miércoles'])
             ->assertSeeInOrder(['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'])
             ->assertSee('Consultar')
@@ -96,12 +99,16 @@ class AgendaDashboardViewTest extends AgendaViewTestCase
         $actor = $this->actor();
         $this->configuracion($actor->kinesiologa, '2026-10-01');
 
-        $this->actingAs($actor)
+        $response = $this->actingAs($actor)
             ->get(route('turnos.agenda.index'))
             ->assertOk()
             ->assertSee('No hay configuraciones futuras programadas')
             ->assertSee('No hay bloqueos registrados')
+            ->assertSee('0 configuraciones históricas o anuladas')
+            ->assertSee('0 resultados para el filtro actual')
             ->assertSee('Registrar bloqueo');
+
+        $this->assertSame(2, substr_count($response->getContent(), 'Nueva configuración'));
 
         $this->bloqueo(
             $actor->kinesiologa,
@@ -116,6 +123,21 @@ class AgendaDashboardViewTest extends AgendaViewTestCase
             ->assertSee('No hay bloqueos próximos')
             ->assertSee('Ver todos')
             ->assertDontSee('No hay bloqueos registrados');
+    }
+
+    public function test_cta_de_nueva_configuracion_no_se_duplica_en_la_seccion_de_futuras(): void
+    {
+        $actor = $this->actor();
+        $this->configuracion($actor->kinesiologa, '2026-10-01');
+
+        $sinFuturas = $this->actingAs($actor)->get(route('turnos.agenda.index'))->assertOk();
+        $this->assertSame(2, substr_count($sinFuturas->getContent(), 'Nueva configuración'));
+
+        $this->configuracion($actor->kinesiologa, '2026-10-20');
+
+        $conFuturas = $this->get(route('turnos.agenda.index'))->assertOk();
+        $this->assertSame(2, substr_count($conFuturas->getContent(), 'Nueva configuración'));
+        $conFuturas->assertDontSee('No hay configuraciones futuras programadas');
     }
 
     #[DataProvider('filtros')]
@@ -139,6 +161,7 @@ class AgendaDashboardViewTest extends AgendaViewTestCase
             ->assertOk()
             ->assertSee($label)
             ->assertSee('value="'.$filtro.'" selected', false)
+            ->assertSee('1 resultado para el filtro actual')
             ->assertSee('Motivo visible '.$filtro)
             ->assertDontSee('Motivo ajeno '.$filtro)
             ->assertSee($estado)

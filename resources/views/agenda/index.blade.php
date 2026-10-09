@@ -69,7 +69,12 @@
                             <div>
                                 <x-agenda.estado-configuracion-badge estado="VIGENTE" />
                                 <p class="mt-3 text-sm text-gray-700">
-                                    Desde {{ $configuracionVigente->vigencia_desde->format('d/m/Y') }} hasta {{ $configuracionVigente->vigencia_hasta?->format('d/m/Y') ?? 'Sin fecha de fin' }}
+                                    Desde {{ $configuracionVigente->vigencia_desde->format('d/m/Y') }}
+                                    @if ($configuracionVigente->vigencia_hasta !== null)
+                                        hasta {{ $configuracionVigente->vigencia_hasta->format('d/m/Y') }}
+                                    @else
+                                        · Sin fecha de fin
+                                    @endif
                                 </p>
                             </div>
                             <a href="{{ route('turnos.agenda.configuraciones.show', ['configuracion' => $configuracionVigente, 'origen' => 'dashboard']) }}" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">Consultar</a>
@@ -93,7 +98,9 @@
                         <h2 id="configuraciones-futuras" class="text-lg font-semibold text-gray-900">Configuraciones futuras</h2>
                         <p class="mt-1 text-sm text-gray-500">Cambios programados que todavía no comenzaron.</p>
                     </div>
-                    <a href="{{ route('turnos.agenda.configuraciones.create') }}" class="inline-flex min-h-11 items-center rounded-lg text-sm font-semibold text-indigo-700 hover:text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Nueva configuración</a>
+                    @if ($configuracionesFuturas->isNotEmpty())
+                        <a href="{{ route('turnos.agenda.configuraciones.create') }}" class="inline-flex min-h-11 items-center rounded-lg text-sm font-semibold text-indigo-700 hover:text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Nueva configuración</a>
+                    @endif
                 </div>
 
                 @if ($configuracionesFuturas->isEmpty())
@@ -115,7 +122,14 @@
                                 <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                     <div>
                                         <x-agenda.estado-configuracion-badge estado="FUTURA" :proxima="$proximaConfiguracion?->is($configuracion) ?? false" />
-                                        <h3 class="mt-3 break-words font-semibold text-gray-900">Desde {{ $configuracion->vigencia_desde->format('d/m/Y') }} hasta {{ $configuracion->vigencia_hasta?->format('d/m/Y') ?? 'Sin fecha de fin' }}</h3>
+                                        <h3 class="mt-3 break-words font-semibold text-gray-900">
+                                            Desde {{ $configuracion->vigencia_desde->format('d/m/Y') }}
+                                            @if ($configuracion->vigencia_hasta !== null)
+                                                hasta {{ $configuracion->vigencia_hasta->format('d/m/Y') }}
+                                            @else
+                                                · Sin fecha de fin
+                                            @endif
+                                        </h3>
                                     </div>
                                     <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                                         <a href="{{ route('turnos.agenda.configuraciones.show', ['configuracion' => $configuracion, 'origen' => 'dashboard']) }}" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">Consultar</a>
@@ -143,7 +157,9 @@
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h2 id="resumen-historial" class="text-lg font-semibold text-gray-900">Historial de configuraciones</h2>
-                        <p class="mt-1 text-sm text-gray-500">{{ $cantidadHistorial }} configuración(es) histórica(s) o anulada(s).</p>
+                        <p class="mt-1 text-sm text-gray-500">
+                            {{ $cantidadHistorial }} {{ $cantidadHistorial === 1 ? 'configuración histórica o anulada' : 'configuraciones históricas o anuladas' }}.
+                        </p>
                     </div>
                     <a href="{{ route('turnos.agenda.configuraciones.historial') }}" class="inline-flex min-h-11 items-center rounded-lg text-sm font-semibold text-indigo-700 hover:text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Ver historial completo</a>
                 </div>
@@ -170,7 +186,7 @@
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                             <h2 id="bloqueos-agenda" class="text-lg font-semibold text-gray-900">Bloqueos de agenda</h2>
-                            <p class="mt-1 text-sm text-gray-500">{{ $bloqueos->total() }} resultado(s) para el filtro actual.</p>
+                            <p class="mt-1 text-sm text-gray-500">{{ $bloqueos->total() }} {{ $bloqueos->total() === 1 ? 'resultado' : 'resultados' }} para el filtro actual.</p>
                         </div>
                         @if ($cantidadBloqueosEnCurso > 0)
                             <a href="{{ route('turnos.agenda.index', ['filtro' => 'en_curso']) }}" class="inline-flex min-h-11 items-center rounded-lg text-sm font-semibold text-amber-800 hover:text-amber-950 focus:outline-none focus:ring-2 focus:ring-amber-600 focus:ring-offset-2">En curso: {{ $cantidadBloqueosEnCurso }}</a>

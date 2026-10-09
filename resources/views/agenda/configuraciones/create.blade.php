@@ -14,6 +14,8 @@
         'vigenciaHasta' => old('vigencia_hasta', ''),
         'hoy' => $hoy->toDateString(),
         'permiteInicioHoy' => true,
+        'esPrimeraConfiguracion' => $esPrimeraConfiguracion,
+        'vigenciasExistentes' => $vigenciasExistentes,
         'errores' => $errors->getMessages(),
         'tieneErroresServidor' => $errors->any(),
         'confirmacion' => [
@@ -41,7 +43,7 @@
                 action="{{ route('turnos.agenda.configuraciones.store') }}"
                 class="space-y-6"
                 x-data="matrizSemanalAgenda(@js($configuracionMatriz))"
-                @input="marcarCambios()"
+                @input="marcarInteraccion()"
                 @submit="confirmarEnvio($event)"
             >
                 @csrf
@@ -88,7 +90,11 @@
                                     aria-invalid="{{ $errors->has('vigencia_desde') ? 'true' : 'false' }}"
                                     class="mt-1 block min-h-11 w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                 >
-                                <p id="ayuda-vigencia-desde" class="mt-2 text-sm text-gray-500">Puede comenzar hoy si no existe una configuración aplicable.</p>
+                                <p id="ayuda-vigencia-desde" class="mt-2 text-sm text-gray-500">
+                                    {{ $esPrimeraConfiguracion
+                                        ? 'Puede comenzar hoy porque será la primera configuración de la agenda.'
+                                        : 'Debe ser posterior a hoy y respetar la continuidad de las vigencias existentes.' }}
+                                </p>
                                 @error('vigencia_desde')<p id="error-vigencia-desde" class="mt-2 text-sm font-medium text-red-700">{{ $message }}</p>@enderror
                             </div>
 
@@ -136,9 +142,18 @@
                             Esta configuración comenzará hoy. Una vez guardada se considerará iniciada y ya no podrá editarse ni anularse como futura.
                         </div>
 
-                        <p class="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-700">
-                            Guardar una nueva vigencia puede ajustar hacia adelante la fecha de fin de su predecesora. No modifica horarios históricos ni turnos ya otorgados.
-                        </p>
+                        @if ($esPrimeraConfiguracion)
+                            <p class="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-700">
+                                Esta será la primera vigencia de tu agenda. Los horarios definidos se aplicarán desde la fecha indicada y no modificarán turnos ya otorgados.
+                            </p>
+                        @else
+                            <div class="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-700" aria-live="polite">
+                                <p x-show="vistaPreviaReconciliacion" x-cloak x-text="vistaPreviaReconciliacion"></p>
+                                <p x-show="!vistaPreviaReconciliacion">
+                                    Guardar una nueva vigencia puede ajustar hacia adelante la fecha de fin de su predecesora. No modifica horarios históricos ni turnos ya otorgados.
+                                </p>
+                            </div>
+                        @endif
                     </div>
                 </section>
 

@@ -68,6 +68,11 @@ class NavigationTest extends TestCase
         );
 
         $this->assertStringNotContainsString(
+            'Horarios de atención',
+            $html
+        );
+
+        $this->assertStringNotContainsString(
             'Mi perfil</a>',
             $html
         );
@@ -113,6 +118,11 @@ class NavigationTest extends TestCase
             'Mis matrículas',
             $html
         );
+
+        $this->assertStringNotContainsString(
+            'Horarios de atención',
+            $html
+        );
     }
 
     public function test_kinesiologo_sees_professional_navigation(): void
@@ -130,6 +140,45 @@ class NavigationTest extends TestCase
             2,
             substr_count($html, 'Mis matrículas')
         );
+
+        $this->assertSame(
+            2,
+            substr_count($html, 'Horarios de atención')
+        );
+
+        $this->assertSame(
+            2,
+            substr_count(
+                $html,
+                'href="'.route('turnos.agenda.index').'"'
+            )
+        );
+
+        $primerDashboard = strpos($html, 'Dashboard');
+        $primerPerfil = strpos($html, 'Mi perfil profesional');
+        $primerMatriculas = strpos($html, 'Mis matrículas');
+        $primerHorarios = strpos($html, 'Horarios de atención');
+
+        $this->assertIsInt($primerDashboard);
+        $this->assertIsInt($primerPerfil);
+        $this->assertIsInt($primerMatriculas);
+        $this->assertIsInt($primerHorarios);
+        $this->assertLessThan($primerPerfil, $primerDashboard);
+        $this->assertLessThan($primerMatriculas, $primerPerfil);
+        $this->assertLessThan($primerHorarios, $primerMatriculas);
+
+        $segundoDashboard = strpos($html, 'Dashboard', $primerDashboard + 1);
+        $segundoPerfil = strpos($html, 'Mi perfil profesional', $primerPerfil + 1);
+        $segundoMatriculas = strpos($html, 'Mis matrículas', $primerMatriculas + 1);
+        $segundoHorarios = strpos($html, 'Horarios de atención', $primerHorarios + 1);
+
+        $this->assertIsInt($segundoDashboard);
+        $this->assertIsInt($segundoPerfil);
+        $this->assertIsInt($segundoMatriculas);
+        $this->assertIsInt($segundoHorarios);
+        $this->assertLessThan($segundoPerfil, $segundoDashboard);
+        $this->assertLessThan($segundoMatriculas, $segundoPerfil);
+        $this->assertLessThan($segundoHorarios, $segundoMatriculas);
 
         $this->assertSame(
             2,
@@ -180,6 +229,11 @@ class NavigationTest extends TestCase
 
         $this->assertStringNotContainsString(
             'Mis matrículas',
+            $html
+        );
+
+        $this->assertStringNotContainsString(
+            'Horarios de atención',
             $html
         );
 
@@ -356,6 +410,24 @@ class NavigationTest extends TestCase
                 $html,
                 'aria-current="page"'
             )
+        );
+    }
+
+    public function test_horarios_de_atencion_is_active_on_every_agenda_route(): void
+    {
+        $html = $this->renderNavigationFor(
+            RoleEnum::KINESIOLOGO,
+            'turnos.agenda.bloqueos.show'
+        );
+
+        $this->assertSame(
+            2,
+            substr_count($html, 'aria-current="page"')
+        );
+
+        $this->assertSame(
+            2,
+            substr_count($html, 'Horarios de atención')
         );
     }
 

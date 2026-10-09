@@ -12,7 +12,7 @@
                 <div class="flex flex-col gap-3 border-b border-gray-100 bg-gray-50 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                     <div>
                         <h2 id="listado-historial" class="text-lg font-semibold text-gray-900">Configuraciones conservadas</h2>
-                        <p class="mt-1 text-sm text-gray-500">{{ $configuraciones->total() }} resultado(s), con los más recientes primero.</p>
+                        <p class="mt-1 text-sm text-gray-500">{{ $configuraciones->total() }} {{ $configuraciones->total() === 1 ? 'resultado' : 'resultados' }}, con los más recientes primero.</p>
                     </div>
                     <a href="{{ route('turnos.agenda.index') }}" class="inline-flex min-h-11 items-center rounded-lg text-sm font-semibold text-indigo-700 hover:text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Volver a la agenda</a>
                 </div>
@@ -39,9 +39,12 @@
                                 @foreach ($configuraciones as $configuracion)
                                     @php($estadoConfiguracion = $configuracion->estadoEn($hoy))
                                     <tr>
-                                        <td class="px-5 py-4 text-gray-700 sm:px-6"><span class="block">Desde {{ $configuracion->vigencia_desde->format('d/m/Y') }}</span><span class="block">Hasta {{ $configuracion->vigencia_hasta?->format('d/m/Y') ?? 'Sin fecha de fin' }}</span></td>
+                                        <td class="px-5 py-4 text-gray-700 sm:px-6">
+                                            <span class="block">Desde {{ $configuracion->vigencia_desde->format('d/m/Y') }}</span>
+                                            <span class="block">{{ $configuracion->vigencia_hasta !== null ? 'Hasta '.$configuracion->vigencia_hasta->format('d/m/Y') : 'Sin fecha de fin' }}</span>
+                                        </td>
                                         <td class="px-5 py-4 text-gray-700 sm:px-6">{{ $configuracion->duracion_turno_minutos }} minutos</td>
-                                        <td class="px-5 py-4 text-gray-700 sm:px-6">{{ $configuracion->dias_atencion_count }} día(s), {{ $configuracion->franjas_horarias_count }} franja(s)</td>
+                                        <td class="px-5 py-4 text-gray-700 sm:px-6">{{ $configuracion->dias_atencion_count }} {{ $configuracion->dias_atencion_count === 1 ? 'día' : 'días' }}, {{ $configuracion->franjas_horarias_count }} {{ $configuracion->franjas_horarias_count === 1 ? 'franja' : 'franjas' }}</td>
                                         <td class="px-5 py-4 sm:px-6">
                                             <x-agenda.estado-configuracion-badge :estado="$estadoConfiguracion" />
                                             @if ($configuracion->anulado_at !== null)
@@ -60,12 +63,22 @@
                             @php($estadoConfiguracion = $configuracion->estadoEn($hoy))
                             <article class="space-y-3 p-5">
                                 <div class="flex items-start justify-between gap-3">
-                                    <h3 class="font-semibold text-gray-900">Desde {{ $configuracion->vigencia_desde->format('d/m/Y') }} hasta {{ $configuracion->vigencia_hasta?->format('d/m/Y') ?? 'Sin fecha de fin' }}</h3>
+                                    <h3 class="font-semibold text-gray-900">
+                                        Desde {{ $configuracion->vigencia_desde->format('d/m/Y') }}
+                                        @if ($configuracion->vigencia_hasta !== null)
+                                            hasta {{ $configuracion->vigencia_hasta->format('d/m/Y') }}
+                                        @else
+                                            · Sin fecha de fin
+                                        @endif
+                                    </h3>
                                     <x-agenda.estado-configuracion-badge :estado="$estadoConfiguracion" class="shrink-0" />
                                 </div>
                                 <dl class="grid gap-3 text-sm sm:grid-cols-2">
                                     <div><dt class="text-gray-500">Duración</dt><dd class="font-semibold text-gray-900">{{ $configuracion->duracion_turno_minutos }} minutos</dd></div>
-                                    <div><dt class="text-gray-500">Resumen</dt><dd class="font-semibold text-gray-900">{{ $configuracion->dias_atencion_count }} día(s), {{ $configuracion->franjas_horarias_count }} franja(s)</dd></div>
+                                    <div>
+                                        <dt class="text-gray-500">Resumen</dt>
+                                        <dd class="font-semibold text-gray-900">{{ $configuracion->dias_atencion_count }} {{ $configuracion->dias_atencion_count === 1 ? 'día' : 'días' }}, {{ $configuracion->franjas_horarias_count }} {{ $configuracion->franjas_horarias_count === 1 ? 'franja' : 'franjas' }}</dd>
+                                    </div>
                                 </dl>
                                 @if ($configuracion->anulado_at !== null)
                                     <p class="text-xs text-gray-500">Anulada el {{ $configuracion->anulado_at->format('d/m/Y H:i') }}</p>

@@ -67,6 +67,13 @@
                         >
                             Mis matrículas
                         </x-nav-link>
+
+                        <x-nav-link
+                            :href="route('turnos.agenda.index')"
+                            :active="request()->routeIs('turnos.agenda.*')"
+                        >
+                            Horarios de atención
+                        </x-nav-link>
                     @endif
 
                     @if ($esAdministrativo)
@@ -240,6 +247,13 @@
                     )"
                 >
                     Mis matrículas
+                </x-responsive-nav-link>
+
+                <x-responsive-nav-link
+                    :href="route('turnos.agenda.index')"
+                    :active="request()->routeIs('turnos.agenda.*')"
+                >
+                    Horarios de atención
                 </x-responsive-nav-link>
             @endif
 

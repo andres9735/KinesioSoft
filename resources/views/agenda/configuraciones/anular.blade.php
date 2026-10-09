@@ -15,7 +15,9 @@
         default => route('turnos.agenda.index'),
     };
     $descripcionPeriodo = 'Período desde '.$configuracion->vigencia_desde->format('d/m/Y')
-        .' hasta '.($configuracion->vigencia_hasta?->format('d/m/Y') ?? 'sin fecha de fin').'.';
+        .($configuracion->vigencia_hasta !== null
+            ? ' hasta '.$configuracion->vigencia_hasta->format('d/m/Y')
+            : ' · sin fecha de fin').'.';
 @endphp
 
 <x-app-layout>
@@ -79,7 +81,12 @@
                         <article class="rounded-xl border border-gray-200 p-4">
                             <h3 class="font-semibold text-gray-900">Configuración anterior</h3>
                             <p class="mt-1 text-sm text-gray-700">
-                                Desde {{ $predecesora->vigencia_desde->format('d/m/Y') }} hasta {{ $predecesora->vigencia_hasta?->format('d/m/Y') ?? 'sin fecha de fin' }}.
+                                Desde {{ $predecesora->vigencia_desde->format('d/m/Y') }}
+                                @if ($predecesora->vigencia_hasta !== null)
+                                    hasta {{ $predecesora->vigencia_hasta->format('d/m/Y') }}.
+                                @else
+                                    · Sin fecha de fin.
+                                @endif
                             </p>
 
                             @if ($predecesoraVinculada && $sucesora !== null)

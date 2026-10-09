@@ -33,6 +33,7 @@ class BloqueoAgendaFormViewTest extends AgendaViewTestCase
             ->assertSee('Licencia')
             ->assertSee('Congreso')
             ->assertSee('Revisar bloqueo')
+            ->assertSee(':disabled="enviando || !capturaCompleta"', false)
             ->assertSee('Cancelar')
             ->assertSee('action="'.route('turnos.agenda.bloqueos.review').'"', false)
             ->assertSee('name="inicio_at"', false)
@@ -59,6 +60,13 @@ class BloqueoAgendaFormViewTest extends AgendaViewTestCase
             ->assertDontSee('min="2026-10-06"', false);
 
         $this->assertSame(1, substr_count($html, '<h1'));
+
+        $js = file_get_contents(resource_path('js/agenda/bloqueo-form.js'));
+        $this->assertIsString($js);
+        $this->assertStringContainsString('get capturaCompleta()', $js);
+        $this->assertStringContainsString("this.modo === 'completo'", $js);
+        $this->assertStringContainsString("this.horaInicio !== '' && this.horaFin !== ''", $js);
+        $this->assertStringContainsString("this.motivo.trim() !== ''", $js);
 
         $this->assertSame(
             1,
@@ -167,7 +175,7 @@ class BloqueoAgendaFormViewTest extends AgendaViewTestCase
         $response
             ->assertOk()
             ->assertSee(
-                'Hay 2 turno(s) otorgado(s) dentro de este intervalo.'
+                'Hay 2 turnos otorgados dentro de este intervalo.'
             )
             ->assertSee('Pendiente')
             ->assertSee('Confirmado')
@@ -175,8 +183,9 @@ class BloqueoAgendaFormViewTest extends AgendaViewTestCase
                 'Registrar el bloqueo no reprogramará ni cancelará estos turnos.'
             )
             ->assertSee(
-                'se superpone con 1 bloqueo(s) existente(s).'
+                'se superpone con 1 bloqueo existente.'
             )
+            ->assertSee('07/10/2026 10:00 → 10:30')
             ->assertSee(
                 'Podés continuar: los bloqueos se conservarán como registros independientes.'
             )
@@ -205,6 +214,35 @@ class BloqueoAgendaFormViewTest extends AgendaViewTestCase
             ->assertSee('sm:hidden', false);
 
         $this->assertDatabaseCount('bloqueos_agenda', 1);
+    }
+
+    public function test_review_muestra_el_tramo_exacto_de_superposicion_y_permite_confirmar(): void
+    {
+        $actor = $this->actor();
+
+        $this->bloqueo(
+            $actor->kinesiologa,
+            '2026-10-09 13:00:00',
+            '2026-10-09 15:00:00',
+            'Licencia'
+        );
+
+        $response = $this->actingAs($actor)->post(
+            route('turnos.agenda.bloqueos.review'),
+            $this->payload([
+                'inicio_at' => '2026-10-09 14:00:00',
+                'fin_at' => '2026-10-09 16:00:00',
+                'motivo' => 'Congreso',
+            ])
+        );
+
+        $response
+            ->assertOk()
+            ->assertSee('1 bloqueo existente')
+            ->assertSee('Superposición')
+            ->assertSee('09/10/2026 14:00 → 15:00')
+            ->assertSee('Confirmar registro')
+            ->assertDontSee('(s)');
     }
 
     public function test_review_stale_renderiza_nueva_revision_snapshot_y_mensaje_sin_success(): void
