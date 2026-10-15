@@ -39,7 +39,11 @@ Commit base oficial del incremento:
 
 Ese commit corresponde al cierre documental de **UC–XX Configurar agenda de atención** y conserva como antecesor técnico el incremento de Agenda completo.
 
-Estado del trabajo al iniciar este incremento:
+Base documental previa al Paso 7:
+
+`808794f7fc0e69efba70c9c9fc3dc702b7c50a1a`
+
+Estado actual del incremento:
 
 - Paso 1 — Alcance funcional: aprobado y congelado.
 - Paso 2 — Relevamiento técnico: completo.
@@ -48,7 +52,19 @@ Estado del trabajo al iniciar este incremento:
 - D-01 a D-16: aprobadas y congeladas.
 - DT-01 a DT-07: aprobadas y congeladas.
 - Consolidación Técnica/Física V1.0: aprobada y congelada.
-- Próxima etapa metodológica: Paso 5 — Diseño UX navegable.
+- Paso 5 — Diseño UX navegable: aprobado y congelado (UX-01…UX-03 y Consolidación UX V1.0).
+- Paso 6 — Referencia visual: cerrado por suficiencia.
+- Paso 7 — Planificación ejecutable: **APROBADO Y CONGELADO**.
+
+Documento autoritativo operativo:
+
+`docs/implementacion/turnos-solicitar-turno-planificacion.md`
+
+Las fuentes específicas permanecen en `docs/_codex_sources/turnos/`.
+
+Siguiente fase: **Paso 8 — ejecución mediante prompts blindados por subpaso.**
+
+Cada subpaso 7.01–7.28 requiere autorización y prompt blindado independiente. La aprobación de la planificación no autoriza implementación ni avance automático al subpaso siguiente. Codex debe detenerse al finalizar cada subpaso.
 
 No iniciar implementación de UC–07 mientras el usuario no autorice explícitamente el paso o subpaso de implementación correspondiente.
 
@@ -68,6 +84,8 @@ Pint:
 - Esa deuda preexistente no debe corregirse masivamente dentro de UC–07.
 - Para UC–07, exigir Pint PASS sobre los archivos modificados por el incremento cuando corresponda y mantener `git diff --check` limpio.
 - No mezclar reformateos globales de módulos ajenos con cambios funcionales de UC–07.
+
+Las verificaciones futuras incluyen tests específicos por subpaso, puertas P1–P7 definidas en la planificación congelada y regresión global en el cierre. El baseline anterior es histórico certificado; no implica un PASS actual de Pint global.
 
 Si la rama activa, el commit base o el estado Git no coinciden con lo esperado, detenerse e informarlo antes de modificar archivos.
 
@@ -112,14 +130,20 @@ No inventar nombres de archivos dentro de esa carpeta. Utilizar el README y el c
 
 Jerarquía de decisión para este incremento:
 
-1. Las decisiones explícitas **D-01 a D-16**, **DT-01 a DT-07** y la **Consolidación Técnica/Física V1.0** aprobadas por el usuario para UC–07 son vinculantes como interpretación, precisión y diseño del incremento.
-2. El Diccionario de Datos vigente y el Modelo Relacional vigente gobiernan persistencia, entidades, relaciones y estructura general, salvo extensiones técnicas expresamente aprobadas en DT-01…DT-07.
-3. El caso de uso formal UC–07 y los requisitos funcionales vigentes gobiernan comportamiento, actor, flujo, excepciones y postcondiciones.
-4. Los casos de uso relacionados con Turnos sirven como contexto de integración futura y no autorizan ampliar el alcance de UC–07.
-5. El código real existente de KinesioSoft define convenciones técnicas y patrones Laravel reutilizables, pero no puede contradecir decisiones funcionales congeladas.
-6. Los prototipos visuales sólo son referencia UX/UI y nunca prevalecen sobre dominio, persistencia, reglas funcionales o decisiones técnicas congeladas.
+1. Diccionario de Datos vigente: persistencia estructural congelada.
+2. Fuente funcional original UC–07: `docs/_codex_sources/turnos/UC-07_Solicitar_turno.txt`.
+3. D-01…D-16, DT-01…DT-07 y Diseño Técnico/Físico V1.0: `docs/_codex_sources/turnos/DECISIONES_UC07_DISENO_TECNICO_V1.0.md`.
+4. UX-01…UX-03 y Consolidación UX V1.0, incluido el cierre visual: `docs/_codex_sources/turnos/DECISIONES_UC07_DISENO_UX_V1.0.md`.
+5. Planificación ejecutable congelada: `docs/implementacion/turnos-solicitar-turno-planificacion.md`, que gobierna el orden operativo de implementación y no puede contradecir una decisión superior.
+6. Modelo Relacional vigente: apoyo visual del modelo; ante discrepancia prevalece el Diccionario de Datos.
+7. Código real existente: convenciones técnicas y patrones reutilizables.
+8. Referencias visuales: sólo UI/UX; nunca fuente de dominio o persistencia.
 
-Las decisiones D-01…D-16 y DT-01…DT-07 no deben reabrirse durante programación salvo que aparezca una incompatibilidad técnica real, demostrable y no prevista. En ese caso, detenerse, documentar la evidencia y pedir decisión al usuario antes de modificar arquitectura o reglas.
+Esta jerarquía conserva el orden de las fuentes declarado en el README local e incorpora la planificación en su lugar operativo subordinado. Los casos de uso relacionados sólo aportan contexto y no autorizan ampliar UC–07.
+
+Configurar agenda es **ANTECEDENTE IMPLEMENTADO CONSUMIDO POR UC–07**. No reabrirlo salvo cambios mínimos de reutilización expresamente previstos en el plan.
+
+Las decisiones D-01…D-16, DT-01…DT-07 y UX-01…UX-03 no deben reabrirse durante programación salvo que aparezca una incompatibilidad técnica real, demostrable y no prevista. En ese caso, detenerse, documentar la evidencia y pedir decisión al usuario antes de modificar arquitectura o reglas.
 
 Si dos fuentes de autoridad parecen contradecirse, detenerse e informar la discrepancia antes de resolverla por cuenta propia.
 
@@ -509,7 +533,7 @@ Antes de modificar:
 6. Informar cualquier discrepancia relevante antes de inventar una solución no prevista.
 7. Verificar `git branch --show-current`, `git rev-parse HEAD` y `git status --short` cuando se vaya a modificar el repositorio.
 
-Si se crea una planificación ejecutable congelada específica para UC–07, leer también el subpaso correspondiente antes de modificar.
+La planificación ejecutable de UC–07 está congelada en `docs/implementacion/turnos-solicitar-turno-planificacion.md`. Antes de modificar, leer el subpaso correspondiente y su prompt blindado independiente. No ejecutar un subpaso sin autorización específica ni avanzar automáticamente al siguiente.
 
 Después de modificar:
 
@@ -942,7 +966,7 @@ Puede diseñarse una responsabilidad reutilizable cuando sea estrictamente neces
 
 ## Prototipos y diseño UX
 
-El incremento se encuentra, al momento de esta actualización, listo para **Paso 5 — Diseño UX navegable**.
+El diseño UX (Paso 5, UX-01…UX-03 y Consolidación UX V1.0) está aprobado y congelado. La referencia visual del Paso 6 está cerrada por suficiencia y la planificación ejecutable del Paso 7 está aprobada y congelada. La siguiente fase es Paso 8, exclusivamente mediante prompts blindados independientes para los subpasos del plan.
 
 Reglas:
 
