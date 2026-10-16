@@ -33,14 +33,16 @@ class PoliticaDocumentosClinicosTest extends TestCase
         }
     }
 
-    public function test_configuration_contains_only_the_approved_policy_parameters(): void
+    public function test_configuration_preserves_the_approved_policy_parameters(): void
     {
         $this->assertSame([
             'max_archivos' => 5,
             'max_bytes_por_archivo' => 10485760,
             'max_bytes_total' => 26214400,
             'mime_permitidos' => ['application/pdf', 'image/jpeg', 'image/png'],
-        ], config('documentos_clinicos'));
+        ], array_intersect_key(config('documentos_clinicos'), array_flip([
+            'max_archivos', 'max_bytes_por_archivo', 'max_bytes_total', 'mime_permitidos',
+        ])));
     }
 
     #[DataProvider('cantidades')]

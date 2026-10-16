@@ -30,6 +30,15 @@ return [
 
     'disks' => [
 
+        'documentos_clinicos' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/documentos_clinicos'),
+            'visibility' => 'private',
+            'directory_visibility' => 'private',
+            'serve' => false,
+            'throw' => true,
+        ],
+
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
