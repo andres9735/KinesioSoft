@@ -3,9 +3,14 @@
 namespace App\Services\Turnos;
 
 use App\Enums\DiaSemanaEnum;
+use App\Exceptions\Turnos\ProfesionalNoElegibleException;
+use App\Models\BloqueoAgenda;
+use App\Models\ConfiguracionAgenda;
 use App\Models\FranjaHorariaAgenda;
 use App\Models\Kinesiologa;
+use App\Models\Turno;
 use App\Services\Agenda\AgendaQueryService;
+use App\Services\Agenda\RelojAplicacion;
 use App\Services\Agenda\ValidadorMatrizAgenda;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -17,6 +22,8 @@ final class DisponibilidadPrimeraConsultaService
     public function __construct(
         private readonly AgendaQueryService $agenda,
         private readonly ValidadorMatrizAgenda $validadorMatriz,
+        private readonly ElegibilidadKinesiologaService $elegibilidad,
+        private readonly RelojAplicacion $reloj,
     ) {}
 
     /**
@@ -34,6 +41,22 @@ final class DisponibilidadPrimeraConsultaService
             return [];
         }
 
+        return $this->generarGrillaDesdeConfiguracion($configuracion, $fechaCivil);
+    }
+
+    /**
+     * Recibe una configuración ya seleccionada por Agenda y sus franjas ya releídas.
+     * No ejecuta consultas; permite reutilizar la grilla con fuentes autoritativas futuras.
+     *
+     * @return list<array{inicio_at: CarbonImmutable, fin_at: CarbonImmutable}>
+     */
+    public function generarGrillaDesdeConfiguracion(ConfiguracionAgenda $configuracion, CarbonInterface $fecha): array
+    {
+        if (! $configuracion->relationLoaded('franjasHorarias')) {
+            throw new LogicException('Las franjas deben estar cargadas antes de evaluar la grilla.');
+        }
+
+        $fechaCivil = CarbonImmutable::createFromFormat('!Y-m-d', $fecha->toDateString(), config('app.timezone'));
         $duracion = $configuracion->duracion_turno_minutos;
 
         if ($duracion < 15 || $duracion > 180 || $duracion % 5 !== 0) {
@@ -72,5 +95,96 @@ final class DisponibilidadPrimeraConsultaService
         }
 
         return $candidatos;
+    }
+
+    /**
+     * Las fechas civiles desde/hasta son inclusivas; el límite acota la consulta, no la anticipación.
+     *
+     * @return list<array{inicio_at: CarbonImmutable, fin_at: CarbonImmutable}>
+     */
+    public function consultarDisponibilidad(Kinesiologa $kinesiologa, CarbonInterface $desde, CarbonInterface $hasta): array
+    {
+        $desde = CarbonImmutable::createFromFormat('!Y-m-d', $desde->toDateString(), config('app.timezone'));
+        $hasta = CarbonImmutable::createFromFormat('!Y-m-d', $hasta->toDateString(), config('app.timezone'));
+
+        if ($hasta->lt($desde)
+            || $desde->diffInDays($hasta) + 1 > config('turnos.disponibilidad.max_dias_por_consulta')) {
+            throw new InvalidArgumentException('La ventana de disponibilidad tiene un orden o tamaño inválido.');
+        }
+
+        // No reutilizar relaciones posiblemente precargadas antes de un cambio de perfil.
+        $actual = $kinesiologa->fresh();
+        $esElegible = $actual !== null && $this->elegibilidad->esElegible($actual);
+        $this->exigirElegibilidad($esElegible);
+
+        $finVentana = $hasta->addDay();
+        $turnos = $this->agenda->turnosAfectadosPorIntervalo($kinesiologa, $desde, $finVentana)->get();
+        $bloqueos = $this->agenda->bloqueosSuperpuestosCon($kinesiologa, $desde, $finVentana)->get();
+        $candidatos = [];
+
+        for ($fecha = $desde; $fecha->lte($hasta); $fecha = $fecha->addDay()) {
+            array_push($candidatos, ...$this->generarGrillaParaFecha($kinesiologa, $fecha));
+        }
+
+        return $this->evaluarCandidatosDisponibles($candidatos, $turnos, $bloqueos, $this->reloj->ahora(), $esElegible);
+    }
+
+    /** @return array{inicio_at: CarbonImmutable, fin_at: CarbonImmutable}|null */
+    public function revalidarSlot(Kinesiologa $kinesiologa, CarbonInterface $inicioAt): ?array
+    {
+        $inicio = CarbonImmutable::instance($inicioAt)->setTimezone(config('app.timezone'));
+
+        foreach ($this->consultarDisponibilidad($kinesiologa, $inicio, $inicio) as $candidato) {
+            if ($candidato['inicio_at']->equalTo($inicio)) {
+                return $candidato;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Evaluación sin SQL. El caller aporta grilla canónica, ocupaciones/bloqueos ya
+     * seleccionados por Agenda y elegibilidad ya evaluada por su regla canónica.
+     * 7.11 podrá aportar esas mismas fuentes obtenidas mediante lecturas bloqueantes.
+     *
+     * @param  list<array{inicio_at: CarbonImmutable, fin_at: CarbonImmutable}>  $candidatos
+     * @param  iterable<Turno>  $turnosOcupantes
+     * @param  iterable<BloqueoAgenda>  $bloqueosEfectivos
+     * @return list<array{inicio_at: CarbonImmutable, fin_at: CarbonImmutable}>
+     */
+    public function evaluarCandidatosDisponibles(
+        array $candidatos,
+        iterable $turnosOcupantes,
+        iterable $bloqueosEfectivos,
+        CarbonInterface $ahora,
+        bool $profesionalElegible,
+    ): array {
+        $this->exigirElegibilidad($profesionalElegible);
+        $ocupaciones = [...$turnosOcupantes, ...$bloqueosEfectivos];
+        $disponibles = [];
+
+        foreach ($candidatos as $candidato) {
+            if (! $candidato['inicio_at']->gt($ahora)) {
+                continue;
+            }
+
+            foreach ($ocupaciones as $ocupacion) {
+                if ($ocupacion->inicio_at->lt($candidato['fin_at']) && $ocupacion->fin_at->gt($candidato['inicio_at'])) {
+                    continue 2;
+                }
+            }
+
+            $disponibles[] = $candidato;
+        }
+
+        return $disponibles;
+    }
+
+    private function exigirElegibilidad(bool $esElegible): void
+    {
+        if (! $esElegible) {
+            throw new ProfesionalNoElegibleException('La profesional no cumple las condiciones para atender.');
+        }
     }
 }
