@@ -128,13 +128,32 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function tienePerfilProfesionalKinesiologiaCompleto(): bool
     {
-        if (! $this->kinesiologa) {
+        $kinesiologa = $this->kinesiologa;
+
+        if (! $kinesiologa || empty($kinesiologa->titulo_profesional_id)) {
             return false;
         }
 
-        return ! empty($this->kinesiologa->titulo_profesional_id)
-            && $this->kinesiologa->matriculasProfesionales()->where('activa', true)->exists()
-            && $this->kinesiologa->especialidades()->exists();
+        $tieneMatriculaActiva = $kinesiologa->relationLoaded('matriculasProfesionales')
+            ? $kinesiologa->matriculasProfesionales->contains('activa', true)
+            : $kinesiologa->matriculasProfesionales()->where('activa', true)->exists();
+
+        if (! $tieneMatriculaActiva) {
+            return false;
+        }
+
+        return $kinesiologa->relationLoaded('especialidades')
+            ? $kinesiologa->especialidades->isNotEmpty()
+            : $kinesiologa->especialidades()->exists();
+    }
+
+    public function puedeAtenderComoKinesiologo(): bool
+    {
+        return $this->esKinesiologo()
+            && $this->activo
+            && $this->hasVerifiedEmail()
+            && $this->tieneDatosPersonalesCompletos()
+            && $this->tienePerfilProfesionalKinesiologiaCompleto();
     }
 
     public function perfilCompleto(): ?bool
