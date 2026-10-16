@@ -6,6 +6,7 @@ use App\Enums\RoleEnum;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
@@ -64,6 +65,11 @@ class User extends Authenticatable implements MustVerifyEmail
     public function kinesiologa()
     {
         return $this->hasOne(Kinesiologa::class);
+    }
+
+    public function documentosClinicosCargados(): HasMany
+    {
+        return $this->hasMany(DocumentoClinico::class, 'cargado_por_user_id');
     }
 
     public function esPaciente(): bool

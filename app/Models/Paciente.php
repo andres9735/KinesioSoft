@@ -56,4 +56,9 @@ class Paciente extends Model
     {
         return $this->hasMany(Turno::class);
     }
+
+    public function documentosClinicos(): HasMany
+    {
+        return $this->hasMany(DocumentoClinico::class);
+    }
 }

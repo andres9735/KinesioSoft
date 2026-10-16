@@ -7,6 +7,8 @@ use App\Enums\TipoTurnoEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use LogicException;
 
 class Turno extends Model
 {
@@ -28,6 +30,21 @@ class Turno extends Model
             'fin_at' => 'immutable_datetime',
             'recordatorio_enviado_at' => 'immutable_datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::updating(function (self $turno): void {
+            if ($turno->getRawOriginal('tipo') === TipoTurnoEnum::PRIMERA_CONSULTA->value
+                && $turno->isDirty(['tipo', 'motivo_solicitud'])) {
+                throw new LogicException('El tipo y el motivo original de una Primera consulta no pueden modificarse.');
+            }
+        });
+    }
+
+    public function documentosClinicosOrigenTurno(): HasMany
+    {
+        return $this->hasMany(DocumentoClinicoOrigenTurno::class);
     }
 
     public function paciente(): BelongsTo
