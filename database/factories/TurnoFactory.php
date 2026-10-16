@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\EstadoTurnoEnum;
+use App\Enums\TipoTurnoEnum;
 use App\Models\Turno;
 use DateTimeImmutable;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -24,7 +25,7 @@ class TurnoFactory extends Factory
         );
 
         return [
-            'tipo' => 'SEGUIMIENTO',
+            'tipo' => TipoTurnoEnum::SEGUIMIENTO,
             'estado' => EstadoTurnoEnum::PENDIENTE,
             'inicio_at' => $inicio,
             'fin_at' => $inicio->modify('+45 minutes'),

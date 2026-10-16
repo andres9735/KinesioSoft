@@ -156,10 +156,7 @@ final class AgendaQueryService
     ): Builder {
         return Turno::query()
             ->where('kinesiologa_id', $kinesiologa->getKey())
-            ->whereIn('estado', [
-                EstadoTurnoEnum::PENDIENTE->value,
-                EstadoTurnoEnum::CONFIRMADO->value,
-            ])
+            ->whereIn('estado', EstadoTurnoEnum::estadosQueReservanAgenda())
             ->where('inicio_at', '<', $fin)
             ->where('fin_at', '>', $inicio)
             ->orderBy('inicio_at')

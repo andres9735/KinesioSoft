@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\EstadoTurnoEnum;
+use App\Enums\TipoTurnoEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -21,6 +22,7 @@ class Turno extends Model
     protected function casts(): array
     {
         return [
+            'tipo' => TipoTurnoEnum::class,
             'estado' => EstadoTurnoEnum::class,
             'inicio_at' => 'immutable_datetime',
             'fin_at' => 'immutable_datetime',

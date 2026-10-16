@@ -10,4 +10,12 @@ enum EstadoTurnoEnum: string
     case ATENDIDO = 'ATENDIDO';
     case AUSENTE = 'AUSENTE';
     case CANCELADO = 'CANCELADO';
+
+    /**
+     * @return list<self>
+     */
+    public static function estadosQueReservanAgenda(): array
+    {
+        return [self::PENDIENTE, self::CONFIRMADO];
+    }
 }

@@ -3,12 +3,14 @@
 namespace Tests\Feature\Models;
 
 use App\Enums\EstadoTurnoEnum;
+use App\Enums\TipoTurnoEnum;
 use App\Models\Kinesiologa;
 use App\Models\Paciente;
 use App\Models\Turno;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class TurnoModelTest extends TestCase
@@ -23,7 +25,7 @@ class TurnoModelTest extends TestCase
             ->for($paciente)
             ->for($kinesiologa)
             ->create([
-                'tipo' => 'SEGUIMIENTO',
+                'tipo' => TipoTurnoEnum::SEGUIMIENTO,
                 'estado' => EstadoTurnoEnum::CONFIRMADO,
                 'inicio_at' => '2026-10-10 08:00:00',
                 'fin_at' => '2026-10-10 08:45:00',
@@ -39,6 +41,7 @@ class TurnoModelTest extends TestCase
             'fin_at',
             'motivo_solicitud',
         ], $turno->getFillable());
+        $this->assertSame(TipoTurnoEnum::SEGUIMIENTO, $turno->tipo);
         $this->assertSame(EstadoTurnoEnum::CONFIRMADO, $turno->estado);
         $this->assertInstanceOf(CarbonImmutable::class, $turno->inicio_at);
         $this->assertInstanceOf(CarbonImmutable::class, $turno->fin_at);
@@ -61,28 +64,38 @@ class TurnoModelTest extends TestCase
 
         $this->assertTrue($turno->paciente->is($paciente));
         $this->assertTrue($turno->kinesiologa->is($kinesiologa));
+        $this->assertSame(TipoTurnoEnum::SEGUIMIENTO, $turno->fresh()->tipo);
         $this->assertSame(EstadoTurnoEnum::PENDIENTE, $turno->estado);
         $this->assertTrue($turno->fin_at->isAfter($turno->inicio_at));
     }
 
-    public function test_it_persists_and_recovers_each_canonical_state(): void
+    public function test_it_persists_and_recovers_each_type_independently_of_each_state(): void
     {
         $paciente = $this->paciente();
         $kinesiologa = $this->kinesiologa();
 
         foreach (EstadoTurnoEnum::cases() as $index => $estado) {
-            $turno = Turno::factory()
-                ->for($paciente)
-                ->for($kinesiologa)
-                ->create([
-                    'estado' => $estado,
-                    'inicio_at' => CarbonImmutable::parse('2026-10-10 08:00:00')
-                        ->addHours($index),
-                    'fin_at' => CarbonImmutable::parse('2026-10-10 08:45:00')
-                        ->addHours($index),
-                ]);
+            foreach (TipoTurnoEnum::cases() as $tipo) {
+                $turno = Turno::factory()
+                    ->for($paciente)
+                    ->for($kinesiologa)
+                    ->create([
+                        'tipo' => $tipo,
+                        'estado' => $estado,
+                        'inicio_at' => CarbonImmutable::parse('2026-10-10 08:00:00')
+                            ->addHours($index),
+                        'fin_at' => CarbonImmutable::parse('2026-10-10 08:45:00')
+                            ->addHours($index),
+                    ])
+                    ->fresh();
 
-            $this->assertSame($estado, $turno->fresh()->estado);
+                $this->assertSame($tipo, $turno->tipo);
+                $this->assertSame($estado, $turno->estado);
+                $this->assertSame(
+                    $tipo->value,
+                    DB::table('turnos')->where('id', $turno->id)->value('tipo')
+                );
+            }
         }
     }
 
