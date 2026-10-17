@@ -5,7 +5,6 @@ namespace App\Actions\Turnos;
 use App\Enums\EstadoTurnoEnum;
 use App\Enums\TipoTurnoEnum;
 use App\Exceptions\Turnos\AlmacenamientoDocumentalException;
-use App\Exceptions\Turnos\ClaveIdempotenciaIncompatibleException;
 use App\Exceptions\Turnos\PrimeraConsultaActivaException;
 use App\Exceptions\Turnos\ProfesionalNoElegibleException;
 use App\Exceptions\Turnos\ResultadoConfirmacionInciertoException;
@@ -24,6 +23,7 @@ use App\Services\Turnos\Documentos\OperacionAlmacenamientoDocumental;
 use App\Services\Turnos\ElegibilidadKinesiologaService;
 use App\Services\Turnos\ElegibilidadPrimeraConsultaService;
 use App\Services\Turnos\GestionDocumentoClinicoService;
+use App\Services\Turnos\ReplayPrimeraConsultaService;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -47,6 +47,7 @@ final class ConfirmarPrimeraConsultaAction
         private readonly AuditoriaService $auditoria,
         private readonly AlmacenamientoDocumentosClinicosService $almacenamiento,
         private readonly GestionDocumentoClinicoService $documentos,
+        private readonly ReplayPrimeraConsultaService $replays,
     ) {}
 
     public function ejecutar(
@@ -68,10 +69,10 @@ final class ConfirmarPrimeraConsultaAction
             throw new InvalidArgumentException('El actor debe tener un paciente asociado.');
         }
 
-        $existente = $this->porClave($uuid)->first();
+        $existente = $this->replays->resolver($paciente, $uuid);
 
         if ($existente !== null) {
-            return $this->replay($existente, $paciente);
+            return new ResultadoConfirmacionPrimeraConsulta($existente, true);
         }
 
         if ($kinesiologaId === null || $inicioAt === null) {
@@ -325,15 +326,12 @@ final class ConfirmarPrimeraConsultaAction
 
     private function porClave(string $uuid): Builder
     {
-        return Turno::query()->useWritePdo()->where('clave_idempotencia', $uuid);
+        return $this->replays->porClave($uuid);
     }
 
     private function replay(Turno $turno, Paciente $paciente): ResultadoConfirmacionPrimeraConsulta
     {
-        if ((int) $turno->paciente_id !== (int) $paciente->getKey()
-            || $turno->getRawOriginal('tipo') !== TipoTurnoEnum::PRIMERA_CONSULTA->value) {
-            throw new ClaveIdempotenciaIncompatibleException('La clave de intención no puede utilizarse.');
-        }
+        $this->replays->validarContexto($turno, $paciente);
 
         return new ResultadoConfirmacionPrimeraConsulta($turno, true);
     }
