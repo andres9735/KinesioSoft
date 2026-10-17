@@ -11,6 +11,7 @@ use App\Http\Controllers\CategoriaClinicaController;
 use App\Http\Controllers\ColegioEmisorController;
 use App\Http\Controllers\ConfiguracionAgendaController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DescargarDocumentoClinicoController;
 use App\Http\Controllers\DiagnosticoClinicoController;
 use App\Http\Controllers\EjercicioDomiciliarioController;
 use App\Http\Controllers\EspecialidadKinesiologiaController;
@@ -35,6 +36,10 @@ Route::get('/', function () {
 Route::get('/dashboard', DashboardController::class)
     ->middleware(['auth', 'perfil.completo', 'verified'])
     ->name('dashboard');
+
+Route::get('/documentos-clinicos/{documento}/descargar', DescargarDocumentoClinicoController::class)
+    ->middleware(['auth', 'verified', 'perfil.completo'])
+    ->name('documentos-clinicos.download');
 
 /*
 |--------------------------------------------------------------------------
