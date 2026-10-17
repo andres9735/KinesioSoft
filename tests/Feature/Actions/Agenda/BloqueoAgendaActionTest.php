@@ -153,7 +153,7 @@ class BloqueoAgendaActionTest extends TestCase
             '2026-10-07 10:30:01',
             'Licencia'
         );
-        $atributosTurno = $turno->getAttributes();
+        $atributosTurno = $turno->fresh()->getAttributes();
         $revision = $this->review($actor);
 
         $creado = app(RegistrarBloqueoAgendaAction::class)->ejecutar($actor, $this->candidato([
@@ -436,7 +436,7 @@ class BloqueoAgendaActionTest extends TestCase
         );
         $existente = $this->bloqueo($kinesiologa, '2026-10-07 09:00:00', '2026-10-07 10:30:01', 'Previo');
         $revision = $this->review($actor);
-        $turnoAntes = $turno->getAttributes();
+        $turnoAntes = $turno->fresh()->getAttributes();
         DB::statement("CREATE TRIGGER fallar_auditoria BEFORE INSERT ON auditorias BEGIN SELECT RAISE(ABORT, 'fallo auditoria'); END");
 
         try {
