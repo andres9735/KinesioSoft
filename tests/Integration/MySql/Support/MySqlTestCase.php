@@ -150,7 +150,7 @@ abstract class MySqlTestCase extends TestCase
             'UC07_MYSQL_AUTORIZADO' => getenv('UC07_MYSQL_AUTORIZADO'),
         ];
         $entrada = $opciones + ['escenario' => $this->escenario, 'worker' => $nombre, 'actor' => $paciente->user_id, 'kinesiologa' => $kinesiologa->id, 'uuid' => (string) Str::uuid()];
-        $proceso = new Process([PHP_BINARY, __DIR__.'/worker.php'], base_path(), $env, json_encode($entrada, JSON_THROW_ON_ERROR), 35);
+        $proceso = new Process([PHP_BINARY, $this->workerPath()], base_path(), $env, json_encode($entrada, JSON_THROW_ON_ERROR), 35);
         $proceso->start();
         $this->procesos[$nombre] = $proceso;
         $listo = $this->barrera->esperar($nombre.'-listo');
@@ -160,6 +160,11 @@ abstract class MySqlTestCase extends TestCase
         $this->barrera->marcar($nombre.'-iniciar');
 
         return $proceso;
+    }
+
+    protected function workerPath(): string
+    {
+        return __DIR__.'/worker.php';
     }
 
     protected function esperarBloqueo(string $worker, int $propietario): void
