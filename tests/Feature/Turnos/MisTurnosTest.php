@@ -63,7 +63,8 @@ class MisTurnosTest extends TestCase
             ->assertSee('Solicitar nuevo turno')->assertSee('disabled', false)
             ->assertSee('Podés iniciar una nueva solicitud');
         $this->assertSame(2, substr_count($response->getContent(), 'href="'.$this->url().'"'));
-        $this->assertFalse(Route::has('turnos.solicitar.create'));
+        $this->assertTrue(Route::has('turnos.solicitar.create'));
+        $response->assertDontSee('href="'.route('turnos.solicitar.create').'"', false);
         $this->assertTrue(Route::has('turnos.solicitar.store'));
         $this->assertTrue(Route::has('turnos.solicitar.disponibilidad'));
         $response->assertDontSee('href="#"', false);

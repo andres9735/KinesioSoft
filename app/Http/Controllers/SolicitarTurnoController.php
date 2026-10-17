@@ -9,12 +9,54 @@ use App\Exceptions\Turnos\SlotNoDisponibleException;
 use App\Http\Requests\ConfirmarPrimeraConsultaRequest;
 use App\Http\Requests\ConsultarDisponibilidadPrimeraConsultaRequest;
 use App\Models\Kinesiologa;
+use App\Models\Paciente;
 use App\Services\Turnos\DisponibilidadPrimeraConsultaService;
+use App\Services\Turnos\ElegibilidadKinesiologaService;
+use App\Services\Turnos\ElegibilidadPrimeraConsultaService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Illuminate\View\View;
 
 final class SolicitarTurnoController extends Controller
 {
+    public function create(Request $request, ElegibilidadPrimeraConsultaService $d01, ElegibilidadKinesiologaService $elegibilidad): View|RedirectResponse
+    {
+        $paciente = $request->user()->paciente()->first();
+        abort_unless($paciente instanceof Paciente, 403);
+
+        if ($d01->tienePrimeraConsultaFuturaActiva($paciente)) {
+            return redirect()->route('turnos.mis-turnos.index')
+                ->with('warning', 'Ya tenés una Primera consulta futura activa. Podés consultarla en Mis turnos.');
+        }
+
+        $profesionales = $elegibilidad->listarElegibles()
+            ->sortBy([['user.apellido', 'asc'], ['user.name', 'asc'], ['id', 'asc']])
+            ->values()->map(static fn (Kinesiologa $profesional): array => [
+                'id' => $profesional->getKey(),
+                'nombre' => trim($profesional->user->name.' '.$profesional->user->apellido),
+            ])->all();
+        $politica = config('documentos_clinicos');
+        $extensionesPorMime = ['application/pdf' => ['pdf'], 'image/jpeg' => ['jpg', 'jpeg'], 'image/png' => ['png']];
+        $extensiones = array_merge(...array_map(static fn (string $mime): array => $extensionesPorMime[$mime], $politica['mime_permitidos']));
+
+        return view('turnos.solicitar.create', ['configuracionWizard' => [
+            'uuid' => (string) Str::uuid(),
+            'profesionales' => $profesionales,
+            'maxMotivo' => 500,
+            'limites' => [
+                'maxArchivos' => $politica['max_archivos'],
+                'maxBytesPorArchivo' => $politica['max_bytes_por_archivo'],
+                'maxBytesTotal' => $politica['max_bytes_total'],
+                'mimePermitidos' => $politica['mime_permitidos'],
+                'extensionesPermitidas' => $extensiones,
+            ],
+            'urlMisTurnos' => route('turnos.mis-turnos.index'),
+        ]]);
+    }
+
     public function disponibilidad(ConsultarDisponibilidadPrimeraConsultaRequest $request, DisponibilidadPrimeraConsultaService $disponibilidad): JsonResponse
     {
         $datos = $request->validated();
