@@ -24,6 +24,7 @@ use App\Http\Controllers\PerfilKinesiologaController;
 use App\Http\Controllers\PerfilPacienteController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PruebaFuncionalController;
+use App\Http\Controllers\SolicitarTurnoController;
 use App\Http\Controllers\TecnicaTerapeuticaController;
 use App\Http\Controllers\TipoEquipoTerapeuticoController;
 use App\Http\Controllers\TituloProfesionalController;
@@ -45,6 +46,13 @@ Route::get('/documentos-clinicos/{documento}/descargar', DescargarDocumentoClini
 Route::get('/turnos/mis-turnos', [MisTurnosController::class, 'index'])
     ->middleware(['auth', 'verified', 'perfil.completo', 'perfil.paciente'])
     ->name('turnos.mis-turnos.index');
+
+Route::middleware(['auth', 'verified', 'perfil.completo', 'perfil.paciente'])->group(function () {
+    Route::get('/turnos/solicitar/disponibilidad', [SolicitarTurnoController::class, 'disponibilidad'])
+        ->name('turnos.solicitar.disponibilidad');
+    Route::post('/turnos/solicitar', [SolicitarTurnoController::class, 'store'])
+        ->name('turnos.solicitar.store');
+});
 
 /*
 |--------------------------------------------------------------------------
