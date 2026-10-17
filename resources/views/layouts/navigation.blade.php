@@ -37,6 +37,9 @@
                     </x-nav-link>
 
                     @if ($user->esPaciente())
+                        <x-nav-link :href="route('turnos.mis-turnos.index')" :active="request()->routeIs('turnos.mis-turnos.index')">
+                            Mis turnos
+                        </x-nav-link>
                         <x-nav-link
                             :href="route('perfil.completar')"
                             :active="request()->routeIs(
@@ -218,6 +221,9 @@
             </x-responsive-nav-link>
 
             @if ($user->esPaciente())
+                <x-responsive-nav-link :href="route('turnos.mis-turnos.index')" :active="request()->routeIs('turnos.mis-turnos.index')">
+                    Mis turnos
+                </x-responsive-nav-link>
                 <x-responsive-nav-link
                     :href="route('perfil.completar')"
                     :active="request()->routeIs(

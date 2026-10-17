@@ -19,6 +19,7 @@ use App\Http\Controllers\GeografiaController;
 use App\Http\Controllers\HistorialConfiguracionAgendaController;
 use App\Http\Controllers\JurisdiccionController;
 use App\Http\Controllers\MisMatriculasProfesionalesController;
+use App\Http\Controllers\MisTurnosController;
 use App\Http\Controllers\PerfilKinesiologaController;
 use App\Http\Controllers\PerfilPacienteController;
 use App\Http\Controllers\ProfileController;
@@ -40,6 +41,10 @@ Route::get('/dashboard', DashboardController::class)
 Route::get('/documentos-clinicos/{documento}/descargar', DescargarDocumentoClinicoController::class)
     ->middleware(['auth', 'verified', 'perfil.completo'])
     ->name('documentos-clinicos.download');
+
+Route::get('/turnos/mis-turnos', [MisTurnosController::class, 'index'])
+    ->middleware(['auth', 'verified', 'perfil.completo', 'perfil.paciente'])
+    ->name('turnos.mis-turnos.index');
 
 /*
 |--------------------------------------------------------------------------
