@@ -37,7 +37,7 @@
                 <button type="button" @click="volverAMisTurnos()" class="inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Volver a Mis turnos</button>
                 <div class="flex flex-col gap-3 sm:flex-row">
                     <button type="button" x-show="paso > 1" x-cloak @click="anterior()" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-gray-100 px-5 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Anterior</button>
-                    <button type="button" x-show="paso < 3" @click="siguiente()" :disabled="paso === 2 && profesionales.length === 0" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500">Continuar</button>
+                    <button type="button" x-show="paso < 4" @click="siguiente()" :disabled="(paso === 2 && profesionales.length === 0) || (paso === 3 && !puedeRevisar)" x-text="paso === 3 ? 'Revisar turno' : 'Continuar'" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500">Continuar</button>
                 </div>
             </div>
         </div>

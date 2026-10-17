@@ -10,6 +10,7 @@ use App\Http\Requests\ConfirmarPrimeraConsultaRequest;
 use App\Http\Requests\ConsultarDisponibilidadPrimeraConsultaRequest;
 use App\Models\Kinesiologa;
 use App\Models\Paciente;
+use App\Services\Agenda\RelojAplicacion;
 use App\Services\Turnos\DisponibilidadPrimeraConsultaService;
 use App\Services\Turnos\ElegibilidadKinesiologaService;
 use App\Services\Turnos\ElegibilidadPrimeraConsultaService;
@@ -22,7 +23,7 @@ use Illuminate\View\View;
 
 final class SolicitarTurnoController extends Controller
 {
-    public function create(Request $request, ElegibilidadPrimeraConsultaService $d01, ElegibilidadKinesiologaService $elegibilidad): View|RedirectResponse
+    public function create(Request $request, ElegibilidadPrimeraConsultaService $d01, ElegibilidadKinesiologaService $elegibilidad, RelojAplicacion $reloj): View|RedirectResponse
     {
         $paciente = $request->user()->paciente()->first();
         abort_unless($paciente instanceof Paciente, 403);
@@ -54,6 +55,8 @@ final class SolicitarTurnoController extends Controller
                 'extensionesPermitidas' => $extensiones,
             ],
             'urlMisTurnos' => route('turnos.mis-turnos.index'),
+            'urlDisponibilidad' => route('turnos.solicitar.disponibilidad'),
+            'fechaInicial' => $reloj->ahora()->toDateString(),
         ]]);
     }
 

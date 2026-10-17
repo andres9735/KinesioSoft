@@ -233,7 +233,9 @@ class SolicitarTurnoCreateTest extends TestCase
         config(['documentos_clinicos.max_archivos' => 2, 'documentos_clinicos.max_bytes_por_archivo' => 6 * 1024 * 1024, 'documentos_clinicos.max_bytes_total' => 12 * 1024 * 1024]);
         $response = $this->actingAs($this->paciente->user)->get($this->url())->assertOk();
         $config = $response->viewData('configuracionWizard');
-        $this->assertSame(['uuid', 'profesionales', 'maxMotivo', 'limites', 'urlMisTurnos'], array_keys($config));
+        $this->assertSame(['uuid', 'profesionales', 'maxMotivo', 'limites', 'urlMisTurnos', 'urlDisponibilidad', 'fechaInicial'], array_keys($config));
+        $this->assertSame(route('turnos.solicitar.disponibilidad'), $config['urlDisponibilidad']);
+        $this->assertSame('2026-10-17', $config['fechaInicial']);
         $this->assertSame(['id', 'nombre'], array_keys($config['profesionales'][0]));
         $this->assertSame(2, $config['limites']['maxArchivos']);
         $this->assertSame(6 * 1024 * 1024, $config['limites']['maxBytesPorArchivo']);
@@ -260,11 +262,14 @@ class SolicitarTurnoCreateTest extends TestCase
         $response->assertDontSee($peligroso, false)->assertSee(e($peligroso), false);
     }
 
-    public function test_later_steps_remain_structural_without_post_or_fake_slots_and_no_extra_routes_exist(): void
+    public function test_availability_controls_and_review_remain_without_confirmation_or_extra_routes(): void
     {
         $response = $this->actingAs($this->paciente->user)->get($this->url())->assertOk()
             ->assertSee('x-show="paso === 3"', false)->assertSee('x-show="paso === 4"', false)
-            ->assertSee('Todavía no seleccionaste fecha ni horario.')->assertSee('Pendiente de selección')
+            ->assertSee('Consultando horarios disponibles…')->assertSee('No hay horarios disponibles entre el')
+            ->assertSee("estadoDisponibilidad === 'error'", false)->assertSee('Reintentar')
+            ->assertSee('Semana anterior')->assertSee('Semana siguiente')->assertSee('Horarios disponibles')
+            ->assertSee(':aria-pressed=', false)->assertSee('Cambiar profesional')->assertSee('Pendiente de selección')
             ->assertSee('<button type="button" disabled', false)->assertSee('Confirmar turno')
             ->assertDontSee('Sin horarios disponibles');
         $dom = new \DOMDocument;
