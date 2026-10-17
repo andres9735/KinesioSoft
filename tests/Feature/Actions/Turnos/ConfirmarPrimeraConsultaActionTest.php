@@ -201,16 +201,16 @@ class ConfirmarPrimeraConsultaActionTest extends TestCase
         return [[true, TipoTurnoEnum::PRIMERA_CONSULTA], [false, TipoTurnoEnum::SEGUIMIENTO]];
     }
 
-    public function test_new_creation_with_attachments_is_explicitly_rejected_before_locks(): void
+    public function test_documental_creation_cannot_finalize_an_outer_transactions_savepoint(): void
     {
         $registro = $this->registrarLecturas();
         try {
             $this->confirmar(adjuntos: ['archivo no admitido en 7.11']);
-            $this->fail('Los adjuntos nuevos no están soportados.');
-        } catch (InvalidArgumentException $error) {
-            $this->assertStringContainsString('adjuntos nuevos', $error->getMessage());
+            $this->fail('El ciclo documental debe ser propietario del commit.');
+        } catch (LogicException $error) {
+            $this->assertStringContainsString('transacción exterior', $error->getMessage());
         }
-        $this->assertSame([], array_filter($registro->lecturas, fn ($lectura) => $lectura['lock']));
+        $this->assertNotEmpty(array_filter($registro->lecturas, fn ($lectura) => $lectura['lock']));
         $this->assertDatabaseCount('turnos', 0);
         $this->assertDatabaseCount('documentos_clinicos', 0);
     }

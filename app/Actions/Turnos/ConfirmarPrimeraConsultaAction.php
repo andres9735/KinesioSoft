@@ -4,10 +4,13 @@ namespace App\Actions\Turnos;
 
 use App\Enums\EstadoTurnoEnum;
 use App\Enums\TipoTurnoEnum;
+use App\Exceptions\Turnos\AlmacenamientoDocumentalException;
 use App\Exceptions\Turnos\ClaveIdempotenciaIncompatibleException;
 use App\Exceptions\Turnos\PrimeraConsultaActivaException;
 use App\Exceptions\Turnos\ProfesionalNoElegibleException;
+use App\Exceptions\Turnos\ResultadoConfirmacionInciertoException;
 use App\Exceptions\Turnos\SlotNoDisponibleException;
+use App\Models\DocumentoClinico;
 use App\Models\Kinesiologa;
 use App\Models\Paciente;
 use App\Models\Turno;
@@ -15,9 +18,12 @@ use App\Models\User;
 use App\Services\Agenda\AgendaQueryService;
 use App\Services\Agenda\RelojAplicacion;
 use App\Services\AuditoriaService;
+use App\Services\Turnos\AlmacenamientoDocumentosClinicosService;
 use App\Services\Turnos\DisponibilidadPrimeraConsultaService;
+use App\Services\Turnos\Documentos\OperacionAlmacenamientoDocumental;
 use App\Services\Turnos\ElegibilidadKinesiologaService;
 use App\Services\Turnos\ElegibilidadPrimeraConsultaService;
+use App\Services\Turnos\GestionDocumentoClinicoService;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -25,6 +31,10 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use LogicException;
+use PDO;
+use RuntimeException;
+use Throwable;
 
 final class ConfirmarPrimeraConsultaAction
 {
@@ -35,6 +45,8 @@ final class ConfirmarPrimeraConsultaAction
         private readonly DisponibilidadPrimeraConsultaService $disponibilidad,
         private readonly RelojAplicacion $reloj,
         private readonly AuditoriaService $auditoria,
+        private readonly AlmacenamientoDocumentosClinicosService $almacenamiento,
+        private readonly GestionDocumentoClinicoService $documentos,
     ) {}
 
     public function ejecutar(
@@ -62,16 +74,14 @@ final class ConfirmarPrimeraConsultaAction
             return $this->replay($existente, $paciente);
         }
 
-        if ($adjuntos !== []) {
-            throw new InvalidArgumentException('Esta confirmación todavía no admite adjuntos nuevos.');
-        }
-
         if ($kinesiologaId === null || $inicioAt === null) {
             throw new InvalidArgumentException('Una creación nueva requiere profesional e inicio.');
         }
 
+        $operacion = null;
+        $sesion = null;
         try {
-            return DB::transaction(function () use ($actor, $paciente, $uuid, $kinesiologaId, $inicioAt, $motivoSolicitud): ResultadoConfirmacionPrimeraConsulta {
+            $resultado = DB::transaction(function () use ($actor, $paciente, $uuid, $kinesiologaId, $inicioAt, $motivoSolicitud, $adjuntos, &$operacion, &$sesion): ResultadoConfirmacionPrimeraConsulta {
                 // Convenio canónico: kinesióloga -> paciente, incluso cuando no haya turnos previos.
                 $kinesiologa = Kinesiologa::query()->whereKey($kinesiologaId)->lockForUpdate()->first();
                 $propietario = Paciente::query()->whereKey($paciente->getKey())
@@ -142,6 +152,15 @@ final class ConfirmarPrimeraConsultaAction
                     throw new InvalidArgumentException('El motivo debe ser no vacío y tener como máximo 500 caracteres.');
                 }
 
+                if ($adjuntos !== []) {
+                    // Un savepoint no confirma el commit: el ciclo documental debe pertenecer a esta Action.
+                    if (DB::transactionLevel() !== 1) {
+                        throw new LogicException('La confirmación documental requiere una transacción propia, sin transacción exterior.');
+                    }
+                    $sesion = DB::connection()->getPdo();
+                    $operacion = $this->almacenamiento->almacenar($adjuntos);
+                }
+
                 $turno = new Turno;
                 $turno->paciente()->associate($propietario);
                 $turno->kinesiologa()->associate($kinesiologa);
@@ -169,10 +188,17 @@ final class ConfirmarPrimeraConsultaAction
                     actor: $actor,
                 );
 
+                foreach ($operacion?->documentos() ?? [] as $metadata) {
+                    $this->documentos->registrarOrigenTurno($actor, $propietario, $turno, $metadata);
+                }
+
                 return new ResultadoConfirmacionPrimeraConsulta($turno, false);
             }, attempts: 1);
-        } catch (QueryException $error) {
-            if (! $this->esColisionClaveIdempotencia($error)) {
+        } catch (Throwable $error) {
+            if ($operacion !== null) {
+                return $this->resolverFalloDocumental($error, $operacion, $sesion, $uuid, $paciente, $actor);
+            }
+            if (! $error instanceof QueryException || ! $this->esColisionClaveIdempotencia($error)) {
                 throw $error;
             }
 
@@ -185,6 +211,116 @@ final class ConfirmarPrimeraConsultaAction
 
             return $this->replay($existente, $paciente);
         }
+
+        // Fuera del catch transaccional: una falla de release nunca debe compensar un commit confirmado.
+        $operacion?->conservarYLiberar();
+
+        return $resultado;
+    }
+
+    private function resolverFalloDocumental(
+        Throwable $original,
+        OperacionAlmacenamientoDocumental $operacion,
+        PDO $sesion,
+        string $uuid,
+        Paciente $paciente,
+        User $actor,
+    ): ResultadoConfirmacionPrimeraConsulta {
+        try {
+            [$turno, $consolidado, $sinReferencias] = $this->comprobarConsolidacion($sesion, $uuid, $paciente, $actor, $operacion);
+        } catch (Throwable $verificacion) {
+            $this->preservarResultadoIncierto($operacion, $original, $verificacion);
+        }
+
+        if ($consolidado) {
+            $this->finalizarConCausa($operacion, false, $original);
+
+            return $this->replay($turno, $paciente);
+        }
+
+        $colisionUuid = $original instanceof QueryException && $this->esColisionClaveIdempotencia($original);
+        if ($sinReferencias && ($turno === null || $colisionUuid)) {
+            $this->finalizarConCausa($operacion, true, $original);
+            if ($colisionUuid && $turno !== null) {
+                return $this->replay($turno, $paciente);
+            }
+            throw $original;
+        }
+
+        $this->preservarResultadoIncierto($operacion, $original);
+    }
+
+    /** @return array{?Turno, bool, bool} */
+    private function comprobarConsolidacion(PDO $sesion, string $uuid, Paciente $paciente, User $actor, OperacionAlmacenamientoDocumental $operacion): array
+    {
+        if (DB::connection()->getRawPdo() !== $sesion || DB::transactionLevel() !== 0 || $sesion->inTransaction()) {
+            throw new RuntimeException('La sesión de escritura no permite verificar un resultado consolidado.');
+        }
+
+        // Ejecutar SQL construido por Eloquent sobre el PDO exacto: sin réplica, snapshot activo ni reconexión automática.
+        $fila = $this->leerSinReconectar($sesion, $this->porClave($uuid))[0] ?? null;
+        $turno = $fila === null ? null : (new Turno)->newFromBuilder($fila);
+        $metadata = array_values($operacion->documentos());
+        $referencias = $this->leerSinReconectar($sesion, DocumentoClinico::query()
+            ->whereIn('ruta_storage', array_column($metadata, 'ruta_storage')));
+        $consolidado = false;
+
+        if ($turno !== null && (int) $turno->paciente_id === (int) $paciente->getKey()
+            && $turno->getRawOriginal('tipo') === TipoTurnoEnum::PRIMERA_CONSULTA->value) {
+            $asociados = $this->leerSinReconectar($sesion, DocumentoClinico::query()
+                ->join('documentos_clinicos_origen_turno as origen_turno', 'origen_turno.documento_clinico_id', '=', 'documentos_clinicos.id')
+                ->where('origen_turno.turno_id', $turno->getKey())->select('documentos_clinicos.*'));
+            $porRuta = array_column($asociados, null, 'ruta_storage');
+            $consolidado = count($asociados) === count($metadata) && count($referencias) === count($metadata);
+            foreach ($metadata as $esperado) {
+                $documento = $porRuta[$esperado['ruta_storage']] ?? [];
+                $consolidado = $consolidado
+                    && (int) ($documento['paciente_id'] ?? 0) === (int) $paciente->getKey()
+                    && (int) ($documento['cargado_por_user_id'] ?? 0) === (int) $actor->getKey()
+                    && ($documento['origen'] ?? null) === DocumentoClinico::ORIGEN_SOLICITUD_TURNO
+                    && ($documento['nombre_original'] ?? null) === $esperado['nombre_original']
+                    && ($documento['mime_type'] ?? null) === $esperado['mime_type']
+                    && (int) ($documento['tamanio_bytes'] ?? -1) === $esperado['tamanio_bytes'];
+            }
+        }
+
+        return [$turno, $consolidado, $referencias === []];
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function leerSinReconectar(PDO $sesion, Builder $query): array
+    {
+        $consulta = $sesion->prepare($query->toSql());
+        if ($consulta === false || ! $consulta->execute($query->getBindings())) {
+            throw new RuntimeException('No se pudo verificar la consolidación.');
+        }
+
+        return $consulta->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    private function finalizarConCausa(OperacionAlmacenamientoDocumental $operacion, bool $compensar, Throwable $original): void
+    {
+        try {
+            $compensar ? $operacion->compensarYLiberar() : $operacion->conservarYLiberar();
+        } catch (AlmacenamientoDocumentalException $finalizacion) {
+            throw new AlmacenamientoDocumentalException(
+                'Falló la finalización documental después de la confirmación.',
+                $original,
+                erroresEliminacion: $finalizacion->erroresEliminacion,
+                erroresLiberacion: $finalizacion->erroresLiberacion,
+            );
+        }
+    }
+
+    private function preservarResultadoIncierto(OperacionAlmacenamientoDocumental $operacion, Throwable $original, ?Throwable $verificacion = null): never
+    {
+        $finalizacion = null;
+        try {
+            $operacion->conservarYLiberar();
+        } catch (Throwable $error) {
+            $finalizacion = $error;
+        }
+        throw new ResultadoConfirmacionInciertoException($original, $verificacion, $finalizacion);
     }
 
     private function porClave(string $uuid): Builder
