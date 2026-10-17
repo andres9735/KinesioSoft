@@ -9,6 +9,7 @@ use App\Models\Kinesiologa;
 use App\Models\Turno;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use LogicException;
 
 final class AgendaQueryService
@@ -17,20 +18,26 @@ final class AgendaQueryService
         Kinesiologa $kinesiologa,
         CarbonInterface $fecha
     ): ?ConfiguracionAgenda {
-        $configuraciones = $this->configuracionesDe($kinesiologa)
-            ->aplicablesEn($fecha)
-            ->with(['franjasHorarias' => function ($query): void {
-                $query
-                    ->orderBy('dia_semana')
-                    ->orderBy('hora_inicio')
-                    ->orderBy('hora_fin')
-                    ->orderBy('id');
-            }])
-            ->orderByDesc('vigencia_desde')
-            ->orderByDesc('id')
-            ->limit(2)
+        $configuraciones = $this->configuracionesAplicablesEnQuery($kinesiologa, $fecha)
+            ->with(['franjasHorarias' => fn ($relacion) => $this->ordenarFranjas($relacion->getQuery())])
             ->get();
 
+        return $this->seleccionarConfiguracionAplicable($configuraciones);
+    }
+
+    /** @return Builder<ConfiguracionAgenda> */
+    public function configuracionesAplicablesEnQuery(Kinesiologa $kinesiologa, CarbonInterface $fecha): Builder
+    {
+        return $this->configuracionesDe($kinesiologa)
+            ->aplicablesEn($fecha)
+            ->orderByDesc('vigencia_desde')
+            ->orderByDesc('id')
+            ->limit(2);
+    }
+
+    /** @param Collection<int, ConfiguracionAgenda> $configuraciones */
+    public function seleccionarConfiguracionAplicable(Collection $configuraciones): ?ConfiguracionAgenda
+    {
         if ($configuraciones->count() > 1) {
             throw new LogicException(
                 'Existe más de una configuración de agenda aplicable para la kinesióloga y fecha indicadas.'
@@ -38,6 +45,16 @@ final class AgendaQueryService
         }
 
         return $configuraciones->first();
+    }
+
+    public function franjasDe(ConfiguracionAgenda $configuracion): Builder
+    {
+        return $this->ordenarFranjas($configuracion->franjasHorarias()->getQuery());
+    }
+
+    private function ordenarFranjas(Builder $query): Builder
+    {
+        return $query->orderBy('dia_semana')->orderBy('hora_inicio')->orderBy('hora_fin')->orderBy('id');
     }
 
     public function futurasEn(Kinesiologa $kinesiologa, CarbonInterface $fecha): Builder

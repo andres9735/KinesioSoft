@@ -81,6 +81,22 @@ class AgendaQueryServiceTest extends TestCase
         );
     }
 
+    public function test_applicable_and_band_builders_reuse_normal_resolution_and_accept_locking(): void
+    {
+        $kinesiologa = $this->kinesiologa();
+        $configuracion = $this->configuracion($kinesiologa, '2026-10-01');
+        $tarde = $this->franja($configuracion, 1, '16:00:00', '17:00:00');
+        $manana = $this->franja($configuracion, 1, '08:00:00', '09:00:00');
+        $fecha = CarbonImmutable::parse('2026-10-05');
+        $query = $this->service->configuracionesAplicablesEnQuery($kinesiologa, $fecha)->lockForUpdate();
+        $this->assertTrue($query->getQuery()->lock);
+        $seleccionada = $this->service->seleccionarConfiguracionAplicable($query->get());
+        $this->assertTrue($seleccionada->is($this->aplicable($kinesiologa, '2026-10-05')));
+        $franjas = $this->service->franjasDe($seleccionada)->lockForUpdate();
+        $this->assertTrue($franjas->getQuery()->lock);
+        $this->assertSame([$manana->id, $tarde->id], $franjas->get()->modelKeys());
+    }
+
     public function test_futuras_historicas_y_proxima_excluyen_anuladas_y_son_deterministas(): void
     {
         $kinesiologa = $this->kinesiologa();
