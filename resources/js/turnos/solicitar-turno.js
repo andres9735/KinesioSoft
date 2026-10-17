@@ -58,10 +58,30 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
         ventana: { desde: config.fechaInicial, hasta: sumarDias(config.fechaInicial, 6) },
         estadoDisponibilidad: 'idle',
         errorDisponibilidad: '',
+        enviando: false,
+        consolidado: false,
+        redireccionando: false,
+        confirmacionBloqueada: false,
+        resultadoIncierto: false,
+        mensajeConfirmacion: '',
+        erroresServidor: {},
+        profesionalesNoElegibles: [],
+
+        get bloqueado() {
+            return this.enviando || this.consolidado || this.redireccionando;
+        },
+
+        get puedeConfirmar() {
+            return !this.bloqueado && !this.confirmacionBloqueada && this.paso === 4
+                && this.motivo.trim() !== '' && this.longitudMotivo <= this.maxMotivo
+                && !this.erroresServidor.motivo_solicitud && !this.erroresServidor.adjuntos
+                && !this.erroresArchivos.length && !this.erroresGeneralesArchivos.length
+                && this.profesionalSeleccionada !== null && this.puedeRevisar;
+        },
 
         init() {
             antesDeSalir = (event) => {
-                if (this.hayDatosSignificativos) {
+                if (this.hayDatosSignificativos && !this.consolidado && !this.redireccionando) {
                     event.preventDefault();
                     event.returnValue = '';
                 }
@@ -80,11 +100,11 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
         },
 
         get archivosValidos() {
-            return this.archivos.filter((entrada) => !entrada.error).map((entrada) => entrada.archivo);
+            return this.archivos.filter((entrada) => !entrada.error && !entrada.errorServidor).map((entrada) => entrada.archivo);
         },
 
         get erroresArchivos() {
-            return this.archivos.filter((entrada) => entrada.error);
+            return this.archivos.filter((entrada) => entrada.error || entrada.errorServidor);
         },
 
         get totalBytes() {
@@ -112,6 +132,8 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
         },
 
         agregarArchivos(event) {
+            if (this.bloqueado) return;
+            delete this.erroresServidor.adjuntos;
             for (const archivo of Array.from(event.target.files ?? [])) {
                 const extension = archivo.name.split('.').pop().toLowerCase();
                 let error = '';
@@ -127,10 +149,19 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
         },
 
         quitarArchivo(id) {
+            if (this.bloqueado) return;
             this.archivos = this.archivos.filter((entrada) => entrada.id !== id);
+            delete this.erroresServidor.adjuntos;
+        },
+
+        corregirMotivo() {
+            if (this.bloqueado) return;
+            this.errorMotivo = '';
+            delete this.erroresServidor.motivo_solicitud;
         },
 
         seleccionarProfesional(id) {
+            if (this.bloqueado || this.profesionalesNoElegibles.includes(Number(id))) return;
             const elegida = Number(id);
             if (!this.profesionales.some((profesional) => profesional.id === elegida)) {
                 return;
@@ -140,17 +171,19 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
                 this.kinesiologaId = elegida;
             }
             this.errorProfesional = '';
+            delete this.erroresServidor.kinesiologa_id;
         },
 
         async siguiente() {
+            if (this.bloqueado) return;
             if (this.paso === 1) {
                 this.errorMotivo = this.motivo.trim() === '' ? 'Ingresá el motivo de consulta.'
                     : (this.longitudMotivo > this.maxMotivo ? `El motivo no puede superar ${this.maxMotivo} caracteres.` : '');
-                if (this.errorMotivo) {
+                if (this.errorMotivo || this.erroresServidor.motivo_solicitud) {
                     this.$refs.motivo.focus();
                     return;
                 }
-                if (this.erroresArchivos.length || this.erroresGeneralesArchivos.length) {
+                if (this.erroresArchivos.length || this.erroresGeneralesArchivos.length || this.erroresServidor.adjuntos) {
                     this.$refs.documentacion.focus();
                     return;
                 }
@@ -173,6 +206,7 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
         },
 
         anterior() {
+            if (this.bloqueado) return;
             if (this.paso === 3) {
                 this.invalidarDisponibilidad();
             }
@@ -226,6 +260,7 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
         },
 
         cambiarVentana(direccion) {
+            if (this.bloqueado) return;
             if (this.paso !== 3 || ![-1, 1].includes(direccion)) return;
             const desde = sumarDias(this.ventana.desde, direccion * 7);
             if (desde < config.fechaInicial) return;
@@ -234,13 +269,17 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
         },
 
         seleccionarSlot(inicioAt) {
+            if (this.bloqueado) return;
             if (this.paso !== 3 || this.estadoDisponibilidad !== 'success') return;
             const slot = this.slotsDisponibles.find((candidato) => candidato.inicio_at === inicioAt);
-            if (slot) this.slotSeleccionado = { inicio_at: slot.inicio_at, fin_at: slot.fin_at };
+            if (slot) {
+                this.slotSeleccionado = { inicio_at: slot.inicio_at, fin_at: slot.fin_at };
+                delete this.erroresServidor.inicio_at;
+            }
         },
 
         async consultarDisponibilidad() {
-            if (destruido || this.paso !== 3 || !this.profesionalSeleccionada) return;
+            if (destruido || this.bloqueado || this.paso !== 3 || !this.profesionalSeleccionada) return;
             this.invalidarDisponibilidad();
             const requestId = secuenciaConsulta;
             const profesionalId = this.kinesiologaId;
@@ -259,11 +298,7 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
                 const payload = await response.json();
                 if (!vigente()) return;
                 if (response.status === 409 && payload?.code === 'profesional_no_elegible') {
-                    this.invalidarDisponibilidad();
-                    this.kinesiologaId = null;
-                    this.errorProfesional = 'La profesional ya no está disponible para atender. Elegí otra profesional.';
-                    this.paso = 2;
-                    this.enfocarPaso();
+                    this.invalidarProfesional(true);
                     return;
                 }
                 if (response.status !== 200) throw new Error('No se pudo consultar disponibilidad.');
@@ -281,12 +316,154 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
             }
         },
 
+        invalidarProfesional(obsoleta = false) {
+            if (obsoleta && this.kinesiologaId !== null) this.profesionalesNoElegibles.push(this.kinesiologaId);
+            this.invalidarDisponibilidad();
+            this.kinesiologaId = null;
+            this.errorProfesional = 'La profesional ya no está disponible para atender. Elegí otra profesional.';
+            this.paso = 2;
+            this.enfocarPaso();
+        },
+
+        construirConfirmacion(archivos) {
+            const datos = new FormData();
+            datos.append('clave_idempotencia', this.claveIdempotencia);
+            datos.append('motivo_solicitud', this.motivo);
+            datos.append('kinesiologa_id', this.kinesiologaId);
+            datos.append('inicio_at', this.slotSeleccionado.inicio_at);
+            for (const entrada of archivos) datos.append('adjuntos[]', entrada.archivo);
+            return datos;
+        },
+
+        async confirmarTurno() {
+            if (destruido || !this.puedeConfirmar) return;
+            this.enviando = true;
+            this.resultadoIncierto = false;
+            this.mensajeConfirmacion = '';
+            // El índice Laravel corresponde a esta tentativa, no al input nativo.
+            const archivosEnviados = [...this.archivos];
+            let refrescar = false;
+            try {
+                const response = await fetchImpl(config.urlConfirmacion, {
+                    method: 'POST', credentials: 'same-origin',
+                    headers: { Accept: 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '' },
+                    body: this.construirConfirmacion(archivosEnviados),
+                });
+                const payload = await response.json().catch(() => null);
+                if (destruido) return;
+                if ([200, 201].includes(response.status)) {
+                    if (!payload || !Number.isSafeInteger(payload.turno_id) || payload.turno_id <= 0
+                        || typeof payload.es_replay !== 'boolean' || payload.es_replay !== (response.status === 200)
+                        || typeof payload.redirect_url !== 'string' || !payload.redirect_url.trim()) {
+                        throw new Error('Resultado no confirmado.');
+                    }
+                    await this.finalizarConfirmacion(payload.redirect_url);
+                } else if (response.status === 409 && payload?.code === 'primera_consulta_activa') {
+                    this.redireccionando = true;
+                    await this.mostrarFeedback({ icon: 'info', title: 'Ya tenés una Primera consulta activa',
+                        text: 'Podés consultar tus turnos en Mis turnos.', confirmButtonText: 'Ir a Mis turnos' });
+                    this.desactivarAvisoAbandono();
+                    window.location.assign(config.urlMisTurnos);
+                } else if (response.status === 409 && payload?.code === 'profesional_no_elegible') {
+                    this.invalidarProfesional(true);
+                } else if (response.status === 409 && payload?.code === 'slot_no_disponible') {
+                    this.invalidarDisponibilidad();
+                    this.paso = 3;
+                    this.mensajeConfirmacion = 'Ese horario acaba de dejar de estar disponible. Elegí otro horario.';
+                    this.enfocarPaso();
+                    refrescar = true;
+                } else if (response.status === 409) {
+                    this.confirmacionBloqueada = true;
+                    this.mensajeConfirmacion = 'No pudimos continuar con esta solicitud. Volvé a Mis turnos para iniciar un nuevo flujo.';
+                } else if ([401, 403, 419].includes(response.status)) {
+                    this.confirmacionBloqueada = true;
+                    this.mensajeConfirmacion = 'Tu sesión venció o ya no permite confirmar. Volvé a ingresar al sistema. Los datos permanecen en esta página mientras siga abierta.';
+                } else if (response.status === 422 && payload?.errors && typeof payload.errors === 'object' && !Array.isArray(payload.errors)) {
+                    refrescar = this.aplicarErroresServidor(payload.errors, archivosEnviados);
+                } else {
+                    throw new Error('Resultado no confirmado.');
+                }
+            } catch {
+                if (!destruido && !this.consolidado && !this.redireccionando) {
+                    this.resultadoIncierto = true;
+                    this.mensajeConfirmacion = 'No pudimos confirmar el resultado. Tu turno podría haberse registrado. Reintentá con los mismos datos para comprobarlo de forma segura.';
+                }
+            } finally {
+                this.enviando = false;
+            }
+            if (refrescar) await this.consultarDisponibilidad();
+        },
+
+        aplicarErroresServidor(errores, archivosEnviados) {
+            let paso = 4;
+            let refrescar = false;
+            let reconocido = false;
+            for (const [campo, mensajes] of Object.entries(errores)) {
+                if (!Array.isArray(mensajes) || !mensajes.every((mensaje) => typeof mensaje === 'string') || !mensajes.length) continue;
+                const mensaje = mensajes.join(' ');
+                if (campo === 'clave_idempotencia') {
+                    this.confirmacionBloqueada = true;
+                    this.mensajeConfirmacion = 'No pudimos continuar con esta solicitud. Volvé a Mis turnos para iniciar un nuevo flujo.';
+                    reconocido = true;
+                } else if (campo === 'motivo_solicitud' || campo === 'adjuntos') {
+                    this.erroresServidor[campo] = mensaje;
+                    paso = 1;
+                    reconocido = true;
+                } else if (/^adjuntos\.\d+$/.test(campo)) {
+                    const enviada = archivosEnviados[Number(campo.split('.')[1])];
+                    const entrada = this.archivos.find((actual) => actual.id === enviada?.id);
+                    if (entrada) {
+                        entrada.errorServidor = mensaje;
+                        paso = 1;
+                        reconocido = true;
+                    }
+                } else if (campo === 'kinesiologa_id') {
+                    this.invalidarProfesional();
+                    this.erroresServidor[campo] = mensaje;
+                    paso = Math.min(paso, 2);
+                    reconocido = true;
+                } else if (campo === 'inicio_at') {
+                    this.invalidarDisponibilidad();
+                    this.erroresServidor[campo] = mensaje;
+                    paso = Math.min(paso, 3);
+                    refrescar = true;
+                    reconocido = true;
+                }
+            }
+            if (!reconocido) {
+                this.confirmacionBloqueada = true;
+                this.mensajeConfirmacion = 'No pudimos validar esta solicitud. Volvé a Mis turnos para iniciar un nuevo flujo.';
+            }
+            this.paso = paso;
+            this.enfocarPaso();
+            return refrescar && paso === 3;
+        },
+
+        async mostrarFeedback(opciones) {
+            try {
+                if (window.Swal) await window.Swal.fire({ ...opciones, allowOutsideClick: false, allowEscapeKey: false });
+            } catch {
+                // Una anomalía del feedback no cambia el resultado consolidado ni impide navegar.
+            }
+        },
+
+        async finalizarConfirmacion(redirectUrl) {
+            this.consolidado = true;
+            this.desactivarAvisoAbandono();
+            await this.mostrarFeedback({ icon: 'success', title: 'Turno registrado correctamente',
+                text: `Primera consulta con ${this.profesionalSeleccionada.nombre}. ${this.fechaLegible(this.slotSeleccionado.inicio_at.slice(0, 10))}, ${this.horaLegible(this.slotSeleccionado.inicio_at)} – ${this.horaLegible(this.slotSeleccionado.fin_at)}. Estado: Pendiente.`,
+                confirmButtonText: 'Entendido' });
+            window.location.assign(redirectUrl);
+        },
+
         tamanioLegible(bytes) {
             return `${Number((bytes / (1024 * 1024)).toFixed(2))} MiB`;
         },
 
         actualizarAvisoAbandono() {
-            if (this.hayDatosSignificativos && !avisoActivo) {
+            if (this.consolidado || this.redireccionando) {
+                this.desactivarAvisoAbandono();
+            } else if (this.hayDatosSignificativos && !avisoActivo) {
                 window.addEventListener('beforeunload', antesDeSalir);
                 avisoActivo = true;
             } else if (!this.hayDatosSignificativos) {
@@ -302,6 +479,7 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
         },
 
         async volverAMisTurnos() {
+            if (this.bloqueado) return;
             if (this.hayDatosSignificativos) {
                 const confirmado = window.Swal
                     ? (await window.Swal.fire({

@@ -56,15 +56,15 @@ class MisTurnosTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_patient_can_access_with_both_navigation_entries_and_a_non_interactive_cta(): void
+    public function test_patient_can_access_with_both_navigation_entries_and_an_operational_cta(): void
     {
         $response = $this->actingAs($this->paciente->user)->get($this->url());
         $response->assertOk()->assertSee('Todavía no tenés turnos registrados')
-            ->assertSee('Solicitar nuevo turno')->assertSee('disabled', false)
+            ->assertSee('Solicitar nuevo turno')
             ->assertSee('Podés iniciar una nueva solicitud');
         $this->assertSame(2, substr_count($response->getContent(), 'href="'.$this->url().'"'));
         $this->assertTrue(Route::has('turnos.solicitar.create'));
-        $response->assertDontSee('href="'.route('turnos.solicitar.create').'"', false);
+        $response->assertSee('href="'.route('turnos.solicitar.create').'"', false);
         $this->assertTrue(Route::has('turnos.solicitar.store'));
         $this->assertTrue(Route::has('turnos.solicitar.disponibilidad'));
         $response->assertDontSee('href="#"', false);
@@ -203,9 +203,16 @@ class MisTurnosTest extends TestCase
     {
         $this->turno(['tipo' => TipoTurnoEnum::PRIMERA_CONSULTA, 'estado' => $estado]);
         $ocupa = in_array($estado, EstadoTurnoEnum::estadosQueReservanAgenda(), true);
-        $this->actingAs($this->paciente->user)->get($this->url())->assertOk()
+        $response = $this->actingAs($this->paciente->user)->get($this->url())->assertOk()
             ->assertViewHas('primeraConsultaActiva', $ocupa)
             ->assertSee($ocupa ? 'Ya tenés una Primera consulta futura' : 'Podés iniciar una nueva solicitud');
+        if ($ocupa) {
+            $response->assertDontSee('href="'.route('turnos.solicitar.create').'"', false)
+                ->assertSee('<button type="button" disabled aria-describedby="estado-solicitud"', false);
+            $this->get(route('turnos.solicitar.create'))->assertRedirect($this->url());
+        } else {
+            $response->assertSee('href="'.route('turnos.solicitar.create').'"', false);
+        }
     }
 
     public static function estadosCanonicos(): array

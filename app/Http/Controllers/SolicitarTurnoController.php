@@ -56,6 +56,7 @@ final class SolicitarTurnoController extends Controller
             ],
             'urlMisTurnos' => route('turnos.mis-turnos.index'),
             'urlDisponibilidad' => route('turnos.solicitar.disponibilidad'),
+            'urlConfirmacion' => route('turnos.solicitar.store'),
             'fechaInicial' => $reloj->ahora()->toDateString(),
         ]]);
     }

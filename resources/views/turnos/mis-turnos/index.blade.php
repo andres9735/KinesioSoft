@@ -11,14 +11,14 @@
                     @if ($primeraConsultaActiva)
                         Ya tenés una Primera consulta futura pendiente o confirmada. No podés solicitar otra por el momento.
                     @else
-                        Podés iniciar una nueva solicitud de Primera consulta cuando se habilite esta opción.
+                        Podés iniciar una nueva solicitud de Primera consulta.
                     @endif
                 </p>
-                <button type="button" disabled aria-describedby="estado-solicitud" @class([
-                    'inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold',
-                    'bg-gray-100 text-gray-600' => $primeraConsultaActiva,
-                    'bg-indigo-600 text-white' => ! $primeraConsultaActiva,
-                ])>Solicitar nuevo turno</button>
+                @if ($primeraConsultaActiva)
+                    <button type="button" disabled aria-describedby="estado-solicitud" class="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-600">Solicitar nuevo turno</button>
+                @else
+                    <a href="{{ route('turnos.solicitar.create') }}" aria-describedby="estado-solicitud" class="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Solicitar nuevo turno</a>
+                @endif
             </div>
 
             @if ($proximos->total() === 0 && $historicos->total() === 0)

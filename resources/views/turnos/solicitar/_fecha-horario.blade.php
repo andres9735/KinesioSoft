@@ -1,5 +1,6 @@
 <section x-show="paso === 3" x-cloak aria-labelledby="titulo-paso-3" class="space-y-5">
     <h2 id="titulo-paso-3" x-ref="tituloPaso3" tabindex="-1" class="text-xl font-semibold text-gray-900 focus:outline-none">Fecha y horario</h2>
+    <p x-show="erroresServidor.inicio_at" x-cloak x-text="erroresServidor.inicio_at" role="alert" class="text-sm text-red-700"></p>
     <p class="text-sm text-gray-700">Profesional: <span class="font-semibold" x-text="profesionalSeleccionada?.nombre || 'Sin seleccionar'"></span></p>
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p class="text-sm font-semibold text-gray-900"><span x-text="fechaLegible(ventana.desde)"></span> — <span x-text="fechaLegible(ventana.hasta)"></span></p>

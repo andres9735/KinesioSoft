@@ -233,7 +233,8 @@ class SolicitarTurnoCreateTest extends TestCase
         config(['documentos_clinicos.max_archivos' => 2, 'documentos_clinicos.max_bytes_por_archivo' => 6 * 1024 * 1024, 'documentos_clinicos.max_bytes_total' => 12 * 1024 * 1024]);
         $response = $this->actingAs($this->paciente->user)->get($this->url())->assertOk();
         $config = $response->viewData('configuracionWizard');
-        $this->assertSame(['uuid', 'profesionales', 'maxMotivo', 'limites', 'urlMisTurnos', 'urlDisponibilidad', 'fechaInicial'], array_keys($config));
+        $this->assertSame(['uuid', 'profesionales', 'maxMotivo', 'limites', 'urlMisTurnos', 'urlDisponibilidad', 'urlConfirmacion', 'fechaInicial'], array_keys($config));
+        $this->assertSame(route('turnos.solicitar.store'), $config['urlConfirmacion']);
         $this->assertSame(route('turnos.solicitar.disponibilidad'), $config['urlDisponibilidad']);
         $this->assertSame('2026-10-17', $config['fechaInicial']);
         $this->assertSame(['id', 'nombre'], array_keys($config['profesionales'][0]));
@@ -262,7 +263,7 @@ class SolicitarTurnoCreateTest extends TestCase
         $response->assertDontSee($peligroso, false)->assertSee(e($peligroso), false);
     }
 
-    public function test_availability_controls_and_review_remain_without_confirmation_or_extra_routes(): void
+    public function test_review_has_fetch_confirmation_and_keeps_existing_routes(): void
     {
         $response = $this->actingAs($this->paciente->user)->get($this->url())->assertOk()
             ->assertSee('x-show="paso === 3"', false)->assertSee('x-show="paso === 4"', false)
@@ -270,7 +271,10 @@ class SolicitarTurnoCreateTest extends TestCase
             ->assertSee("estadoDisponibilidad === 'error'", false)->assertSee('Reintentar')
             ->assertSee('Semana anterior')->assertSee('Semana siguiente')->assertSee('Horarios disponibles')
             ->assertSee(':aria-pressed=', false)->assertSee('Cambiar profesional')->assertSee('Pendiente de selección')
-            ->assertSee('<button type="button" disabled', false)->assertSee('Confirmar turno')
+            ->assertSee('@click="confirmarTurno()"', false)->assertSee(':disabled="!puedeConfirmar"', false)
+            ->assertSee(':disabled="bloqueado"', false)->assertSee('Registrando turno…')
+            ->assertSee('Confirmar turno')->assertSee('ocupa agenda.')
+            ->assertSee('name="csrf-token"', false)->assertSee('erroresServidor.adjuntos')
             ->assertDontSee('Sin horarios disponibles');
         $dom = new \DOMDocument;
         @$dom->loadHTML($response->getContent());
