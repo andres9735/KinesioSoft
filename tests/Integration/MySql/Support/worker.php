@@ -8,9 +8,11 @@ use App\Services\Turnos\Documentos\CoordinadorBloqueoDocumental;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Events\TransactionBeginning;
 use Illuminate\Database\QueryException;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Storage;
 use Tests\Integration\MySql\Support\Barrera;
 use Tests\Integration\MySql\Support\EntornoMariaDb;
 
@@ -67,6 +69,15 @@ try {
     });
     if ($entrada['fallar_documento'] ?? false) {
         DocumentoClinico::creating(fn () => throw new RuntimeException('Falla documental controlada del harness.'));
+    }
+    if ($entrada['fallar_compensacion'] ?? false) {
+        // Sólo 7.14: dejar un residuo físico tras rollback para certificar la reconciliación.
+        $disco = Storage::disk('documentos_clinicos');
+        $adapter = Mockery::mock(FilesystemAdapter::class);
+        $adapter->shouldReceive('exists')->andReturnUsing(fn ($ruta) => $disco->exists($ruta));
+        $adapter->shouldReceive('put')->andReturnUsing(fn (...$args) => $disco->put(...$args));
+        $adapter->shouldReceive('delete')->andReturn(false);
+        Storage::set('documentos_clinicos', $adapter);
     }
     $archivos = [];
     for ($i = 0; $i < ($entrada['archivos'] ?? 0); $i++) {

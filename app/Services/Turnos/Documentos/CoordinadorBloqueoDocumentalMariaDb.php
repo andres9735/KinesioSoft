@@ -12,6 +12,17 @@ final class CoordinadorBloqueoDocumentalMariaDb implements CoordinadorBloqueoDoc
 
     public function adquirir(string $ruta): BloqueoDocumental
     {
+        return $this->adquirirConTimeout($ruta, config('documentos_clinicos.lock_timeout_segundos'))
+            ?? throw new RuntimeException('No se adquirió el bloqueo documental.');
+    }
+
+    public function intentarAdquirir(string $ruta): ?BloqueoDocumental
+    {
+        return $this->adquirirConTimeout($ruta, 0);
+    }
+
+    private function adquirirConTimeout(string $ruta, int $timeout): ?BloqueoDocumental
+    {
         if (! in_array($this->conexion->getDriverName(), ['mysql', 'mariadb'], true)) {
             throw new RuntimeException('La coordinación documental requiere MariaDB/MySQL; los tests deben inyectar su sustituto.');
         }
@@ -20,7 +31,11 @@ final class CoordinadorBloqueoDocumentalMariaDb implements CoordinadorBloqueoDoc
         $pdo = $this->conexion->getPdo();
 
         // Se usa el PDO de escritura de esta Connection, sin lectura réplica ni reconexión/retry automático.
-        $resultado = $this->consultar($pdo, 'SELECT GET_LOCK(?, ?)', [$nombre, config('documentos_clinicos.lock_timeout_segundos')]);
+        $resultado = $this->consultar($pdo, 'SELECT GET_LOCK(?, ?)', [$nombre, $timeout]);
+
+        if ($resultado === 0 || $resultado === '0') {
+            return null;
+        }
 
         if ($resultado !== 1 && $resultado !== '1') {
             throw new RuntimeException('No se adquirió el bloqueo documental.');

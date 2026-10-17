@@ -23,10 +23,20 @@ final class CoordinadorBloqueoDocumentalEnMemoria implements CoordinadorBloqueoD
 
     public function adquirir(string $ruta): BloqueoDocumental
     {
+        return $this->intentarAdquirir($ruta)
+            ?? throw new RuntimeException('Bloqueo de test no adquirido.');
+    }
+
+    public function intentarAdquirir(string $ruta): ?BloqueoDocumental
+    {
         $this->adquisiciones[] = $ruta;
 
-        if (count($this->adquisiciones) === $this->fallarAdquisicion || isset($this->activos[$ruta])) {
+        if (count($this->adquisiciones) === $this->fallarAdquisicion) {
             throw new RuntimeException('Bloqueo de test no adquirido.');
+        }
+
+        if (isset($this->activos[$ruta])) {
+            return null;
         }
 
         $this->activos[$ruta] = true;
