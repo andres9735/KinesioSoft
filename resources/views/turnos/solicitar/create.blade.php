@@ -11,9 +11,10 @@
             <nav aria-label="Pasos de la solicitud" class="rounded-2xl bg-white p-5 shadow-sm sm:p-6">
                 <ol class="hidden grid-cols-4 gap-4 md:grid">
                     @foreach (['Motivo y documentación', 'Elegir profesional', 'Fecha y horario', 'Revisar y confirmar'] as $indice => $nombre)
-                        <li :aria-current="paso === {{ $indice + 1 }} ? 'step' : null" class="space-y-2 border-t-2 pt-3" :class="paso === {{ $indice + 1 }} ? 'border-indigo-600 text-indigo-700' : 'border-gray-200 text-gray-500'">
+                        <li @if ($indice === 0) aria-current="step" @endif :aria-current="paso === {{ $indice + 1 }} ? 'step' : null" class="min-w-0 space-y-2 border-t-2 pt-3" :class="paso === {{ $indice + 1 }} ? 'border-indigo-600 text-indigo-700' : 'border-gray-200 text-gray-500'">
                             <span class="block text-xs">Paso {{ $indice + 1 }}</span>
                             <span class="block text-sm font-semibold">{{ $nombre }}</span>
+                            <span class="block text-xs" x-text="paso === {{ $indice + 1 }} ? 'Paso actual' : (paso > {{ $indice + 1 }} ? 'Completado' : 'Pendiente')">{{ $indice === 0 ? 'Paso actual' : 'Pendiente' }}</span>
                         </li>
                     @endforeach
                 </ol>
@@ -26,13 +27,14 @@
 
             <p class="rounded-xl bg-indigo-50 px-5 py-4 text-sm text-indigo-900">Tipo de turno: <strong>Primera consulta</strong>. Los datos de esta página se enviarán al confirmar el turno.</p>
 
-            <div x-show="mensajeConfirmacion" x-cloak role="alert" class="space-y-2 rounded-xl bg-amber-50 p-5 text-sm text-amber-900">
+            <div x-show="mensajeConfirmacion" x-cloak x-ref="mensajeConfirmacion" tabindex="-1" role="alert" class="space-y-2 rounded-xl bg-amber-50 p-5 text-sm text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-600">
                 <p x-text="mensajeConfirmacion"></p>
                 <p x-show="paso === 3 && !resultadoIncierto">La disponibilidad se actualizó. Seleccioná otro horario disponible para continuar.</p>
                 <p x-show="resultadoIncierto">Podés volver a pulsar Confirmar turno para reintentar.</p>
             </div>
 
             <fieldset :disabled="bloqueado" class="min-w-0 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 sm:p-8">
+                <legend class="sr-only">Datos de la Primera consulta</legend>
                 @include('turnos.solicitar._motivo-documentacion')
                 @include('turnos.solicitar._profesionales')
                 @include('turnos.solicitar._fecha-horario')

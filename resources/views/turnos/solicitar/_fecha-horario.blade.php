@@ -1,6 +1,6 @@
 <section x-show="paso === 3" x-cloak aria-labelledby="titulo-paso-3" class="space-y-5">
-    <h2 id="titulo-paso-3" x-ref="tituloPaso3" tabindex="-1" class="text-xl font-semibold text-gray-900 focus:outline-none">Fecha y horario</h2>
-    <p x-show="erroresServidor.inicio_at" x-cloak x-text="erroresServidor.inicio_at" role="alert" class="text-sm text-red-700"></p>
+    <h2 id="titulo-paso-3" x-ref="tituloPaso3" tabindex="-1" class="rounded-lg text-xl font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">Fecha y horario</h2>
+    <p x-show="erroresServidor.inicio_at" x-cloak x-ref="errorInicio" tabindex="-1" x-text="erroresServidor.inicio_at" role="alert" class="rounded-lg text-sm text-red-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"></p>
     <p class="text-sm text-gray-700">Profesional: <span class="font-semibold" x-text="profesionalSeleccionada?.nombre || 'Sin seleccionar'"></span></p>
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p class="text-sm font-semibold text-gray-900"><span x-text="fechaLegible(ventana.desde)"></span> — <span x-text="fechaLegible(ventana.hasta)"></span></p>
@@ -15,7 +15,7 @@
             <p>No hay horarios disponibles entre el <span x-text="fechaLegible(ventana.desde)"></span> y el <span x-text="fechaLegible(ventana.hasta)"></span>.</p>
             <p>Podés consultar otra semana o elegir otra profesional.</p>
         </div>
-        <div x-show="estadoDisponibilidad === 'error'" x-cloak role="alert" class="space-y-3 rounded-xl bg-amber-50 p-5 text-sm text-amber-900">
+        <div x-show="estadoDisponibilidad === 'error'" x-cloak x-ref="errorDisponibilidad" tabindex="-1" role="alert" class="space-y-3 rounded-xl bg-amber-50 p-5 text-sm text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-600">
             <p x-text="errorDisponibilidad"></p>
             <button type="button" @click="consultarDisponibilidad()" class="min-h-11 rounded-lg border border-amber-300 bg-white px-4 py-2 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-600">Reintentar</button>
         </div>
@@ -25,7 +25,7 @@
                     <legend class="px-2 text-sm font-semibold text-gray-900" x-text="fechaLegible(grupo.fecha)"></legend>
                     <div class="flex flex-wrap gap-3">
                         <template x-for="slot in grupo.slots" :key="slot.inicio_at">
-                            <button type="button" @click="seleccionarSlot(slot.inicio_at)" :aria-pressed="slotSeleccionado?.inicio_at === slot.inicio_at" class="min-h-11 rounded-lg border px-4 py-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2" :class="slotSeleccionado?.inicio_at === slot.inicio_at ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-gray-300 bg-white text-gray-800 hover:bg-indigo-50'">
+                            <button type="button" @click="seleccionarSlot(slot.inicio_at)" :aria-label="fechaLegible(grupo.fecha) + ', ' + horaLegible(slot.inicio_at) + ' a ' + horaLegible(slot.fin_at)" :aria-pressed="slotSeleccionado?.inicio_at === slot.inicio_at" class="min-h-11 rounded-lg border px-4 py-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2" :class="slotSeleccionado?.inicio_at === slot.inicio_at ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-gray-300 bg-white text-gray-800 hover:bg-indigo-50'">
                                 <span x-text="horaLegible(slot.inicio_at) + ' – ' + horaLegible(slot.fin_at)"></span>
                                 <span x-show="slotSeleccionado?.inicio_at === slot.inicio_at" class="ml-1">· Seleccionado</span>
                             </button>

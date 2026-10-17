@@ -191,7 +191,7 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
             } else if (this.paso === 2) {
                 if (!this.profesionalSeleccionada) {
                     this.errorProfesional = 'Seleccioná una profesional para continuar.';
-                    this.$refs.profesionales.focus();
+                    this.enfocarPaso('profesionalMovil', 'profesionales');
                     return;
                 }
                 this.paso = 3;
@@ -214,8 +214,19 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
             this.enfocarPaso();
         },
 
-        enfocarPaso() {
-            this.$nextTick(() => this.$refs[`tituloPaso${this.paso}`]?.focus());
+        enfocarPaso(...destinos) {
+            const paso = this.paso;
+            this.$nextTick(() => {
+                // El navegador debe aplicar también el disabled heredado del fieldset al finalizar un POST.
+                const alRenderizar = globalThis.requestAnimationFrame ?? ((callback) => callback());
+                alRenderizar(() => {
+                    if (this.paso !== paso) return;
+                    const referencias = [...destinos, `tituloPaso${paso}`];
+                    const visible = referencias.map((nombre) => this.$refs[nombre])
+                        .find((elemento) => elemento?.getClientRects?.().length);
+                    visible?.focus();
+                });
+            });
         },
 
         get puedeRevisar() {
@@ -280,7 +291,9 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
 
         async consultarDisponibilidad() {
             if (destruido || this.bloqueado || this.paso !== 3 || !this.profesionalSeleccionada) return;
+            const focoEnError = this.$refs.errorDisponibilidad?.contains?.(globalThis.document?.activeElement) ?? false;
             this.invalidarDisponibilidad();
+            if (focoEnError) this.enfocarPaso();
             const requestId = secuenciaConsulta;
             const profesionalId = this.kinesiologaId;
             const ventana = { ...this.ventana };
@@ -308,6 +321,7 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
                 if (!vigente() || error?.name === 'AbortError') return;
                 this.estadoDisponibilidad = 'error';
                 this.errorDisponibilidad = 'No pudimos consultar los horarios. Intentá nuevamente.';
+                this.enfocarPaso('errorDisponibilidad');
             } finally {
                 if (vigente()) {
                     if (this.estadoDisponibilidad === 'loading') this.estadoDisponibilidad = 'idle';
@@ -322,7 +336,7 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
             this.kinesiologaId = null;
             this.errorProfesional = 'La profesional ya no está disponible para atender. Elegí otra profesional.';
             this.paso = 2;
-            this.enfocarPaso();
+            this.enfocarPaso('errorProfesional');
         },
 
         construirConfirmacion(archivos) {
@@ -370,7 +384,7 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
                     this.invalidarDisponibilidad();
                     this.paso = 3;
                     this.mensajeConfirmacion = 'Ese horario acaba de dejar de estar disponible. Elegí otro horario.';
-                    this.enfocarPaso();
+                    this.enfocarPaso('mensajeConfirmacion');
                     refrescar = true;
                 } else if (response.status === 409) {
                     this.confirmacionBloqueada = true;
@@ -435,7 +449,9 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
                 this.mensajeConfirmacion = 'No pudimos validar esta solicitud. Volvé a Mis turnos para iniciar un nuevo flujo.';
             }
             this.paso = paso;
-            this.enfocarPaso();
+            this.enfocarPaso(...(paso === 1
+                ? (this.erroresServidor.motivo_solicitud ? ['motivo'] : ['documentacion'])
+                : (paso === 2 ? ['errorProfesional'] : ['errorInicio'])));
             return refrescar && paso === 3;
         },
 

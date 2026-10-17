@@ -460,3 +460,61 @@ for (const status of [401, 403, 419]) test(`sesión ${status}: no éxito/auto-re
     assert.deepEqual(captura(w), antes); assert.equal(posts, 1); assert.equal(w.confirmacionBloqueada, true);
     assert.match(w.mensajeConfirmacion, /sesión.*ingresar/); assert.deepEqual(destinos, []); assert.equal(w.enviando, false);
 });
+
+function observarFoco(w, ocultos = []) {
+    const pendientes = [], focos = [];
+    w.$nextTick = (fn) => pendientes.push(fn);
+    w.$refs = new Proxy({}, { get: (_, nombre) => ({
+        getClientRects: () => ocultos.includes(nombre) ? [] : [{}],
+        focus: () => focos.push(nombre),
+    }) });
+    return { focos, flush: () => { while (pendientes.length) pendientes.shift()(); } };
+}
+
+test('foco de pasos 1→2→3→4 y volver; carga exitosa no solicita foco adicional', async () => {
+    const w = preparar(async () => json({ slots: [slot()] })), f = observarFoco(w);
+    await w.siguiente(); f.flush(); assert.equal(f.focos.at(-1), 'tituloPaso2');
+    w.seleccionarProfesional(1); await w.siguiente(); f.flush(); assert.equal(f.focos.at(-1), 'tituloPaso3');
+    assert.equal(f.focos.length, 2);
+    w.seleccionarSlot(slot().inicio_at); await w.siguiente(); f.flush(); assert.equal(f.focos.at(-1), 'tituloPaso4');
+    w.anterior(); f.flush(); assert.equal(f.focos.at(-1), 'tituloPaso3');
+});
+
+test('foco omite destino oculto y descarta una petición perteneciente a otro paso', () => {
+    const w = preparar(), f = observarFoco(w, ['profesionalMovil']);
+    w.paso = 2; w.enfocarPaso('profesionalMovil', 'profesionales'); f.flush();
+    assert.deepEqual(f.focos, ['profesionales']);
+    w.enfocarPaso(); w.paso = 3; f.flush(); assert.equal(f.focos.length, 1);
+});
+
+for (const [errores, destino] of [[{ motivo_solicitud: ['Corregí el motivo'] }, 'motivo'], [{ 'adjuntos.0': ['Archivo inválido'] }, 'documentacion']]) {
+    test(`422 solicita foco en ${destino} al recuperar Paso 1`, async () => {
+        entornoConfirmacion();
+        const w = enPaso4(async () => json({ errors: errores }, 422)), f = observarFoco(w);
+        await w.confirmarTurno(); f.flush(); assert.equal(w.paso, 1); assert.equal(f.focos.at(-1), destino);
+    });
+}
+
+for (const [code, destino] of [['profesional_no_elegible', 'errorProfesional'], ['slot_no_disponible', 'mensajeConfirmacion']]) {
+    test(`409 ${code}: foco contextual; refresh exitoso no lo roba`, async () => {
+        entornoConfirmacion();
+        const w = enPaso4(async (url, opciones) => opciones.method === 'POST' ? json({ code }, 409) : json({ slots: [slot()] }));
+        const f = observarFoco(w); await w.confirmarTurno(); f.flush(); assert.deepEqual(f.focos, [destino]);
+    });
+}
+
+test('error de disponibilidad solicita foco en el contexto que contiene Retry', async () => {
+    const w = enPaso3(async () => { throw new TypeError('Red'); }), f = observarFoco(w);
+    await w.consultarDisponibilidad(); f.flush(); assert.deepEqual(f.focos, ['errorDisponibilidad']);
+});
+
+test('Retry lleva foco a contexto visible antes de ocultar el error; success no vuelve a moverlo', async () => {
+    const pendiente = diferida(), w = enPaso3(() => pendiente.promise), f = observarFoco(w);
+    const refs = w.$refs;
+    w.$refs = new Proxy(refs, { get: (target, nombre) => nombre === 'errorDisponibilidad'
+        ? { ...target[nombre], contains: () => true } : target[nombre] });
+    const consulta = w.consultarDisponibilidad(); f.flush();
+    assert.deepEqual(f.focos, ['tituloPaso3']);
+    pendiente.resolve(json({ slots: [slot()] })); await consulta; f.flush();
+    assert.deepEqual(f.focos, ['tituloPaso3']);
+});

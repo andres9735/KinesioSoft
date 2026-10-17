@@ -1,6 +1,6 @@
 <section x-show="paso === 4" x-cloak aria-labelledby="titulo-paso-4" class="space-y-5">
-    <h2 id="titulo-paso-4" x-ref="tituloPaso4" tabindex="-1" class="text-xl font-semibold text-gray-900 focus:outline-none">Revisar y confirmar</h2>
-    <dl class="grid gap-5 text-sm sm:grid-cols-2">
+    <h2 id="titulo-paso-4" x-ref="tituloPaso4" tabindex="-1" class="rounded-lg text-xl font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">Revisar y confirmar</h2>
+    <dl class="grid grid-cols-1 gap-5 text-sm sm:grid-cols-2">
         <div><dt class="text-gray-500">Tipo</dt><dd class="font-semibold text-gray-900">Primera consulta</dd></div>
         <div><dt class="text-gray-500">Profesional</dt><dd class="font-semibold text-gray-900" x-text="profesionalSeleccionada?.nombre || 'Sin seleccionar'"></dd></div>
         <div><dt class="text-gray-500">Fecha</dt><dd class="text-gray-900" x-text="slotSeleccionado ? fechaLegible(slotSeleccionado.inicio_at.slice(0, 10)) : 'Pendiente de selección'">Pendiente de selección</dd></div>
