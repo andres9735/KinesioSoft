@@ -196,7 +196,7 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
                 }
                 this.paso = 3;
                 this.enfocarPaso();
-                return this.consultarDisponibilidad();
+                return this.consultarDisponibilidad({ conservarSeleccion: true });
             } else if (this.paso === 3 && this.puedeRevisar) {
                 this.paso = 4;
             } else {
@@ -208,7 +208,7 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
         anterior() {
             if (this.bloqueado) return;
             if (this.paso === 3) {
-                this.invalidarDisponibilidad();
+                this.cancelarConsultaDisponibilidad();
             }
             this.paso = Math.max(1, this.paso - 1);
             this.enfocarPaso();
@@ -289,9 +289,10 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
             }
         },
 
-        async consultarDisponibilidad() {
+        async consultarDisponibilidad({ conservarSeleccion = false } = {}) {
             if (destruido || this.bloqueado || this.paso !== 3 || !this.profesionalSeleccionada) return;
             const focoEnError = this.$refs.errorDisponibilidad?.contains?.(globalThis.document?.activeElement) ?? false;
+            const seleccionAnterior = conservarSeleccion ? this.slotSeleccionado : null;
             this.invalidarDisponibilidad();
             if (focoEnError) this.enfocarPaso();
             const requestId = secuenciaConsulta;
@@ -317,6 +318,10 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
                 if (response.status !== 200) throw new Error('No se pudo consultar disponibilidad.');
                 this.slotsDisponibles = leerSlots(payload, ventana);
                 this.estadoDisponibilidad = this.slotsDisponibles.length ? 'success' : 'empty';
+                if (seleccionAnterior && this.slotsDisponibles.some((slot) => slot.inicio_at === seleccionAnterior.inicio_at
+                    && slot.fin_at === seleccionAnterior.fin_at)) {
+                    this.slotSeleccionado = { ...seleccionAnterior };
+                }
             } catch (error) {
                 if (!vigente() || error?.name === 'AbortError') return;
                 this.estadoDisponibilidad = 'error';

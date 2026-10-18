@@ -121,6 +121,31 @@ test('ventanas avanzan siete días sin horizonte de 31 días y no retroceden ant
     assert.equal(w.ventana.desde, sumarDias(configuracion.fechaInicial, 77));
 });
 
+for (const resultado of ['vigente', 'retirado', 'error']) {
+    test(`volver a la misma profesional revalida la selección compatible: ${resultado}`, async () => {
+        let consultas = 0;
+        const w = enPaso3(async () => {
+            consultas++;
+            if (consultas === 2 && resultado === 'error') throw new TypeError('Sin conexión');
+            return json({ slots: consultas === 2 && resultado === 'retirado' ? [] : [slot()] });
+        });
+        const archivo = w.archivosValidos[0];
+        await w.consultarDisponibilidad();
+        w.seleccionarSlot(slot().inicio_at);
+        w.anterior();
+        assert.equal(w.paso, 2);
+        await w.siguiente();
+        assert.equal(consultas, 2);
+        assert.equal(w.paso, 3);
+        assert.deepEqual(w.slotSeleccionado, resultado === 'vigente' ? slot() : null);
+        assert.equal(w.puedeRevisar, resultado === 'vigente');
+        assert.equal(w.kinesiologaId, 1);
+        assert.equal(w.archivosValidos[0], archivo);
+        assert.equal(w.motivo, 'Motivo conservado');
+        assert.equal(w.claveIdempotencia, configuracion.uuid);
+    });
+}
+
 test('refresh y cambio de ventana invalidan selección antes del request', async () => {
     const w = enPaso3(async () => json({ slots: [slot()] }));
     await w.consultarDisponibilidad();
