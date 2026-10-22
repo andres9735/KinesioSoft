@@ -10,7 +10,9 @@
 - Rama: `feature/turnos-solicitar-turno`.
 - Base documental previa al Paso 7: `808794f7fc0e69efba70c9c9fc3dc702b7c50a1a`.
 - Trazabilidad documental 7.00: completada, incluida la corrección de la referencia del límite de 31 días a DT-03.
-- Contenido: último candidato textual aprobado 7.01–7.28 y las tres microprecisiones finales aprobadas sobre estados ocupantes, UUID de servidor y certificación del advisory lock documental.
+- Contenido: Parte I histórica V1 con los subpasos 7.01–7.28 ya ejecutados y Parte II delta V2 con los subpasos 7.29–7.52 aprobados y congelados.
+- Gap analysis V2 contra la implementación real: completo y aprobado.
+- La implementación V1 se conserva como baseline y no debe reejecutarse automáticamente.
 
 ## Propósito
 
@@ -28,25 +30,36 @@ Ante discrepancias se aplica la jerarquía declarada en `docs/_codex_sources/tur
 
 ## Fuentes y alcance
 
-Fuentes locales contrastadas para congelar la planificación:
+Fuentes locales vigentes contrastadas para congelar el delta V2:
 
 - `AGENTS.md`.
 - `docs/_codex_sources/turnos/README_Codex_sources.md`.
 - `docs/_codex_sources/turnos/UC-07_Solicitar_turno.txt`.
-- `docs/_codex_sources/turnos/DECISIONES_UC07_DISENO_TECNICO_V1.0.md`.
-- `docs/_codex_sources/turnos/DECISIONES_UC07_DISENO_UX_V1.0.md`.
+- `docs/_codex_sources/turnos/DECISIONES_UC07_DISENO_TECNICO_V2.0.md`.
+- `docs/_codex_sources/turnos/DECISIONES_UC07_DISENO_UX_V2.0.md`.
+- `docs/_codex_sources/turnos/prototipo_stitch_uc07/README.md`.
 - `docs/_codex_sources/turnos/Diccionario_de_Datos_vigente.txt`.
 - `docs/_codex_sources/turnos/UC-XX_Configurar_agenda_atencion.txt`, exclusivamente como antecedente implementado consumido por UC–07.
 
-Se encuentran contrastados D-01…D-16, DT-01…DT-07, UX-01…UX-03, ambas consolidaciones V1.0 y el cierre visual del Paso 6. Stitch es referencia visual y no fuente de dominio, persistencia ni código de implementación.
+Se encuentran contrastados D-01…D-16 V2, DT-01…DT-07 V2, UX-01…UX-03 V2, ambas consolidaciones V2.0, el contrato Stitch V2 y el gap analysis V2 contra la implementación real.
 
-El alcance es exclusivamente D-16: entrada desde Mis turnos, elegibilidad preliminar, motivo, adjuntos opcionales, profesional, disponibilidad, slot, resumen, confirmación autoritativa, Turno `PRIMERA_CONSULTA/PENDIENTE`, documentos privados, feedback y visibilidad mínima posterior.
+La Parte I de este documento preserva la planificación V1 7.01–7.28 como trazabilidad histórica de la implementación ya ejecutada. Cuando una regla, contrato HTTP, secuencia UX o criterio de esa Parte I contradiga las fuentes V2 o la Parte II, **prevalecen las fuentes V2 y la Parte II delta 7.29–7.52**.
+
+El alcance V2 continúa siendo exclusivamente D-16: entrada desde Mis turnos; disponibilidad agregada; selección de fecha e inicio; selección de profesional disponible; motivo obligatorio; adjuntos opcionales con descripción individual; resumen; confirmación autoritativa; Turno `PRIMERA_CONSULTA/PENDIENTE`; documentos privados; recuperación contextual; feedback y visibilidad mínima posterior.
 
 Quedan fuera los otros flujos de UC–06, cancelación, reprogramación, asistencia, seguimiento solicitado por paciente, paciente provisorio, sobreturnos, Consulta/Padecimiento/diagnóstico/evaluación/plan, gestión clínica integral de documentos, equipos y notificaciones email/SMS/push.
 
 No se crean tablas de slots, holds, drafts persistentes, entidad `SolicitudTurno` ni `documentos_clinicos_padecimiento`. No se agrega React ni infraestructura paralela de auditoría o confirmaciones.
 
 La aprobación de este documento no autoriza ejecutar implementación, migraciones reales ni comandos de base de datos. Cada ejecución futura necesita el prompt independiente del subpaso autorizado.
+
+# PARTE I — PLANIFICACIÓN HISTÓRICA V1 — 7.01–7.28
+
+> **Estado de esta Parte I:** ejecutada y conservada exclusivamente como trazabilidad histórica.
+>
+> Los subpasos 7.01–7.28 NO son trabajo pendiente y NO deben reejecutarse automáticamente.
+> Sus contratos V1 explican la implementación existente, pero no gobiernan el comportamiento objetivo después de la revisión de la cátedra.
+> Toda contradicción con UC–07 V2, D/DT V2, UX V2, Stitch V2 o la Parte II se resuelve a favor de V2.
 
 ## Arquitectura final resumida
 
@@ -604,12 +617,738 @@ El cierre documental del Paso 7 exige:
 
 Estas condiciones cierran planificación; no certifican implementación ni dan por pasadas las pruebas futuras. Los criterios técnicos de cierre de UC–07 siguen siendo los de cada subpaso y P1–P7.
 
-## Regla de ejecución futura
+## Regla histórica de ejecución V1
 
-La siguiente fase es **Paso 8 — ejecución mediante prompts blindados por subpaso**.
+Esta regla gobernó la ejecución original de los subpasos 7.01–7.28. Esa ejecución ya fue completada y hoy constituye baseline histórico.
 
-Cada subpaso 7.01–7.28 requiere autorización y prompt blindado independiente. Antes de actuar se lee `AGENTS.md`, las fuentes pertinentes y el apartado de este documento correspondiente al subpaso solicitado.
+Durante V1, cada subpaso 7.01–7.28 requirió autorización y prompt blindado independiente. Antes de actuar se lee `AGENTS.md`, las fuentes pertinentes y el apartado de este documento correspondiente al subpaso solicitado.
 
 No existe autorización de avance automático al siguiente subpaso. Codex debe detenerse después de ejecutar, verificar e informar el cierre del subpaso expresamente solicitado. La aprobación del plan no autoriza migraciones reales sobre desarrollo; se conserva su puerta de confirmación específica.
 
 No hacer staging, commits ni push por iniciativa propia. No inspeccionar, modificar, agregar ni limpiar `docs/archivo/`.
+
+# PARTE II — PLANIFICACIÓN EJECUTABLE DELTA V2 — 7.29–7.52
+
+## Estado de la Parte II
+
+**APROBADA Y CONGELADA**
+
+Esta Parte II implementa exclusivamente el delta requerido para adaptar la implementación V1 ya certificada al contrato vigente de UC–07 V2.
+
+No autoriza reescribir infraestructura V1 que el gap analysis clasificó como reutilizable.
+
+Cada subpaso 7.29–7.52:
+
+- requiere autorización independiente;
+- posee alcance limitado;
+- debe ejecutar únicamente sus verificaciones previstas o justificadas;
+- debe informar archivos modificados, pruebas y estado Git;
+- debe detenerse al finalizar;
+- no autoriza avanzar automáticamente al siguiente.
+
+## Objetivo del delta V2
+
+Adaptar UC–07 para incorporar:
+
+1. disponibilidad agregada antes de seleccionar profesional;
+2. wizard canónico:
+   - Fecha y horario;
+   - Elegir profesional;
+   - Motivo y documentación;
+   - Revisar y confirmar;
+3. selección de `inicio_at` antes de conocer profesional/duración;
+4. profesionales filtradas por `inicio_at`;
+5. descripción individual obligatoria por cada adjunto válido;
+6. multipart estructurado archivo + descripción;
+7. recuperación diferenciada de profesional, horario y fecha;
+8. diferenciación entre período sin disponibilidad y error técnico;
+9. adaptación estructural a Stitch V2;
+10. recertificación responsive, concurrencia, transporte real y regresión.
+
+## Fuentes autoritativas V2
+
+Antes de cada subpaso, Codex debe consultar únicamente lo necesario de:
+
+- `AGENTS.md`;
+- `docs/_codex_sources/turnos/README_Codex_sources.md`;
+- `docs/_codex_sources/turnos/UC-07_Solicitar_turno.txt`;
+- `docs/_codex_sources/turnos/DECISIONES_UC07_DISENO_TECNICO_V2.0.md`;
+- `docs/_codex_sources/turnos/DECISIONES_UC07_DISENO_UX_V2.0.md`;
+- `docs/_codex_sources/turnos/prototipo_stitch_uc07/README.md`;
+- las 14 capturas Stitch V2 cuando el subpaso sea visual;
+- esta Parte II de la planificación.
+
+La Parte I puede consultarse únicamente como antecedente de la implementación V1.
+
+## Baseline del delta
+
+- Rama esperada: `feature/turnos-solicitar-turno`.
+- HEAD verificado durante el gap analysis: `3a95e84b26a43fa90f663372ba0ba6c3192ff685`.
+- El HEAD puede avanzar por commits manuales del usuario y debe verificarse siempre, nunca asumirse.
+- Estado conocido al cerrar el gap analysis:
+
+```text
+?? docs/archivo/
+?? docs/implementacion/turnos-solicitar-turno-cierre.md
+```
+
+`docs/archivo/` permanece fuera de alcance y no debe inspeccionarse, modificarse, agregarse, stagearse ni limpiarse.
+
+El documento de cierre existente es evidencia histórica V1 y no constituye cierre definitivo V2 mientras este delta permanezca pendiente.
+
+## Infraestructura V1 protegida
+
+Salvo evidencia nueva de contradicción real, preservar:
+
+- `TipoTurnoEnum`;
+- `EstadoTurnoEnum` y estados que reservan agenda;
+- D-01;
+- `ElegibilidadPrimeraConsultaService`;
+- `ElegibilidadKinesiologaService`;
+- predicado profesional canónico;
+- `DisponibilidadPrimeraConsultaService`;
+- `AgendaQueryService`;
+- grilla determinista;
+- overlap semiabierto;
+- `RelojAplicacion`;
+- mismo día sin buffer;
+- índice D-01;
+- `clave_idempotencia`;
+- `ReplayPrimeraConsultaService`;
+- orden de locks kinesióloga → paciente;
+- storage privado;
+- generación segura de rutas;
+- compensación filesystem;
+- advisory locking documental;
+- reconciliación;
+- `DocumentoClinicoPolicy`;
+- descarga documental privada;
+- `AuditoriaService`;
+- aislamiento/paginación backend de Mis turnos;
+- integración Alpine/Vite/SweetAlert2.
+
+No reabrir estas piezas sólo porque cambió el flujo UX.
+
+## Decisiones operativas congeladas del delta
+
+### Agregación
+
+Crear una capa fina:
+
+`DisponibilidadAgregadaPrimeraConsultaService`
+
+Debe consumir la disponibilidad individual existente y no duplicar:
+
+- grilla;
+- overlap;
+- estados ocupantes;
+- reloj;
+- reglas de Agenda.
+
+Debe permitir:
+
+- agregar slots válidos por fecha;
+- deduplicar por `inicio_at`;
+- localizar profesionales válidas para un `inicio_at`.
+
+### Endpoint de disponibilidad
+
+Se conserva:
+
+`GET /turnos/solicitar/disponibilidad`
+
+Contrato V2:
+
+- entrada: `desde`, `hasta`;
+- ya no requiere `kinesiologa_id`;
+- salida: fechas y horas de inicio;
+- no existe un `fin_at` universal.
+
+### Profesionales disponibles
+
+Agregar:
+
+`GET /turnos/solicitar/profesionales-disponibles`
+
+Nombre:
+
+`turnos.solicitar.profesionales-disponibles`
+
+Entrada:
+
+`inicio_at`
+
+Salida: únicamente profesionales elegibles que conservan un slot individual válido para ese inicio, con su intervalo real.
+
+### Recuperación después de 409
+
+Preservar inicialmente:
+
+- `primera_consulta_activa`;
+- `profesional_no_elegible`;
+- `slot_no_disponible`.
+
+No crear códigos separados sólo para profesional/hora/fecha perdida.
+
+Después de un conflicto recuperable, el frontend reevalúa mediante los GET V2:
+
+1. mismo inicio con alternativas → Paso 2;
+2. inicio perdido pero fecha conserva horas → Paso 1 conservando fecha;
+3. fecha sin horas → Paso 1 sin selección;
+4. D-01 → Mis turnos.
+
+Un error técnico de reevaluación no demuestra pérdida de disponibilidad.
+
+### Multipart V2
+
+Contrato conceptual:
+
+```text
+adjuntos[0][archivo]
+adjuntos[0][descripcion]
+adjuntos[1][archivo]
+adjuntos[1][descripcion]
+```
+
+No utilizar arrays paralelos independientes.
+
+### Persistencia documental
+
+Agregar mediante migration nueva:
+
+`documentos_clinicos.descripcion VARCHAR(500) NULL`
+
+Reglas:
+
+- no modificar migrations históricas;
+- no backfill artificial;
+- históricos pueden conservar `NULL`;
+- UC–07 exige descripción:
+  - trim;
+  - mínimo 1 carácter significativo;
+  - máximo 500 caracteres.
+
+## Puertas V2
+
+### V2-P1 — Documentación clínica backend
+
+Debe quedar verde después de 7.33:
+
+- migration;
+- Model/factory;
+- Request documental;
+- transporte de descripción;
+- Action;
+- atomicidad;
+- replay;
+- auditoría privada.
+
+### V2-P2 — Disponibilidad backend
+
+Debe quedar verde después de 7.37:
+
+- agregador;
+- disponibilidad agregada HTTP;
+- endpoint de profesionales;
+- rutas;
+- Requests;
+- tests HTTP/servicio.
+
+### V2-P3 — Flujo frontend funcional
+
+Debe quedar verde después de 7.44:
+
+- nuevo estado Alpine;
+- Pasos 1–4;
+- multipart;
+- recuperación contextual;
+- respuestas obsoletas;
+- UUID estable.
+
+### V2-P4 — UX / Stitch / responsive
+
+Debe quedar verde después de 7.47:
+
+- fidelidad estructural;
+- D-01 visual;
+- éxito;
+- Mis turnos;
+- responsive;
+- accesibilidad.
+
+### V2-P5 — Certificación técnica real
+
+Debe quedar verde después de 7.50:
+
+- regresión focal;
+- MariaDB/InnoDB;
+- Apache/PHP multipart;
+- concurrencia;
+- aceptación funcional principal.
+
+### V2-P6 — Cierre integral
+
+Debe quedar verde en 7.51 antes de 7.52:
+
+- regresión global;
+- Node;
+- build;
+- Pint acotado;
+- `git diff --check`;
+- aceptación V2 completada.
+
+---
+
+## 7.29 — Preparar instrucciones activas para el delta V2
+
+- **Objetivo:** alinear `AGENTS.md` con UC–07 V2 antes de modificar código productivo.
+- **Dependencias:** gap analysis V2 completo y aprobado; Parte II 7.29–7.52 aprobada y congelada.
+- **Archivo permitido:** `AGENTS.md`.
+- **Cambios:** sustituir referencias operativas V1 por V2; registrar 7.01–7.28 como baseline histórico ejecutado; registrar 7.29–7.52 como planificación activa; nuevo orden del wizard; disponibilidad agregada; descripción por adjunto; recuperación contextual; Stitch V2; siguiente subpaso 7.30.
+- **No hacer:** código productivo, tests, migrations, build, Pint, DB.
+- **Verificaciones:** `git diff --check`; `git diff -- AGENTS.md`; `git status --short`; `git diff --stat`.
+- **Criterio de cierre:** sólo `AGENTS.md` modificado por el subpaso y Codex detenido antes de 7.30.
+
+## 7.30 — Persistir `documentos_clinicos.descripcion`
+
+- **Objetivo:** introducir la única modificación física obligatoria de V2.
+- **Dependencia:** 7.29.
+- **Archivos previstos:** nueva migration aditiva; `DocumentoClinico`; `DocumentoClinicoFactory`; tests de schema/model.
+- **Cambio:** `descripcion VARCHAR(500) NULL`, reversible, sin backfill y sin tocar migration histórica.
+- **Modelo:** proteger descripción como parte del snapshot original; no imponer obligatoriedad global.
+- **Factory:** permitir documentos UC–07 con descripción y documentos históricos con `NULL`.
+- **Pruebas:** columna, nulabilidad, longitud, rollback, persistencia, histórico `NULL`, inmutabilidad.
+- **Cierre:** tests focales PASS; Pint sobre PHP modificado; `git diff --check`; detenerse.
+
+## 7.31 — Adaptar Request de confirmación a adjuntos estructurados
+
+- **Objetivo:** convertir la frontera HTTP a archivo + descripción.
+- **Dependencia:** 7.30.
+- **Archivos previstos:** `ConfirmarPrimeraConsultaRequest.php` y su test.
+- **Cambios:** aceptar `adjuntos[n][archivo]` + `adjuntos[n][descripcion]`; descripción requerida para cada archivo, trim, 1..500; mantener política binaria centralizada; errores estables `adjuntos.N.archivo` / `adjuntos.N.descripcion`.
+- **Pruebas:** 0 adjuntos; uno/múltiples; descripción vacía/espacios; 500/501; Unicode; estructura mal formada; archivo/descripcion faltantes; límites documentales.
+- **Cierre:** Request tests PASS; Pint; `git diff --check`; detenerse.
+
+## 7.32 — Propagar descripción por el pipeline documental
+
+- **Objetivo:** transportar `descripcion` hasta `DocumentoClinico` sin alterar el lifecycle físico V1.
+- **Dependencia:** 7.31.
+- **Archivos previstos:** almacenamiento documental, operación documental, gestión documental y tests focales.
+- **Cambios:** metadata archivo + descripción; persistencia de `DocumentoClinico.descripcion`; descripción fuera de path, lock key y autorización.
+- **Preservar:** disk privado, rutas seguras, advisory locks, cleanup y compensación.
+- **Pruebas:** asociación archivo-descripción, múltiples, Unicode, fallos, rollback, descripción no usada como ruta.
+- **Cierre:** tests focales PASS; detenerse.
+
+## 7.33 — Integrar descripción en confirmación, atomicidad y replay
+
+- **Objetivo:** cerrar el agregado documental V2 en `ConfirmarPrimeraConsultaAction`.
+- **Dependencia:** 7.32.
+- **Archivos previstos:** Action y tests de Action/atomicidad/replay/auditoría.
+- **Cambios:** consolidar turno + motivo + documentos + descripciones + asociaciones + auditoría; ampliar `comprobarConsolidacion()`; replay histórico resuelto antes de exigir originales/descripciones.
+- **Auditoría:** no incluir descripción completa.
+- **Pruebas:** alta, múltiples adjuntos, rollback, compensación, resultado incierto, replay, histórico `NULL`, auditoría negativa.
+- **Gate:** ejecutar suite focal conjunta del bloque documental.
+- **Criterio:** **V2-P1 PASS**; detenerse.
+
+## 7.34 — Crear `DisponibilidadAgregadaPrimeraConsultaService`
+
+- **Objetivo:** agregar la proyección V2 sin duplicar el motor individual.
+- **Dependencia:** V2-P1.
+- **Archivos nuevos previstos:** servicio agregador y test de servicio.
+- **Cambios:** profesionales elegibles → slots individuales → fechas → inicios → profesionales para inicio.
+- **No hacer:** nueva grilla, overlap, clock, persistencia de slots o cache prematuro.
+- **Pruebas:** una/múltiples profesionales; mismo inicio con mismo/distinto fin; distintos inicios; sin agenda; sin slots; no elegible; mismo día; vacío; orden; deduplicación.
+- **Rendimiento:** medir consultas sólo con assertions estables; no optimizar especulativamente.
+- **Cierre:** tests focales PASS; detenerse.
+
+## 7.35 — Adaptar disponibilidad HTTP a fechas y horas agregadas
+
+- **Objetivo:** convertir el endpoint existente al contrato V2.
+- **Dependencia:** 7.34.
+- **Archivos previstos:** Request de disponibilidad, `SolicitarTurnoController`, tests Request/HTTP.
+- **Request:** `desde`, `hasta`, máximo técnico 31 días; eliminar `kinesiologa_id`.
+- **Respuesta:** `dias -> fecha -> horarios -> inicio_at`; sin `fin_at` universal.
+- **Semántica:** vacío correcto = 200; fallo interno real no se convierte en vacío.
+- **Pruebas:** rango, exceso, vacío, agregación/deduplicación, error real.
+- **Cierre:** tests focales PASS; detenerse.
+
+## 7.36 — Incorporar profesionales disponibles por `inicio_at`
+
+- **Objetivo:** crear la lectura del Paso 2.
+- **Dependencia:** 7.35.
+- **Archivos:** Request nuevo, Controller, routes, tests Request/rutas/HTTP.
+- **Ruta:** `GET /turnos/solicitar/profesionales-disponibles`, nombre `turnos.solicitar.profesionales-disponibles`.
+- **Middleware:** `auth`, `verified`, `perfil.completo`, `perfil.paciente`.
+- **Entrada:** `inicio_at`.
+- **Respuesta:** sólo elegibles con slot válido; identificador y datos mínimos de presentación, `inicio_at`, `fin_at`, duración cuando sea útil.
+- **Foto:** no agregar persistencia; fallback frontend.
+- **Pruebas:** una/múltiples; distintos fines; lista vacía; no elegible; slot perdido; middleware/ruta.
+- **Cierre:** tests PASS; detenerse.
+
+## 7.37 — Integración backend de disponibilidad V2 y gate V2-P2
+
+- **Objetivo:** certificar conjuntamente los contratos backend de Pasos 1 y 2.
+- **Dependencias:** 7.34–7.36.
+- **Cambios:** preferentemente sólo tests; productivo sólo ante defecto demostrado.
+- **Casos:** dos profesionales 17:00 con 30/45 min; fecha única; hora única; ambas profesionales; `fin_at` distinto; pérdida de elegibilidad/slot; ventana vacía; mismo día; 31 días; privacidad.
+- **Gate:** elegibilidad + grilla + disponibilidad individual + agregador + Requests + HTTP + routes.
+- **Criterio:** **V2-P2 PASS**; detenerse.
+
+## 7.38 — Adaptar `GET /turnos/solicitar` y contrato inicial del wizard
+
+- **Objetivo:** eliminar supuestos V1 del GET inicial.
+- **Dependencia:** V2-P2.
+- **Archivos:** Controller, `create.blade.php`, `SolicitarTurnoCreateTest`.
+- **Cambios:** no precargar lista global como contrato del Paso 2; proveer UUID, URLs, límites y ventana inicial; no consultar slots individuales.
+- **D-01:** si bloquea, no iniciar wizard ni disponibilidad; presentar estado V2.
+- **Pruebas:** config inicial, UUID, URLs, ausencia de lista global como contrato, D-01, Paso 1.
+- **Cierre:** detenerse.
+
+## 7.39 — Reestructurar estado Alpine/JavaScript
+
+- **Objetivo:** cambiar la máquina de estado a dependencias V2.
+- **Dependencia:** 7.38.
+- **Archivos:** `resources/js/turnos/solicitar-turno.js` y suite Node.
+- **Estado:** paso, ventana, agregado, fecha, hora, profesionales, profesional, intervalo, motivo, adjuntos+descripciones, UUID.
+- **Eliminar como estado canónico:** slot universal inicio+fin previo a profesional.
+- **Dependencias:** fecha → limpia hora/profesional; hora → limpia profesional; profesional no altera fecha/hora; captura no altera disponibilidad.
+- **UUID:** jamás regenerarla en transiciones.
+- **Stale responses:** adaptar cancelación/secuenciación.
+- **Cierre:** Node focal PASS; detenerse.
+
+## 7.40 — Implementar Paso 1 V2: Fecha y horario
+
+- **Objetivo:** selección agregada de fecha e inicio.
+- **Dependencia:** 7.39.
+- **Archivos:** `_fecha-horario.blade.php`, JS, Node y tests de vista necesarios.
+- **Comportamiento:** consulta inicial, loading, fechas consultadas, sólo disponibles seleccionables, horas por fecha, selección de inicio.
+- **No mostrar:** profesional ni intervalo universal.
+- **Estados:** loading, disponible, deshabilitada, seleccionada, período vacío, error técnico, retry.
+- **Stitch:** `desktop/02-paso-1-fecha-horario.png`.
+- **Pruebas:** fetch, fecha, hora, cambio de fecha, empty, error, retry, stale response, CTA.
+- **Cierre:** detenerse.
+
+## 7.41 — Implementar Paso 2 V2: Profesionales disponibles
+
+- **Objetivo:** mostrar dinámicamente profesionales válidas para `inicio_at`.
+- **Dependencia:** 7.40.
+- **Archivos:** `_profesionales.blade.php`, JS, Node/vistas.
+- **Comportamiento:** consultar endpoint; loading; cards con intervalo propio; seleccionar una.
+- **Foto:** opcional; fallback circular sin persistencia nueva.
+- **Volver:** conserva fecha/hora mientras no cambien.
+- **Stale response:** una respuesta anterior no reemplaza la lista actual.
+- **Stitch:** `desktop/03-paso-2-elegir-profesional.png`.
+- **Pruebas:** carga, vacío, selección, fines distintos, cambio de hora, stale, error/retry, fallback.
+- **Cierre:** detenerse.
+
+## 7.42 — Implementar Paso 3 V2: Motivo, adjuntos y descripciones
+
+- **Objetivo:** adaptar captura local documental.
+- **Dependencias:** 7.41 y V2-P1.
+- **Archivos:** `_motivo-documentacion.blade.php`, JS, Node/vistas.
+- **Entrada válida local:** id, archivo, descripción, errores.
+- **Archivo inválido:** rechazo individual; fuera de selección válida/contador/total; no bloquea una vez descartado.
+- **Descripción:** propia, required, máximo 500; quitar archivo quita descripción; reemplazo crea nueva unidad.
+- **Motivo:** required, máximo 500.
+- **Stitch:** desktop Paso 3 + excepciones archivo inválido y descripción requerida.
+- **Pruebas:** 0/válidos/inválido; descripción; límites; quitar/reemplazar; conservación de disponibilidad.
+- **Cierre:** detenerse.
+
+## 7.43 — Implementar Paso 4 y confirmación multipart V2
+
+- **Objetivo:** construir revisión y POST final.
+- **Dependencia:** 7.42.
+- **Archivos:** `_revision.blade.php`, JS, Node/vistas/HTTP focales.
+- **Resumen:** Primera consulta, fecha, inicio, intervalo, profesional, motivo, archivos+descripciones, Pendiente.
+- **Semántica:** no `Asignada`; usar `Seleccionada` o nada.
+- **FormData:** motivo, `kinesiologa_id`, `inicio_at`, UUID y `adjuntos[n][archivo/descripcion]`; no `fin_at` autoritativo.
+- **422:** mapear errores anidados y volver a Paso 3 conservando estado compatible.
+- **Submit:** bloquear doble envío; conservar UUID.
+- **Stitch:** desktop Paso 4.
+- **Cierre:** tests focales PASS; detenerse.
+
+## 7.44 — Implementar recuperación contextual V2
+
+- **Objetivo:** resolver conflictos sin reiniciar datos independientes.
+- **Dependencia:** 7.43.
+- **Archivo principal:** JS y suite Node.
+- **D-01:** termina flujo → Mis turnos.
+- **Conflictos de elegibilidad/slot:** reevaluar mediante GET V2.
+- **Caso A:** mismo inicio con alternativas → conservar fecha/hora; limpiar profesional; Paso 2.
+- **Caso B:** inicio perdido pero fecha con otras horas → conservar fecha; limpiar hora/profesional; Paso 1.
+- **Caso C:** fecha sin horas → limpiar fecha/hora/profesional; Paso 1.
+- **Error de reevaluación:** estado técnico/retry; no inferir pérdida.
+- **Preservar:** motivo, archivos, descripciones, UUID cuando compatibles.
+- **Stitch:** excepciones 04–07.
+- **Gate:** suite Node completa + vistas/HTTP afectados.
+- **Criterio:** **V2-P3 PASS**; detenerse.
+
+## 7.45 — Ajustar D-01 visual y feedback de éxito V2
+
+- **Objetivo:** alinear entrada/salida global.
+- **Dependencia:** V2-P3.
+- **Archivos:** `create.blade.php`, parciales existentes necesarios, JS y tests focales.
+- **D-01:** sin stepper/disponibilidad; mensaje de Primera consulta activa; datos mínimos propios; CTA Mis turnos; sin acciones UC–06.
+- **Éxito:** SweetAlert2 existente; turno registrado, profesional, fecha, horario, Pendiente, ocupa agenda; `Entendido` → Mis turnos; X opcional con mismo destino.
+- **Stitch:** excepción D-01 y desktop éxito.
+- **Cierre:** tests focales PASS; detenerse.
+
+## 7.46 — Adaptar Mis turnos a referencia estructural V2
+
+- **Objetivo:** alinear presentación preservando backend correcto.
+- **Dependencia:** 7.45.
+- **Archivos:** vistas de Mis turnos y sus tests.
+- **No modificar:** `MisTurnosController` salvo evidencia nueva.
+- **Preservar:** aislamiento, paginación, eager loading, orden y localización.
+- **Adaptar:** estructura desktop según Stitch; CTA respetando D-01.
+- **No agregar:** cancelación, reprogramación o acciones UC–06.
+- **Cierre:** tests de Mis turnos PASS; detenerse.
+
+## 7.47 — Pulido Stitch V2, responsive y accesibilidad
+
+- **Objetivo:** cerrar fidelidad estructural y UX-03.
+- **Dependencias:** 7.40–7.46.
+- **Archivos:** sólo vistas/JS UC–07 ya afectados; layout global sólo ante defecto demostrado.
+- **Fidelidad:** funcional 100%; estructural alta; estética alta no pixel-perfect.
+- **Mobile:** una columna, `Paso X de 4`, sin overflow operativo, cards apiladas, archivo+descripción vertical, resumen una columna.
+- **Accesibilidad:** labels, teclado, foco, estados semánticos, `aria-invalid`, mensajes, loading textual, targets, error focus.
+- **Viewport mínimo:** 375×667 y 320×568 más desktop representativo.
+- **Tests:** `TurnosAccessibilityViewTest` y afectados; revisión real sigue obligatoria.
+- **Gate:** vistas focales + Node + `git diff --check`.
+- **Criterio:** **V2-P4 PASS**; detenerse.
+
+## 7.48 — Regresión focal integrada UC–07 V2
+
+- **Objetivo:** ejecutar regresión focal amplia del delta productivo.
+- **Dependencia:** V2-P4.
+- **Cambios:** preferentemente ninguno; sólo corregir defectos demostrados del delta.
+- **Suites mínimas:** enums, schema, models, elegibilidad, grilla, disponibilidad individual/agregada, Requests, Action, atomicidad, storage, HTTP, routes, Mis turnos, Policy/descarga, reconciliación, integración, vistas/accesibilidad y JavaScript.
+- **Evidencia:** registrar tests/assertions/tiempo disponible.
+- **Cierre:** todo verde o detenerse con diagnóstico.
+
+## 7.49 — Checkpoint MariaDB/InnoDB V2
+
+- **Objetivo:** recertificar garantías no demostrables por SQLite.
+- **Dependencia:** 7.48.
+- **Seguridad:** sólo DB exclusiva de test; abortar antes de preparar/limpiar si no puede verificarse.
+- **Cobertura:** locks kinesióloga→paciente, D-01, mismo slot, profesionales distintas, replay, descripción, rollback, filesystem, advisory locks, incertidumbre, nueva migration.
+- **Escenario V2:** mismo `inicio_at` con profesionales/duraciones distintas cuando corresponda.
+- **Comando:** suite MariaDB existente.
+- **Cierre:** resultados reales registrados; detenerse.
+
+## 7.50 — Checkpoint Apache/PHP, multipart y aceptación funcional V2
+
+- **Objetivo:** validar transporte y flujo real.
+- **Dependencia:** 7.49.
+- **Multipart real:** pares archivo+descripción; múltiples; límites 10/25 MiB; descripción; MIME; índices; verificar límites efectivos sin cambiar `php.ini` preventivamente.
+- **Aceptación manual mínima:** Mis turnos, CTA, D-01, Paso 1, fechas/horas, empty/error, Paso 2, duraciones distintas, Paso 3, archivo inválido, descripción faltante, Paso 4, éxito, Mis turnos, tres recuperaciones, UUID, mobile 375×667 y 320×568, teclado/foco y overflow.
+- **Gate:** MariaDB + Apache/multipart + aceptación principal.
+- **Criterio:** **V2-P5 PASS**; detenerse.
+
+## 7.51 — Regresión global y calidad final V2
+
+- **Objetivo:** certificar ausencia de regresiones generales.
+- **Dependencia:** V2-P5.
+- **Ejecutar:** `php artisan test`; suite Node completa pertinente; `npm run build`; Pint sólo sobre PHP modificado por el delta; `git diff --check`; estado/stat.
+- **No hacer:** corregir deuda histórica global de Pint ajena al delta.
+- **Comprobar:** `docs/archivo/` no tocado y cierre no stageado accidentalmente.
+- **Criterio:** PHPUnit PASS + Node PASS + build PASS + Pint scoped PASS + diff limpio = **V2-P6 técnico PASS**.
+- **Cierre:** detenerse ante cualquier gate fallido.
+
+## 7.52 — Cierre documental definitivo de UC–07 V2
+
+- **Objetivo:** actualizar trazabilidad sólo después de certificación integral.
+- **Dependencias:** V2-P6 + aceptación manual aprobada.
+- **Archivos previstos:** `AGENTS.md`, este documento y `docs/implementacion/turnos-solicitar-turno-cierre.md`.
+- **No tocar:** `docs/archivo/`.
+- **Planificación:** marcar 7.29–7.52 según resultados reales sin borrar historia V1.
+- **AGENTS:** estado V2 y baselines finales reales.
+- **Cierre:** distinguir certificación V1, devolución de cátedra, delta V2 y resultados finales.
+- **Git:** Codex no stagea ni commitea por iniciativa propia; `git diff --check` y `git status --short`.
+- **Estado esperado:** **UC–07 SOLICITAR TURNO V2 — IMPLEMENTADO, CERTIFICADO Y DOCUMENTADO**.
+
+## Matriz resumida de dependencias V2
+
+```text
+7.29  AGENTS / instrucciones V2
+  ↓
+7.30  schema descripcion
+  ↓
+7.31  Request multipart
+  ↓
+7.32  pipeline documental
+  ↓
+7.33  Action + atomicidad + replay
+  ↓
+V2-P1
+  ↓
+7.34  agregador
+  ↓
+7.35  disponibilidad HTTP
+  ↓
+7.36  profesionales HTTP
+  ↓
+7.37  integración backend
+  ↓
+V2-P2
+  ↓
+7.38  create/config inicial
+  ↓
+7.39  state machine JS
+  ↓
+7.40  Paso 1
+  ↓
+7.41  Paso 2
+  ↓
+7.42  Paso 3
+  ↓
+7.43  Paso 4 / multipart
+  ↓
+7.44  recuperación contextual
+  ↓
+V2-P3
+  ↓
+7.45  D-01 + éxito
+  ↓
+7.46  Mis turnos
+  ↓
+7.47  Stitch + responsive + accesibilidad
+  ↓
+V2-P4
+  ↓
+7.48  regresión focal
+  ↓
+7.49  MariaDB/InnoDB
+  ↓
+7.50  Apache/multipart + aceptación
+  ↓
+V2-P5
+  ↓
+7.51  regresión global / build / Pint
+  ↓
+V2-P6
+  ↓
+7.52  cierre documental
+```
+
+## Archivos nuevos previstos por el delta
+
+La planificación autoriza conceptualmente:
+
+- `database/migrations/<timestamp>_add_descripcion_to_documentos_clinicos_table.php`;
+- `app/Services/Turnos/DisponibilidadAgregadaPrimeraConsultaService.php`;
+- `app/Http/Requests/ConsultarProfesionalesDisponiblesPrimeraConsultaRequest.php`;
+- `tests/Feature/Services/Turnos/DisponibilidadAgregadaPrimeraConsultaTest.php`;
+- `tests/Feature/Requests/ConsultarProfesionalesDisponiblesPrimeraConsultaRequestTest.php`.
+
+Un parcial visual nuevo para D-01 puede autorizarse en 7.45 si mejora mantenibilidad.
+
+Otro archivo nuevo no previsto requiere detenerse e informar antes de crearlo, salvo autorización expresa del prompt específico.
+
+## Archivos que no deben reabrirse sin evidencia
+
+Como regla inicial:
+
+- `app/Enums/TipoTurnoEnum.php`;
+- `app/Enums/EstadoTurnoEnum.php`;
+- `app/Models/Turno.php`;
+- `app/Models/DocumentoClinicoOrigenTurno.php`;
+- `app/Models/Kinesiologa.php`;
+- `app/Models/Paciente.php`;
+- `app/Models/User.php`;
+- `app/Services/Turnos/ElegibilidadPrimeraConsultaService.php`;
+- `app/Services/Turnos/ElegibilidadKinesiologaService.php`;
+- `app/Services/Turnos/DisponibilidadPrimeraConsultaService.php`;
+- `app/Services/Agenda/AgendaQueryService.php`;
+- `app/Services/Agenda/RelojAplicacion.php`;
+- `app/Services/Turnos/ReplayPrimeraConsultaService.php`;
+- `app/Services/Turnos/PoliticaDocumentosClinicosService.php`;
+- `app/Services/Turnos/ReconciliadorDocumentosClinicosService.php`;
+- `app/Services/Turnos/Documentos/CoordinadorBloqueoDocumentalMariaDb.php`;
+- `app/Services/Turnos/Documentos/BloqueoDocumental.php`;
+- `app/Console/Commands/ReconciliarDocumentosClinicosCommand.php`;
+- `app/Policies/DocumentoClinicoPolicy.php`;
+- `app/Http/Controllers/DescargarDocumentoClinicoController.php`;
+- `app/Http/Controllers/MisTurnosController.php`;
+- `app/Services/AuditoriaService.php`;
+- `config/documentos_clinicos.php`;
+- `config/turnos.php`;
+- `config/filesystems.php`;
+- `resources/js/app.js`;
+- `resources/views/layouts/navigation.blade.php`.
+
+No modificar migrations históricas existentes de UC–07.
+
+Si una prueba demuestra la necesidad de adaptar alguno de estos archivos, detener el subpaso, presentar evidencia y ampliar alcance únicamente con autorización.
+
+## Política de pruebas del delta
+
+- Por subpaso: pruebas focales.
+- Por gate: suite conjunta del bloque.
+- 7.48: regresión focal integral UC–07.
+- 7.49: MariaDB/InnoDB real de test.
+- 7.50: Apache/PHP + aceptación.
+- 7.51: regresión global.
+
+No diferir todos los tests hasta el final y no ejecutar regresión global después de cada cambio pequeño.
+
+## Política de commits
+
+Codex no realiza commits por iniciativa propia.
+
+El usuario controla:
+
+- staging;
+- commits;
+- mensajes;
+- checkpoints Git.
+
+No stagear:
+
+- `docs/archivo/`;
+- el cierre antes del subpaso autorizado;
+- `_codex_sources`.
+
+## Criterio de éxito del delta V2
+
+UC–07 V2 estará cerrado únicamente cuando se certifique que:
+
+- comienza por disponibilidad real;
+- sólo permite fechas con disponibilidad;
+- selecciona hora de inicio sin duración universal;
+- sólo muestra profesionales válidas para ese inicio;
+- cada profesional conserva su intervalo real;
+- motivo continúa obligatorio;
+- adjuntos continúan opcionales;
+- cada adjunto válido posee descripción obligatoria;
+- un archivo inválido se rechaza individualmente;
+- confirmación sigue siendo autoritativa;
+- D-01 continúa protegida;
+- locking e idempotencia continúan correctos;
+- el turno sigue siendo `PRIMERA_CONSULTA/PENDIENTE`;
+- recuperación distingue profesional/hora/fecha;
+- vacío y error técnico son estados distintos;
+- Stitch V2 tiene fidelidad estructural alta;
+- responsive/accesibilidad quedan recertificados;
+- MariaDB/concurrencia queda verde;
+- multipart Apache real queda verde;
+- regresión global queda verde;
+- documentación final refleja V2.
+
+## Regla de ejecución activa V2
+
+La fase activa después de congelar esta Parte II es la ejecución mediante prompts blindados independientes de los subpasos 7.29–7.52.
+
+El primer subpaso autorizado después del commit documental de esta planificación es:
+
+**7.29 — Preparar instrucciones activas para el delta V2**
+
+No existe autorización de avance automático.
+
+Cada prompt debe terminar y esperar aprobación antes de continuar.
+
+La aprobación de esta planificación no autoriza migrations reales sobre la base de desarrollo; las operaciones sobre entornos reales mantienen sus puertas específicas.
+
+No hacer staging, commits ni push por iniciativa de Codex.
+
+No inspeccionar, modificar, agregar ni limpiar `docs/archivo/`.
