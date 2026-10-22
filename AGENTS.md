@@ -27,7 +27,7 @@ Stack actual:
 
 Caso de uso actualmente en desarrollo:
 
-**UC–07 Solicitar turno**
+**UC–07 Solicitar turno V2**
 
 Rama esperada:
 
@@ -45,16 +45,16 @@ Base documental previa al Paso 7:
 
 Estado actual del incremento:
 
-- Paso 1 — Alcance funcional: aprobado y congelado.
-- Paso 2 — Relevamiento técnico: completo.
-- Paso 3 — Gap analysis: aprobado y congelado.
-- Paso 4 — Diseño técnico/físico: aprobado y congelado.
-- D-01 a D-16: aprobadas y congeladas.
-- DT-01 a DT-07: aprobadas y congeladas.
-- Consolidación Técnica/Física V1.0: aprobada y congelada.
-- Paso 5 — Diseño UX navegable: aprobado y congelado (UX-01…UX-03 y Consolidación UX V1.0).
-- Paso 6 — Referencia visual: cerrado por suficiencia.
-- Paso 7 — Planificación ejecutable: **APROBADO Y CONGELADO**.
+- Implementación V1, subpasos 7.01–7.28: **EJECUTADOS Y CERTIFICADOS COMO BASELINE V1**. No son trabajo pendiente ni deben reejecutarse automáticamente.
+- UC–07 funcional V2: **APROBADO Y CONGELADO**.
+- D-01…D-16 V2: **APROBADAS Y CONGELADAS**.
+- DT-01…DT-07 V2 y Consolidación Técnica/Física V2.0: **APROBADAS Y CONGELADAS**.
+- UX-01…UX-03 V2 y Consolidación UX V2.0: **APROBADAS Y CONGELADAS**.
+- Stitch V2: **APROBADO Y CONGELADO**.
+- Gap analysis V2 contra implementación actual: **COMPLETO Y APROBADO**.
+- Planificación delta V2 7.29–7.52: **APROBADA, CONGELADA Y VERSIONADA** en `956e68e` (`docs: congelar plan delta V2 de UC-07`).
+- Implementación delta V2: **ACTIVA POR SUBPASOS**.
+- Recertificación y cierre definitivo V2: **PENDIENTES**.
 
 Documento autoritativo operativo:
 
@@ -62,9 +62,15 @@ Documento autoritativo operativo:
 
 Las fuentes específicas permanecen en `docs/_codex_sources/turnos/`.
 
-Siguiente fase: **Paso 8 — ejecución mediante prompts blindados por subpaso.**
+Planificación activa: **Parte II V2 7.29–7.52 APROBADA Y CONGELADA**. La Parte I 7.01–7.28 permanece exclusivamente como antecedente histórico de la implementación existente.
 
-Cada subpaso 7.01–7.28 requiere autorización y prompt blindado independiente. La aprobación de la planificación no autoriza implementación ni avance automático al subpaso siguiente. Codex debe detenerse al finalizar cada subpaso.
+Último subpaso completado: **7.29 — Preparar instrucciones activas para el delta V2**.
+
+Próximo subpaso pendiente: **7.30 — Persistir `documentos_clinicos.descripcion`**.
+
+Esto no autoriza ejecutar 7.30. Cada subpaso 7.30–7.52 requiere autorización y prompt blindado independiente.
+
+Cada subpaso pendiente 7.30–7.52 requiere autorización y prompt blindado independiente. La aprobación de la planificación no autoriza implementación ni avance automático al subpaso siguiente. Codex debe detenerse al finalizar cada subpaso.
 
 No iniciar implementación de UC–07 mientras el usuario no autorice explícitamente el paso o subpaso de implementación correspondiente.
 
@@ -85,7 +91,9 @@ Pint:
 - Para UC–07, exigir Pint PASS sobre los archivos modificados por el incremento cuando corresponda y mantener `git diff --check` limpio.
 - No mezclar reformateos globales de módulos ajenos con cambios funcionales de UC–07.
 
-Las verificaciones futuras incluyen tests específicos por subpaso, puertas P1–P7 definidas en la planificación congelada y regresión global en el cierre. El baseline anterior es histórico certificado; no implica un PASS actual de Pint global.
+El baseline previo a UC–07 y la certificación V1 (incluidas P1–P7) son históricos y no certifican V2. V2 queda pendiente de recertificación mediante 7.29–7.52 y sus puertas V2-P1–V2-P6, con regresión global en 7.51. El baseline anterior no implica un PASS actual de Pint global.
+
+El documento `docs/implementacion/turnos-solicitar-turno-cierre.md` existente es evidencia V1, permanece untracked y no constituye cierre definitivo V2. No modificarlo ni stagearlo antes del subpaso expresamente autorizado.
 
 Si la rama activa, el commit base o el estado Git no coinciden con lo esperado, detenerse e informarlo antes de modificar archivos.
 
@@ -111,10 +119,7 @@ Estado del entorno verificado antes de comenzar el incremento:
 - extensión `fileinfo`: disponible.
 - Apache/XAMPP apunta a `C:/xampp/php` mediante `PHPINIDir` y no se detectó un `LimitRequestBody` restrictivo en la configuración inspeccionada.
 
-Limitación conocida:
-
-- Los valores efectivos del SAPI web de Apache no quedaron certificados mediante una petición HTTP real.
-- Antes de cerrar la implementación de DT-04, verificar mediante el flujo web real que la política de archivos funciona efectivamente con Apache/PHP y no sólo con PHP CLI/configuración estática.
+Estos datos corresponden al preflight histórico previo a V1, no a una comprobación actual. La limitación inicial de verificación del SAPI web se resolvió en la certificación V1 mediante Apache/PHP real; V2 requiere su propia recertificación en 7.50.
 
 ## Fuente de verdad para UC–07 Solicitar turno
 
@@ -131,15 +136,19 @@ No inventar nombres de archivos dentro de esa carpeta. Utilizar el README y el c
 Jerarquía de decisión para este incremento:
 
 1. Diccionario de Datos vigente: persistencia estructural congelada.
-2. Fuente funcional original UC–07: `docs/_codex_sources/turnos/UC-07_Solicitar_turno.txt`.
-3. D-01…D-16, DT-01…DT-07 y Diseño Técnico/Físico V1.0: `docs/_codex_sources/turnos/DECISIONES_UC07_DISENO_TECNICO_V1.0.md`.
-4. UX-01…UX-03 y Consolidación UX V1.0, incluido el cierre visual: `docs/_codex_sources/turnos/DECISIONES_UC07_DISENO_UX_V1.0.md`.
-5. Planificación ejecutable congelada: `docs/implementacion/turnos-solicitar-turno-planificacion.md`, que gobierna el orden operativo de implementación y no puede contradecir una decisión superior.
+2. Fuente funcional UC–07 V2: `docs/_codex_sources/turnos/UC-07_Solicitar_turno.txt`.
+3. D-01…D-16, DT-01…DT-07 y Diseño Técnico/Físico V2.0: `docs/_codex_sources/turnos/DECISIONES_UC07_DISENO_TECNICO_V2.0.md`. Incluye el cambio incremental explícito `descripcion VARCHAR(500) NULL`.
+4. UX-01…UX-03 y Consolidación UX V2.0: `docs/_codex_sources/turnos/DECISIONES_UC07_DISENO_UX_V2.0.md`.
+5. Parte II delta V2 de la planificación ejecutable congelada: `docs/implementacion/turnos-solicitar-turno-planificacion.md`, que gobierna el orden operativo de implementación y no puede contradecir una decisión superior.
 6. Modelo Relacional vigente: apoyo visual del modelo; ante discrepancia prevalece el Diccionario de Datos.
 7. Código real existente: convenciones técnicas y patrones reutilizables.
-8. Referencias visuales: sólo UI/UX; nunca fuente de dominio o persistencia.
+8. Referencias Stitch V2 y su contrato `docs/_codex_sources/turnos/prototipo_stitch_uc07/README.md`: sólo UI/UX; nunca fuente de dominio o persistencia.
+
+Excepción incremental V2 ya aprobada: el Diccionario vigente todavía puede no enumerar `documentos_clinicos.descripcion`, pero DT-04 V2 y la Parte II 7.30 autorizan expresamente agregar `descripcion VARCHAR(500) NULL` mediante una migration aditiva, sin backfill ni modificación de migrations históricas. Esta ausencia documental conocida no constituye un bloqueante para 7.30 y no autoriza ninguna otra desviación estructural respecto del Diccionario.
 
 Esta jerarquía conserva el orden de las fuentes declarado en el README local e incorpora la planificación en su lugar operativo subordinado. Los casos de uso relacionados sólo aportan contexto y no autorizan ampliar UC–07.
+
+V1 sólo puede consultarse como antecedente histórico y no gobierna el objetivo V2. Los prompts blindados autorizan y delimitan la ejecución de cada subpaso, pero no sustituyen ni pueden contradecir las fuentes congeladas ni la Parte II de la planificación.
 
 Configurar agenda es **ANTECEDENTE IMPLEMENTADO CONSUMIDO POR UC–07**. No reabrirlo salvo cambios mínimos de reutilización expresamente previstos en el plan.
 
@@ -164,18 +173,27 @@ Si dos fuentes de autoridad parecen contradecirse, detenerse e informar la discr
 - UC–07 sólo registra el motivo expresado por el paciente.
 - No crea `Padecimiento`, diagnóstico ni clasificación clínica.
 
-### D-03 — Disponibilidad no es precondición global de entrada
+### D-03 — Inicio del flujo y disponibilidad previa al profesional
 
 - El paciente elegible puede iniciar UC–07 aunque todavía no se conozca disponibilidad.
-- Primero puede informar motivo/adjuntos y seleccionar profesional.
-- La disponibilidad real se calcula después de seleccionar kinesióloga.
-- Si no hay slots en la ventana actual, conservar los datos válidos y permitir cambiar profesional o fechas.
+- Wizard canónico V2, exactamente cuatro pasos:
+
+    1. **Fecha y horario**.
+    2. **Elegir profesional**.
+    3. **Motivo y documentación**.
+    4. **Revisar y confirmar**.
+
+- El flujo V1 que comenzaba por motivo/documentación y profesional está superado y no es el flujo activo.
+- Seleccionar primero fecha e `inicio_at`; después, únicamente una profesional elegible con disponibilidad efectiva para ese inicio.
+- Profesionales distintas pueden compartir `inicio_at` con distinto `fin_at`. No existe intervalo ni duración universal; el intervalo real se conoce al seleccionar profesional y `fin_at` se deriva autoritativamente en backend.
+- Si no hay disponibilidad en la ventana consultada, mostrar un vacío válido y permitir consultar otros períodos. Una fecha no consultada no equivale a una fecha sin disponibilidad; un error técnico tampoco.
 
 ### D-04 — Kinesióloga habilitada
 
 - Reutilizar las reglas canónicas existentes de KinesioSoft.
 - Habilitación profesional y disponibilidad temporal son conceptos distintos.
 - No crear una regla paralela independiente de las existentes.
+- Sólo profesionales elegibles aportan disponibilidad agregada y sólo las disponibles para `inicio_at` aparecen como opciones en el Paso 2.
 
 ### D-05 — Generación determinista de slots
 
@@ -209,6 +227,7 @@ Si dos fuentes de autoridad parecen contradecirse, detenerse e informar la discr
 
 - No existe máximo funcional fijo de anticipación.
 - La UI puede consultar ventanas finitas por UX/rendimiento.
+- La navegación visual V2 utiliza ventanas de siete días.
 - El límite técnico congelado para una consulta de disponibilidad es de hasta 31 días por request, configurable.
 - Ese límite por request no constituye un máximo de reserva.
 - Cada fecha usa la configuración aplicable a esa fecha.
@@ -217,22 +236,25 @@ Si dos fuentes de autoridad parecen contradecirse, detenerse e informar la discr
 
 ### D-09 — Adjuntos clínicos
 
-- Adjuntos opcionales, múltiples, 0..N.
+- Adjuntos opcionales, múltiples, 0..5.
 - Política MVP: hasta 5 archivos.
 - Máximo: 10 MiB por archivo.
 - Máximo total de archivos por confirmación: 25 MiB.
 - Formatos permitidos: PDF, JPEG/JPG y PNG.
 - Validar backend, MIME real, tamaño individual, cantidad y total.
 - Antes de confirmar, el paciente puede agregar/quitar/reemplazar archivos en el wizard.
+- Cada archivo válido requiere descripción individual: trim, mínimo 1 carácter significativo y máximo 500. Quitar el archivo quita su descripción; reemplazarlo exige revisar/completar la del nuevo archivo.
+- Un archivo inválido se rechaza individualmente: no integra la selección válida, no cuenta ni suma tamaño, no requiere descripción y no bloquea el avance si los restantes cumplen. Un archivo válido sin descripción permanece seleccionado y bloquea el avance hasta corregirse.
 - Después de confirmar, el conjunto asociado al turno es histórico e inmutable.
 - El upload del paciente no equivale a validación clínica profesional.
 - Los documentos son privados y sólo se sirven mediante autorización de la aplicación.
 
 ### D-10 — Inmutabilidad del snapshot inicial
 
-- Antes de confirmar, motivo y adjuntos son editables.
+- Antes de confirmar, motivo, adjuntos y descripciones son editables.
 - Después de confirmar, el motivo original no se edita ni se sobrescribe.
 - El conjunto de archivos asociado a la solicitud confirmada no se reemplaza retroactivamente.
+- La descripción original de cada documento también integra el snapshot inmutable.
 - Cambios clínicos posteriores deben modelarse como operaciones nuevas o estados/clasificaciones previstos, sin destruir el original.
 - Cancelar o reprogramar un turno no reescribe el motivo ni elimina sus documentos originales.
 
@@ -245,10 +267,18 @@ Si dos fuentes de autoridad parecen contradecirse, detenerse e informar la discr
 - Multi-tab del mismo paciente también queda protegido.
 - Doble submit/retry de la misma intención no debe duplicar el turno.
 
+Recuperación contextual V2, reevaluando disponibilidad mediante los GET correspondientes:
+
+- Profesional perdida con alternativas para el mismo inicio: conservar fecha + hora, invalidar profesional y volver al **Paso 2**.
+- Hora perdida pero fecha con otras horas: conservar fecha, invalidar hora + profesional y volver al **Paso 1**.
+- Fecha sin horas: invalidar fecha + hora + profesional y volver al **Paso 1**.
+- D-01 adquirida: finalizar UC–07 hacia **Mis turnos**.
+- Conservar motivo, archivos válidos, descripciones y UUID cuando sean compatibles; no reiniciar todo el formulario. Un error técnico de reevaluación no demuestra pérdida de disponibilidad.
+
 ### D-12 — Atomicidad funcional
 
 - La confirmación es una sola operación todo-o-nada.
-- Sólo hay éxito cuando turno, motivo y todos los adjuntos del resumen confirmado quedaron consolidados de forma coherente.
+- Sólo hay éxito cuando turno, motivo y todos los adjuntos con sus descripciones del resumen confirmado quedaron consolidados de forma coherente.
 - Una falla requerida produce rollback y no deja un turno parcialmente válido.
 - Los archivos físicos nuevos deben limpiarse por compensación cuando la DB no consolida.
 - Respuesta incierta/retry no debe generar duplicados.
@@ -282,11 +312,11 @@ UC–07 incluye:
 
 - ingreso desde Mis turnos;
 - validación preliminar de elegibilidad del paciente;
+- consulta agregada de disponibilidad;
+- selección de fecha y hora de inicio;
+- selección de kinesióloga elegible y disponible para ese inicio;
 - motivo obligatorio;
-- adjuntos opcionales;
-- selección de kinesióloga habilitada;
-- consulta de disponibilidad;
-- selección de slot;
+- adjuntos opcionales con descripción individual obligatoria;
 - resumen;
 - confirmación autoritativa;
 - alta `PRIMERA_CONSULTA/PENDIENTE`;
@@ -314,14 +344,16 @@ UC–07 no incluye:
 - reservas de equipos;
 - ofertas de adelanto.
 
-## Diseño técnico/físico congelado de UC–07
+## Diseño técnico/físico congelado de UC–07 V2
 
 ### DT-01 — Tipo de turno
 
 - Mantener `turnos.tipo` como `string(30)`.
-- Crear `TipoTurnoEnum` respaldado por string con:
+- Conservar `TipoTurnoEnum` respaldado por string con:
+
     - `PRIMERA_CONSULTA`
     - `SEGUIMIENTO`
+
 - `Turno` debe castear `tipo` al enum.
 - UC–07 fija `PRIMERA_CONSULTA` internamente; el cliente no controla ese valor.
 - No agregar native `ENUM` ni `CHECK` específico para `tipo` en este incremento.
@@ -332,20 +364,23 @@ UC–07 no incluye:
 - No agregar `kinesiologas.habilitada` ni otra bandera duplicada.
 - La elegibilidad es derivada del estado canónico existente.
 - Requiere, en el `User` asociado:
+
     - rol `KINESIOLOGO`;
     - cuenta activa;
     - correo verificado;
     - perfil profesional completo según las reglas existentes.
+
 - La completitud profesional sigue siendo responsable de título, matrícula activa y especialidad conforme al modelo actual.
-- Incorporar un predicado canónico de alto nivel en `User`, conceptualmente `puedeAtenderComoKinesiologo()`.
+- Conservar el predicado canónico de alto nivel en `User`, `puedeAtenderComoKinesiologo()`.
 - Un servicio de elegibilidad debe listar y validar profesionales reutilizando ese predicado.
-- Revalidar elegibilidad al consultar disponibilidad y al confirmar.
+- Revalidar elegibilidad al construir disponibilidad agregada, al listar profesionales para `inicio_at` y al confirmar.
 - No exigir agenda disponible para considerar habilitada a una profesional.
 - No inventar vencimientos de matrícula ni exigir que catálogos históricos de título/especialidad permanezcan activos si la regla actual no lo exige.
 
 ### DT-03 — Motor de disponibilidad
 
-- Crear un servicio específico de Turnos, conceptualmente `DisponibilidadPrimeraConsultaService`.
+- Conservar `DisponibilidadPrimeraConsultaService` como motor individual canónico.
+- La planificación V2 incorpora la capa fina `DisponibilidadAgregadaPrimeraConsultaService`: profesionales elegibles → slots individuales → fechas disponibles → horas de inicio deduplicadas → profesionales disponibles para `inicio_at`. No duplicar grilla, overlap, estados ocupantes ni reloj. Crear este servicio únicamente en 7.34, cuando ese subpaso sea autorizado.
 - Reutilizar `AgendaQueryService`, configuraciones, franjas, bloqueos, turnos ocupantes y `RelojAplicacion`.
 - Los slots son valores derivados; no persistir tabla de slots, holds ni reservas temporales.
 - Generar slots con la grilla determinista de D-05.
@@ -359,7 +394,7 @@ UC–07 no incluye:
 
 ### DT-04 — Documentos clínicos
 
-Implementar:
+Conservar las tablas implementadas:
 
 - `documentos_clinicos`.
 - `documentos_clinicos_origen_turno`.
@@ -376,6 +411,7 @@ No implementar todavía:
 - `estado_validacion`;
 - `tipo_documento_clinico`;
 - `nombre_original`;
+- `descripcion` (incorporación V2 prevista en 7.30);
 - `ruta_storage`;
 - `mime_type`;
 - `tamanio_bytes`;
@@ -383,6 +419,7 @@ No implementar todavía:
 
 Reglas UC–07:
 
+- Incorporación V2 prevista en 7.30: `documentos_clinicos.descripcion VARCHAR(500) NULL`, mediante migration nueva aditiva, sin reescribir migrations históricas ni backfill artificial. Documentos históricos pueden conservar `NULL`; UC–07 exige descripción individual con trim y longitud de 1 a 500 caracteres significativos para nuevos adjuntos. Crear esta migration únicamente en 7.30, cuando ese subpaso sea autorizado.
 - `origen = SOLICITUD_TURNO`.
 - `estado_validacion = PENDIENTE`.
 - `tipo_documento_clinico = SIN_CLASIFICAR`.
@@ -390,10 +427,10 @@ Reglas UC–07:
 - Storage exclusivamente privado.
 - Sin URL pública directa.
 - Sin pre-upload/staging persistente en el MVP.
-- Política central: 5 archivos, 10 MiB individual, 25 MiB total, PDF/JPEG/PNG.
-- Mantener nombre original como metadato; nunca usarlo como ruta física confiable.
+- Política central: 5 archivos, 10 MiB individual, 25 MiB total, PDF/JPEG/JPG/PNG.
+- Mantener nombre original y descripción como metadatos; nunca usarlos como ruta física confiable.
 - Encapsular storage/validación/cleanup en un servicio documental reutilizable.
-- Antes de cerrar DT-04 implementado, verificar los límites efectivos mediante el flujo web Apache/PHP real.
+- Recertificar el contrato documental V2 y los límites efectivos mediante el flujo web Apache/PHP real en 7.50.
 
 ### DT-05 / DT-06 — Concurrencia, idempotencia y atomicidad
 
@@ -401,11 +438,11 @@ Reglas UC–07:
 - Ejecutar la creación dentro de `DB::transaction()`.
 - Usar `kinesiologas.id` como mutex de agenda mediante `lockForUpdate()`.
 - Bloquear también `pacientes.id` para proteger D-01 incluso entre profesionales diferentes.
-- Mantener un orden de locks estable y coherente con los patrones existentes.
+- Conservar el orden de locks certificado: kinesióloga → paciente. No adquirir locks de reserva durante la navegación ni introducir holds.
 - Después de adquirir locks, releer y revalidar condiciones mutables; no confiar en lecturas previas.
 - Toda operación futura que cree turnos o altere intervalo/estado de manera que cambie ocupación debe respetar el mismo convenio de locking por kinesióloga.
 
-Modificar `turnos` mediante nueva migración:
+Conservar la persistencia V1 ya implementada en `turnos`:
 
 - `clave_idempotencia`: nullable, UNIQUE.
 - índice no único `(paciente_id, tipo, estado, inicio_at)` para D-01.
@@ -414,6 +451,7 @@ Idempotencia:
 
 - UC–07 genera una UUID por flujo.
 - La UUID identifica la intención de solicitar la Primera consulta, no un slot particular.
+- Conservarla al cambiar fecha, hora, profesional, motivo, archivos o descripciones y durante 422/409 recuperables, red, resultado incierto y retry.
 - Si la UUID ya corresponde a un turno consolidado del mismo paciente y contexto, devolver ese mismo turno sin recrear nada.
 - Un replay ya consolidado se resuelve antes de exigir nuevamente condiciones propias de una creación nueva.
 - Si la UUID no está consolidada, ejecutar la creación autoritativa completa.
@@ -421,20 +459,21 @@ Idempotencia:
 
 Atomicidad:
 
-- Turno, documentos, asociaciones y auditoría deben consolidarse como una única operación funcional.
+- Turno, documentos, descripciones, asociaciones y auditoría deben consolidarse como una única operación funcional.
 - Los archivos físicos nuevos se registran para compensación.
 - Ante excepción previa al commit: rollback DB + eliminación de archivos nuevos.
 - No usar retries automáticos del callback transaccional si pueden repetir efectos de filesystem.
 - Deadlock/timeout debe dejar la operación sin efectos parciales y permitir retry seguro con la misma UUID.
-- Incorporar una capacidad de reconciliación para eliminar archivos privados huérfanos sin referencia DB y con antigüedad segura, sin tocar archivos válidos.
+- Conservar la reconciliación segura ya certificada de archivos privados huérfanos sin referencia DB y con antigüedad segura, sin tocar archivos válidos, junto con los advisory locks documentales.
 
 ### DT-07 — Orquestación, seguridad, Mis turnos y auditoría
 
-Rutas previstas:
+Rutas objetivo V2 (su adaptación requiere el subpaso autorizado):
 
 - `GET /turnos/mis-turnos` → `turnos.mis-turnos.index`.
 - `GET /turnos/solicitar` → `turnos.solicitar.create`.
 - `GET /turnos/solicitar/disponibilidad` → `turnos.solicitar.disponibilidad`.
+- `GET /turnos/solicitar/profesionales-disponibles` → `turnos.solicitar.profesionales-disponibles`.
 - `POST /turnos/solicitar` → `turnos.solicitar.store`.
 - `GET /documentos-clinicos/{documento}/descargar` → `documentos-clinicos.download`.
 
@@ -459,7 +498,10 @@ La descarga documental debe usar autenticación, perfil completo y una Policy es
 Requests previstos:
 
 - `ConsultarDisponibilidadPrimeraConsultaRequest`.
+- `ConsultarProfesionalesDisponiblesPrimeraConsultaRequest`.
 - `ConfirmarPrimeraConsultaRequest`.
+
+Disponibilidad agregada recibe `desde` y `hasta`, sin requerir `kinesiologa_id`, y devuelve fechas/horas de inicio. Profesionales disponibles recibe `inicio_at` y devuelve sólo profesionales elegibles con slot válido para ese inicio, con su intervalo real informativo. Ambas consultas admiten `200` vacío.
 
 Confirmación acepta del cliente únicamente:
 
@@ -467,7 +509,7 @@ Confirmación acepta del cliente únicamente:
 - `kinesiologa_id`;
 - `inicio_at`;
 - `clave_idempotencia`;
-- `adjuntos[]`.
+- adjuntos estructurados: `adjuntos[n][archivo]` y `adjuntos[n][descripcion]`, sin arrays paralelos.
 
 El servidor deriva:
 
@@ -482,12 +524,14 @@ El servidor deriva:
 
 Contratos HTTP:
 
-- `200`: disponibilidad válida, incluso vacía.
-- `422`: validación de entrada/archivos.
+- `200`: disponibilidad o profesionales consultados correctamente, incluso vacíos.
+- `422`: validación de entrada, archivos o descripciones; motivo/documentos vuelven al Paso 3 conservando estado compatible.
 - `409`: conflicto de estado al revalidar una creación aún no consolidada.
 - `201`: creación nueva exitosa.
 - `200`: replay idempotente de una operación ya consolidada.
 - Un error interno de integridad no debe disfrazarse como falta de disponibilidad.
+
+Conservar inicialmente los códigos `primera_consulta_activa`, `profesional_no_elegible` y `slot_no_disponible`. No agregar códigos independientes para profesional/hora/fecha perdida: la recuperación contextual reevalúa mediante los GET V2. No ramificar por mensajes humanos.
 
 Frontend de confirmación:
 
@@ -507,6 +551,7 @@ Inmutabilidad técnica:
 
 - impedir modificación posterior de `motivo_solicitud` original;
 - proteger metadatos originales del documento;
+- proteger la descripción original;
 - proteger contenido/ruta física;
 - proteger la asociación documento-turno;
 - permitir que futuros UC autorizados evolucionen únicamente `estado_validacion` y `tipo_documento_clinico` según corresponda.
@@ -517,7 +562,7 @@ Auditoría:
 - auditar creación de Primera consulta;
 - auditar cada documento clínico cargado;
 - auditar acceso efectivo mediante descarga de documento clínico;
-- no duplicar contenido binario ni el motivo clínico completo en snapshots de auditoría.
+- no duplicar contenido binario, motivo clínico completo ni descripción clínica completa en snapshots de auditoría.
 
 ## Forma obligatoria de trabajo
 
@@ -533,7 +578,7 @@ Antes de modificar:
 6. Informar cualquier discrepancia relevante antes de inventar una solución no prevista.
 7. Verificar `git branch --show-current`, `git rev-parse HEAD` y `git status --short` cuando se vaya a modificar el repositorio.
 
-La planificación ejecutable de UC–07 está congelada en `docs/implementacion/turnos-solicitar-turno-planificacion.md`. Antes de modificar, leer el subpaso correspondiente y su prompt blindado independiente. No ejecutar un subpaso sin autorización específica ni avanzar automáticamente al siguiente.
+La Parte II delta V2 7.29–7.52 está congelada en `docs/implementacion/turnos-solicitar-turno-planificacion.md`. Antes de modificar, leer el subpaso correspondiente y su prompt blindado independiente. No ejecutar un subpaso sin autorización específica ni avanzar automáticamente al siguiente. La Parte I V1 es histórica.
 
 Después de modificar:
 
@@ -547,6 +592,10 @@ Después de modificar:
 8. Detenerse al finalizar el subpaso solicitado.
 
 No adelantar trabajo de un subpaso posterior aunque parezca conveniente.
+
+### Infraestructura V1 protegida
+
+**NO REABRIR INFRAESTRUCTURA V1 CERTIFICADA SIN EVIDENCIA.** Preservar enums y estados ocupantes canónicos, D-01, elegibilidad, motor individual y AgendaQuery, grilla, overlap semiabierto, `RelojAplicacion`, locking kinesióloga → paciente, idempotencia/replay, storage privado, compensación, advisory locks documentales, reconciliación, Policy y descarga documental, auditoría y backend de Mis turnos. Adaptar sólo el delta expresamente previsto y autorizado.
 
 ## Arquitectura a respetar
 
@@ -751,7 +800,7 @@ Reglas generales:
 - No auditar lecturas salvo decisión funcional específica; UC–07 sí exige auditar descarga efectiva de documentos clínicos según DT-07.
 - No generar auditoría ficticia para updates sin cambios semánticos o no-ops idempotentes.
 - Nunca almacenar contraseñas, binarios u otros datos sensibles en snapshots.
-- Para UC–07 no duplicar el contenido completo de `motivo_solicitud` ni archivos dentro de auditoría.
+- Para UC–07 no duplicar el contenido completo de `motivo_solicitud`, la descripción clínica completa ni archivos dentro de auditoría.
 - No asumir que Turnos usa el módulo de auditoría `Catálogos`; definir/usar el módulo/eventos acordados por DT-07 y las convenciones reales de `AuditoriaService`.
 
 ## Base de datos y migraciones
@@ -774,12 +823,16 @@ Si una tarea requiere ejecutar una migración real sobre MariaDB de desarrollo, 
 
 `migrate --pretend` puede utilizarse cuando el subpaso o planificación lo indiquen.
 
-Para UC–07, el diseño físico congelado prevé únicamente, respecto de este incremento:
+Para UC–07, el diseño físico V1 ya implementado incluye:
 
 - modificación de `turnos` para `clave_idempotencia` nullable UNIQUE;
 - índice `(paciente_id, tipo, estado, inicio_at)`;
 - creación de `documentos_clinicos`;
 - creación de `documentos_clinicos_origen_turno`.
+
+El único cambio físico pendiente del delta V2 es:
+
+- nueva migration aditiva para `documentos_clinicos.descripcion VARCHAR(500) NULL`, sin backfill artificial, prevista exclusivamente en 7.30.
 
 No crear por anticipado:
 
@@ -838,11 +891,11 @@ Build de partida:
 
 `npm run build`: PASS.
 
-Limitación conocida:
+Limitación de las pruebas SQLite:
 
 - PHPUnit usa SQLite `:memory:`.
 - Eso no certifica locking real de MariaDB.
-- Las carreras de DT-05/DT-06 deben verificarse específicamente contra MariaDB/InnoDB después de implementar la Action de confirmación.
+- Las carreras de DT-05/DT-06 fueron certificadas para V1 y deben recertificarse contra MariaDB/InnoDB en 7.49 para V2, con autorización específica de las operaciones reales requeridas.
 
 No modificar tests para “hacerlos pasar” si eso debilita o cambia una regla congelada.
 
@@ -864,6 +917,7 @@ Cuando un test deba actualizarse por un cambio funcional planificado, mantener o
 ### Formularios con archivos en UC–07
 
 - Usar `multipart/form-data` / `FormData` real.
+- Contrato V2: cada adjunto reúne `archivo` y `descripcion` en `adjuntos[n]`; no usar arrays paralelos.
 - Enviar `UploadedFile` real.
 - No serializar binarios como Base64 para suplir el transporte HTTP.
 - Recordar que un `<input type="file">` no puede repoblarse con `old()` tras recarga tradicional.
@@ -881,7 +935,8 @@ Antes de un bloque que modifique archivos:
 
 Durante el trabajo:
 
-- no hacer commits intermedios salvo instrucción explícita;
+- no hacer commits ni stagear por iniciativa propia; el usuario controla staging, commits y checkpoints;
+- no limpiar ni normalizar el working tree por iniciativa propia;
 - no cambiar de rama por iniciativa propia;
 - no hacer push;
 - no reescribir historial;
@@ -931,7 +986,7 @@ No eliminar archivos no trackeados cuya procedencia no haya sido autorizada.
 
 El alcance activo corresponde exclusivamente a:
 
-**UC–07 Solicitar turno**
+**UC–07 Solicitar turno V2**
 
 Integraciones mínimas autorizadas:
 
@@ -966,7 +1021,11 @@ Puede diseñarse una responsabilidad reutilizable cuando sea estrictamente neces
 
 ## Prototipos y diseño UX
 
-El diseño UX (Paso 5, UX-01…UX-03 y Consolidación UX V1.0) está aprobado y congelado. La referencia visual del Paso 6 está cerrada por suficiencia y la planificación ejecutable del Paso 7 está aprobada y congelada. La siguiente fase es Paso 8, exclusivamente mediante prompts blindados independientes para los subpasos del plan.
+UX-01…UX-03 y Consolidación UX V2.0 están aprobadas y congeladas. Stitch V2 está aprobado y congelado: 6 capturas desktop + 8 excepciones = 14, sin carpeta mobile canónica; responsive sigue siendo obligatorio. Contrato visual activo: `docs/_codex_sources/turnos/prototipo_stitch_uc07/README.md`.
+
+Fidelidad exigida: funcional 100 %, estructural alta y estética alta, no pixel-perfect. Foto profesional opcional con avatar fallback; no usar `Asignada` como semántica administrativa. Si existe cierre X del éxito, equivale a `Entendido` y conduce a Mis turnos. Navegación desktop en una línea cuando exista ancho suficiente; profesional perdida visible sólo como contexto deshabilitado, no seleccionable.
+
+La ejecución activa corresponde exclusivamente a la Parte II delta V2 7.29–7.52 mediante prompts independientes. Los cambios de frontend quedan diferidos a los subpasos expresamente previstos en la Parte II V2; no adelantarlos desde subpasos anteriores.
 
 Reglas:
 
@@ -975,7 +1034,7 @@ Reglas:
 - No introducir React u otro framework sólo porque una herramienta de prototipado genere ese código.
 - Si posteriormente se utiliza una herramienta de IA para prototipar pantallas, el resultado será referencia visual y deberá adaptarse a Laravel + Blade + Alpine + Tailwind.
 - El material histórico existente en `docs/_codex_sources/turnos/prototipo_deepseek/` no es automáticamente el prototipo de UC–07 ni autoriza copiar código o comportamiento.
-- Si el usuario aprueba un prototipo específico para UC–07, registrar explícitamente cuál es antes de usarlo como referencia visual.
+- Usar exclusivamente las referencias Stitch V2 enumeradas en su README; V1 sólo es antecedente histórico.
 
 Un prototipo nunca puede utilizarse como fuente para:
 
