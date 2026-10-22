@@ -35,7 +35,8 @@ class DocumentosClinicosSchemaTest extends TestCase
             'tamanio_bytes' => 'integer',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
-        ], 'id', ['created_at', 'updated_at']);
+            'descripcion' => 'varchar',
+        ], 'id', ['created_at', 'updated_at'], ['descripcion']);
 
         $this->assertForeignKeys('documentos_clinicos', [
             'paciente_id' => 'pacientes',
@@ -79,6 +80,10 @@ class DocumentosClinicosSchemaTest extends TestCase
         }
 
         $sql = strtolower(implode("\n", array_column($queries, 'query')));
+        $this->assertSame(
+            'alter table `documentos_clinicos` add `descripcion` varchar(500) null',
+            strtolower($queries[array_key_last($queries)]['query'])
+        );
         foreach ([
             '`id` bigint unsigned not null auto_increment primary key',
             '`paciente_id` bigint unsigned not null',
@@ -119,6 +124,55 @@ class DocumentosClinicosSchemaTest extends TestCase
         $this->expectExceptionMessage('UNIQUE constraint failed: documentos_clinicos.ruta_storage');
 
         DB::table('documentos_clinicos')->insert($attributes);
+    }
+
+    public function test_description_accepts_null_and_500_characters(): void
+    {
+        $context = $this->context();
+        foreach ([null, str_repeat('á', 500)] as $index => $description) {
+            $attributes = $this->documentAttributes($context, "documentos/descripcion-{$index}.pdf");
+            $attributes['descripcion'] = $description;
+            $id = DB::table('documentos_clinicos')->insertGetId($attributes);
+
+            $this->assertSame($description, DB::table('documentos_clinicos')->where('id', $id)->value('descripcion'));
+        }
+    }
+
+    public function test_description_migration_preserves_historical_data_and_reverts_only_its_column(): void
+    {
+        $context = $this->context();
+        [, , $description] = $this->documentMigrations();
+        $description->down();
+
+        try {
+            $id = DB::table('documentos_clinicos')->insertGetId(
+                $this->documentAttributes($context, 'documentos/historico.pdf')
+            );
+            $original = (array) DB::table('documentos_clinicos')->where('id', $id)->first();
+            $columns = Schema::getColumns('documentos_clinicos');
+            $indexes = Schema::getIndexes('documentos_clinicos');
+            $foreignKeys = Schema::getForeignKeys('documentos_clinicos');
+
+            $description->up();
+
+            $this->assertTrue(Schema::hasColumn('documentos_clinicos', 'descripcion'));
+            $this->assertNull(DB::table('documentos_clinicos')->where('id', $id)->value('descripcion'));
+            $this->assertEquals($original, (array) DB::table('documentos_clinicos')->select(array_keys($original))->where('id', $id)->first());
+            $this->assertSame($indexes, Schema::getIndexes('documentos_clinicos'));
+            $this->assertSame($foreignKeys, Schema::getForeignKeys('documentos_clinicos'));
+
+            $description->down();
+
+            $this->assertFalse(Schema::hasColumn('documentos_clinicos', 'descripcion'));
+            $this->assertEquals($columns, Schema::getColumns('documentos_clinicos'));
+            $this->assertSame($indexes, Schema::getIndexes('documentos_clinicos'));
+            $this->assertSame($foreignKeys, Schema::getForeignKeys('documentos_clinicos'));
+            $this->assertEquals($original, (array) DB::table('documentos_clinicos')->where('id', $id)->first());
+        } finally {
+            if (! Schema::hasColumn('documentos_clinicos', 'descripcion')) {
+                $description->up();
+            }
+        }
     }
 
     public function test_database_allows_multiple_documents_per_paciente_uploader_and_turno(): void
@@ -223,7 +277,8 @@ class DocumentosClinicosSchemaTest extends TestCase
                 Schema::getForeignKeys($table), DB::table($table)->orderBy('id')->get()->all(),
             ];
         }
-        [$documents, $origins] = $this->documentMigrations();
+        [$documents, $origins, $description] = $this->documentMigrations();
+        $description->down();
         $origins->down();
         $documents->down();
 
@@ -241,14 +296,16 @@ class DocumentosClinicosSchemaTest extends TestCase
         } finally {
             $documents->up();
             $origins->up();
+            $description->up();
         }
     }
 
     /**
      * @param  array<string, string>  $types
      * @param  list<string>  $timestampDefaults
+     * @param  list<string>  $nullableColumns
      */
-    private function assertTableSchema(string $table, array $types, string $primaryKey, array $timestampDefaults = []): void
+    private function assertTableSchema(string $table, array $types, string $primaryKey, array $timestampDefaults = [], array $nullableColumns = []): void
     {
         $this->assertTrue(Schema::hasTable($table));
         $columns = collect(DB::select("PRAGMA table_info('{$table}')"))->keyBy('name');
@@ -257,7 +314,7 @@ class DocumentosClinicosSchemaTest extends TestCase
 
         foreach ($types as $name => $type) {
             $this->assertSame($type, strtolower($columns[$name]->type), $name);
-            $this->assertSame(1, $columns[$name]->notnull, $name);
+            $this->assertSame(in_array($name, $nullableColumns, true) ? 0 : 1, $columns[$name]->notnull, $name);
             if (in_array($name, $timestampDefaults, true)) {
                 $this->assertSame('CURRENT_TIMESTAMP', strtoupper($columns[$name]->dflt_value));
             } else {
@@ -292,13 +349,14 @@ class DocumentosClinicosSchemaTest extends TestCase
     }
 
     /**
-     * @return array{Migration, Migration}
+     * @return array{Migration, Migration, Migration}
      */
     private function documentMigrations(): array
     {
         return [
             require database_path('migrations/2026_10_16_000002_create_documentos_clinicos_table.php'),
             require database_path('migrations/2026_10_16_000003_create_documentos_clinicos_origen_turno_table.php'),
+            require database_path('migrations/2026_10_22_000001_add_descripcion_to_documentos_clinicos_table.php'),
         ];
     }
 

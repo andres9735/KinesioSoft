@@ -20,6 +20,7 @@ class DocumentoClinicoFactory extends Factory
             'estado_validacion' => DocumentoClinico::ESTADO_VALIDACION_PENDIENTE,
             'tipo_documento_clinico' => DocumentoClinico::TIPO_SIN_CLASIFICAR,
             'nombre_original' => 'Estudio.pdf',
+            'descripcion' => null,
             'ruta_storage' => 'fixtures/'.fake()->unique()->uuid().'.pdf',
             'mime_type' => 'application/pdf',
             'tamanio_bytes' => 1024,

@@ -29,6 +29,7 @@ class DocumentoClinicoModelTest extends TestCase
         $this->assertSame(DocumentoClinico::ESTADO_VALIDACION_PENDIENTE, $documento->estado_validacion);
         $this->assertSame(DocumentoClinico::TIPO_SIN_CLASIFICAR, $documento->tipo_documento_clinico);
         $this->assertSame(1024, $documento->tamanio_bytes);
+        $this->assertNull($documento->descripcion);
         $this->assertInstanceOf(CarbonImmutable::class, $documento->created_at);
         $this->assertInstanceOf(CarbonImmutable::class, $documento->updated_at);
         $this->assertSame($documento->paciente_id, $documento->paciente->id);
@@ -49,10 +50,33 @@ class DocumentoClinicoModelTest extends TestCase
         $this->assertTrue($documento->fresh()->origenTurno->turno->is($turno));
     }
 
+    public function test_factory_can_persist_and_read_an_initial_description(): void
+    {
+        $documento = $this->documento(['descripcion' => 'Adjunto sintético de prueba.'])->fresh();
+
+        $this->assertSame('Adjunto sintético de prueba.', $documento->descripcion);
+        $this->assertDatabaseHas('documentos_clinicos', [
+            'id' => $documento->id,
+            'descripcion' => 'Adjunto sintético de prueba.',
+        ]);
+    }
+
+    public function test_historical_null_description_cannot_be_overwritten(): void
+    {
+        $documento = $this->documento(['descripcion' => null])->fresh();
+
+        try {
+            $documento->update(['descripcion' => 'Cambio posterior.']);
+            $this->fail('Se esperaba preservar la descripción histórica NULL.');
+        } catch (LogicException) {
+            $this->assertNull($documento->fresh()->descripcion);
+        }
+    }
+
     #[DataProvider('cambiosDelOriginal')]
     public function test_protected_metadata_cannot_be_overwritten_even_with_force_fill(string $campo, mixed $valor): void
     {
-        $documento = $this->documento()->fresh();
+        $documento = $this->documento(['descripcion' => 'Descripción original.'])->fresh();
         $original = $documento->getAttributes();
         if ($campo === 'paciente_id') {
             $valor = Paciente::create(['user_id' => User::factory()->create()->id, 'activo' => true])->id;
@@ -78,6 +102,8 @@ class DocumentoClinicoModelTest extends TestCase
             'usuario cargador' => ['cargado_por_user_id', null],
             'origen' => ['origen', 'OTRO_ORIGEN'],
             'nombre' => ['nombre_original', 'Otro.pdf'],
+            'descripción' => ['descripcion', 'Descripción modificada.'],
+            'descripción a NULL' => ['descripcion', null],
             'ruta' => ['ruta_storage', 'fixtures/reemplazo.pdf'],
             'MIME' => ['mime_type', 'image/png'],
             'tamaño' => ['tamanio_bytes', 2048],
@@ -100,7 +126,7 @@ class DocumentoClinicoModelTest extends TestCase
     #[DataProvider('cambiosEvolutivos')]
     public function test_validation_and_classification_can_evolve_without_changing_the_original(string $campo, string $valor): void
     {
-        $documento = $this->documento()->fresh();
+        $documento = $this->documento(['descripcion' => 'Descripción original.'])->fresh();
         $expected = $documento->getAttributes();
         $expected[$campo] = $valor;
         unset($expected['updated_at']);
@@ -134,11 +160,14 @@ class DocumentoClinicoModelTest extends TestCase
         $this->assertCount(2, $primero->cargadoPor->fresh()->documentosClinicosCargados);
     }
 
-    private function documento(): DocumentoClinico
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function documento(array $attributes = []): DocumentoClinico
     {
         $user = User::factory()->create();
         $paciente = Paciente::create(['user_id' => $user->id, 'activo' => true]);
 
-        return DocumentoClinico::factory()->for($paciente)->for($user, 'cargadoPor')->create();
+        return DocumentoClinico::factory()->for($paciente)->for($user, 'cargadoPor')->create($attributes);
     }
 }
