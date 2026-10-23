@@ -13,6 +13,22 @@ class ConfirmarPrimeraConsultaRequest extends FormRequest
 {
     private const CAMPOS = ['motivo_solicitud', 'kinesiologa_id', 'inicio_at', 'clave_idempotencia', 'adjuntos'];
 
+    protected function prepareForValidation(): void
+    {
+        $adjuntos = $this->input('adjuntos');
+        if (! is_array($adjuntos)) {
+            return;
+        }
+
+        foreach ($adjuntos as $indice => $adjunto) {
+            if (is_array($adjunto) && is_string($adjunto['descripcion'] ?? null)) {
+                $adjuntos[$indice]['descripcion'] = trim($adjunto['descripcion']);
+            }
+        }
+
+        $this->merge(['adjuntos' => $adjuntos]);
+    }
+
     public function authorize(): bool
     {
         // Como los Requests de perfil del paciente, delega rol/perfil a los middleware de DT-07.
@@ -48,24 +64,38 @@ class ConfirmarPrimeraConsultaRequest extends FormRequest
             return $identidad;
         }
 
+        $adjuntos = $this->all()['adjuntos'] ?? [];
+        $erroresDocumentales = $politica->validar(is_array($adjuntos)
+            ? array_map(static fn (mixed $adjunto): mixed => is_array($adjunto) ? ($adjunto['archivo'] ?? null) : null, $adjuntos)
+            : []);
+        $reglasDescripcion = [];
+        if (is_array($adjuntos)) {
+            foreach ($adjuntos as $indice => $adjunto) {
+                if (is_array($adjunto) && ! isset($erroresDocumentales['archivos'][$indice])) {
+                    $reglasDescripcion['adjuntos.'.$indice.'.descripcion'] = ['bail', 'required', 'string', 'max:500'];
+                }
+            }
+        }
+
         $creacion = $factory->make($this->validationData(), [
             ...$this->rules(),
             'motivo_solicitud' => ['bail', 'required', 'string', 'max:500'],
             'kinesiologa_id' => ['bail', 'required', 'integer', 'exists:kinesiologas,id'],
             'inicio_at' => ['bail', 'required', 'date_format:Y-m-d H:i:s'],
             'adjuntos' => ['sometimes', 'array'],
+            'adjuntos.*' => ['bail', 'array:archivo,descripcion'],
+            ...$reglasDescripcion,
         ], [], $this->attributes());
-        $creacion->after(function (Validator $validator) use ($politica): void {
+        $creacion->after(function (Validator $validator) use ($erroresDocumentales): void {
             if ($validator->errors()->has('adjuntos')) {
                 return;
             }
-            $errores = $politica->validar($this->all()['adjuntos'] ?? []);
-            foreach ($errores['coleccion'] as $codigo) {
+            foreach ($erroresDocumentales['coleccion'] as $codigo) {
                 $validator->errors()->add('adjuntos', $this->mensajeDocumental($codigo));
             }
-            foreach ($errores['archivos'] as $indice => $codigos) {
+            foreach ($erroresDocumentales['archivos'] as $indice => $codigos) {
                 foreach ($codigos as $codigo) {
-                    $validator->errors()->add('adjuntos.'.$indice, $this->mensajeDocumental($codigo));
+                    $validator->errors()->add('adjuntos.'.$indice.'.archivo', $this->mensajeDocumental($codigo));
                 }
             }
         });
@@ -78,6 +108,7 @@ class ConfirmarPrimeraConsultaRequest extends FormRequest
         return [
             'clave_idempotencia' => 'clave de intención', 'motivo_solicitud' => 'motivo de consulta',
             'kinesiologa_id' => 'profesional', 'inicio_at' => 'fecha y hora de inicio', 'adjuntos' => 'adjuntos',
+            'adjuntos.*.descripcion' => 'descripción del adjunto',
         ];
     }
 

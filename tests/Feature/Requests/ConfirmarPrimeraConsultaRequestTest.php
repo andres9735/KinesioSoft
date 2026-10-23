@@ -91,7 +91,7 @@ class ConfirmarPrimeraConsultaRequestTest extends TestCase
     public static function camposProhibidos(): array
     {
         $casos = [];
-        foreach (['paciente_id', 'tipo', 'estado', 'fin_at', 'cargado_por_user_id', 'origen', 'estado_validacion', 'tipo_documento_clinico', 'ruta_storage', 'mime_type', 'tamanio_bytes', 'recordatorio_enviado_at', 'duracion', 'foo'] as $campo) {
+        foreach (['paciente_id', 'tipo', 'estado', 'fin_at', 'cargado_por_user_id', 'origen', 'estado_validacion', 'tipo_documento_clinico', 'ruta_storage', 'mime_type', 'tamanio_bytes', 'recordatorio_enviado_at', 'duracion', 'foo', 'archivos', 'descripciones'] as $campo) {
             foreach ([false, true] as $replay) {
                 $casos[$campo.($replay ? ' replay' : ' nueva')] = [$campo, $replay];
             }
@@ -108,9 +108,10 @@ class ConfirmarPrimeraConsultaRequestTest extends TestCase
         if ($caso === 'slot pasado') {
             CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-06 09:00:00', config('app.timezone')));
         }
-        if ($caso === 'sin originales') {
+        if (in_array($caso, ['sin originales', 'descripción histórica NULL'], true)) {
             $documento = DocumentoClinico::factory()->for($this->paciente)->for($this->actor, 'cargadoPor')->create();
             $documento->origenTurno()->create(['turno_id' => $turno->id]);
+            $this->assertNull($documento->fresh()->descripcion);
         }
         $payload = ['clave_idempotencia' => strtoupper($this->uuid)];
         $archivos = [];
@@ -151,11 +152,20 @@ class ConfirmarPrimeraConsultaRequestTest extends TestCase
                 foreach (['isValid', 'getSize', 'getMimeType'] as $metodo) {
                     $archivo->expects($this->never())->method($metodo);
                 }
-                $payload['adjuntos'] = [$archivo];
+                $payload['adjuntos'] = [['archivo' => $archivo]];
+                break;
+            case 'descripción ausente':
+                $payload['adjuntos'] = [['archivo' => $this->pdf()]];
+                break;
+            case 'descripción inválida':
+                $payload['adjuntos'] = [['archivo' => $this->pdf(), 'descripcion' => ['no es texto']]];
+                break;
+            case 'descripción extensa':
+                $payload['adjuntos'] = [['archivo' => $this->pdf(), 'descripcion' => str_repeat('á', 501)]];
                 break;
         }
         DB::enableQueryLog();
-        $request = $this->validar($payload, $archivos);
+        $request = $this->validar($payload, $this->adjuntos($archivos));
         $consultas = DB::getQueryLog();
         DB::disableQueryLog();
         $this->assertSame(['clave_idempotencia' => strtoupper($this->uuid)], $request->validated());
@@ -179,6 +189,7 @@ class ConfirmarPrimeraConsultaRequestTest extends TestCase
             'slot distinto', 'motivo distinto', 'adjuntos distintos', 'seis adjuntos',
             'mime inválido', 'tamaño excedido', 'upload corrupto', 'no UploadedFile',
             'colección inválida', 'sin inspeccionar',
+            'descripción ausente', 'descripción inválida', 'descripción extensa', 'descripción histórica NULL',
         ]);
     }
 
@@ -296,10 +307,10 @@ class ConfirmarPrimeraConsultaRequestTest extends TestCase
             $archivos = [];
         }
         if ($valido) {
-            $request = $this->validar($this->payload(['adjuntos' => $archivos]));
+            $request = $this->validar($this->payload(['adjuntos' => $this->adjuntos($archivos)]));
             $this->assertCount($cantidad, $request->validated('adjuntos'));
         } else {
-            $this->assertSame(['adjuntos'], array_keys($this->errores($this->payload(), $archivos)));
+            $this->assertSame(['adjuntos'], array_keys($this->errores($this->payload(), $this->adjuntos($archivos))));
         }
     }
 
@@ -317,8 +328,8 @@ class ConfirmarPrimeraConsultaRequestTest extends TestCase
             'jpeg' => base64_decode('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////2wBDAf//////////////////////////////////////////////////////////////////////////////////////wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAb/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCfAAv/2Q==', true),
         };
         $archivo = $this->archivo($contenido, 'fixture.'.$formato);
-        $request = $this->validar($this->payload(), [$archivo]);
-        $this->assertSame($archivo->getPathname(), $request->validated('adjuntos.0')->getPathname());
+        $request = $this->validar($this->payload(), $this->adjuntos([$archivo]));
+        $this->assertSame($archivo->getPathname(), $request->validated('adjuntos.0.archivo')->getPathname());
     }
 
     public static function formatos(): array
@@ -333,11 +344,11 @@ class ConfirmarPrimeraConsultaRequestTest extends TestCase
             ? [$this->pdf(10 * 1024 * 1024 + $exceso)]
             : [$this->pdf(10 * 1024 * 1024), $this->pdf(10 * 1024 * 1024), $this->pdf(5 * 1024 * 1024 + $exceso)];
         if ($exceso === 0) {
-            $request = $this->validar($this->payload(), $archivos);
+            $request = $this->validar($this->payload(), $this->adjuntos($archivos));
             $this->assertCount(count($archivos), $request->validated('adjuntos'));
         } else {
-            $campo = $alcance === 'individual' ? 'adjuntos.0' : 'adjuntos';
-            $this->assertSame([$campo], array_keys($this->errores($this->payload(), $archivos)));
+            $campo = $alcance === 'individual' ? 'adjuntos.0.archivo' : 'adjuntos';
+            $this->assertSame([$campo], array_keys($this->errores($this->payload(), $this->adjuntos($archivos))));
         }
     }
 
@@ -348,19 +359,132 @@ class ConfirmarPrimeraConsultaRequestTest extends TestCase
 
     public function test_invalid_real_content_and_non_upload_elements_are_identified_by_original_index(): void
     {
-        $errores = $this->errores($this->payload(['adjuntos' => [
+        $errores = $this->errores($this->payload(['adjuntos' => $this->adjuntos([
             0 => $this->pdf(),
             2 => $this->archivo('Texto que falsifica un PDF', 'falso.pdf'),
             4 => 'ruta_privada/informe.pdf',
             8 => $this->archivo('GIF89a', 'imagen.gif'),
-        ]]));
-        $this->assertSame(['adjuntos.2', 'adjuntos.4', 'adjuntos.8'], array_keys($errores));
+        ])]));
+        $this->assertSame(['adjuntos.2.archivo', 'adjuntos.4.archivo', 'adjuntos.8.archivo'], array_keys($errores));
     }
 
     public function test_policy_limits_are_reused_from_central_configuration(): void
     {
         config(['documentos_clinicos.max_archivos' => 1]);
-        $this->assertSame(['adjuntos'], array_keys($this->errores($this->payload(), [$this->pdf(), $this->pdf()])));
+        $this->assertSame(['adjuntos'], array_keys($this->errores($this->payload(), $this->adjuntos([$this->pdf(), $this->pdf()]))));
+    }
+
+    public function test_nested_multipart_preserves_sparse_indexes_file_pairs_and_trimmed_unicode_descriptions(): void
+    {
+        $primero = $this->pdf();
+        $segundo = $this->pdf();
+        $descripcion = str_repeat('á', 500);
+        $request = $this->validar($this->payload(['adjuntos' => [
+            2 => ['descripcion' => " \tAdjunto sintético 日本語.\n "],
+            7 => ['descripcion' => '  '.$descripcion.'  '],
+        ]]), [
+            2 => ['archivo' => $primero],
+            7 => ['archivo' => $segundo],
+        ]);
+
+        $this->assertSame([2, 7], array_keys($request->validated('adjuntos')));
+        $this->assertSame($primero->getPathname(), $request->validated('adjuntos.2.archivo')->getPathname());
+        $this->assertSame('Adjunto sintético 日本語.', $request->validated('adjuntos.2.descripcion'));
+        $this->assertSame($segundo->getPathname(), $request->validated('adjuntos.7.archivo')->getPathname());
+        $this->assertSame($descripcion, $request->validated('adjuntos.7.descripcion'));
+        $this->assertSame($request->validated(), $request->safe()->all());
+        $this->assertSame($this->uuid, $request->validated('clave_idempotencia'));
+    }
+
+    #[DataProvider('descripcionesInvalidas')]
+    public function test_valid_file_requires_its_own_significant_string_description(mixed $descripcion, bool $presente): void
+    {
+        $adjunto = ['archivo' => $this->pdf()];
+        if ($presente) {
+            $adjunto['descripcion'] = $descripcion;
+        }
+
+        $errores = $this->errores($this->payload(['adjuntos' => [$adjunto]]));
+
+        $this->assertSame(['adjuntos.0.descripcion'], array_keys($errores));
+    }
+
+    public static function descripcionesInvalidas(): array
+    {
+        return [
+            'ausente' => [null, false],
+            'NULL' => [null, true],
+            'vacía' => ['', true],
+            'espacios' => [" \t\r\n ", true],
+            '501 caracteres' => [str_repeat('á', 501), true],
+            'array' => [['texto'], true],
+            'número' => [123, true],
+            'booleano' => [true, true],
+        ];
+    }
+
+    public function test_description_is_not_shifted_to_a_file_at_another_index(): void
+    {
+        $errores = $this->errores($this->payload(['adjuntos' => [
+            2 => ['descripcion' => 'Descripción sin archivo.'],
+            7 => ['archivo' => $this->pdf()],
+        ]]));
+
+        $this->assertArrayHasKey('adjuntos.2.archivo', $errores);
+        $this->assertArrayHasKey('adjuntos.7.descripcion', $errores);
+        $this->assertCount(2, $errores);
+    }
+
+    #[DataProvider('entradasSinArchivo')]
+    public function test_malformed_attachment_entries_cannot_become_documents(mixed $entrada): void
+    {
+        $errores = $this->errores($this->payload(['adjuntos' => [3 => $entrada]]));
+
+        $this->assertArrayHasKey('adjuntos.3.archivo', $errores);
+    }
+
+    public static function entradasSinArchivo(): array
+    {
+        return [
+            'sólo descripción' => [['descripcion' => 'Texto sin archivo.']],
+            'vacío' => [[]],
+            'NULL' => [null],
+            'texto plano' => ['ruta/archivo.pdf'],
+        ];
+    }
+
+    public function test_flat_v1_upload_is_not_accepted_for_new_creation(): void
+    {
+        $errores = $this->errores($this->payload(), [$this->pdf()]);
+
+        $this->assertArrayHasKey('adjuntos.0.archivo', $errores);
+    }
+
+    public function test_nested_derived_metadata_is_not_accepted(): void
+    {
+        foreach (['paciente_id', 'tipo', 'estado', 'fin_at', 'cargado_por_user_id', 'ruta_storage', 'mime_type', 'tamanio_bytes', 'otro'] as $campo) {
+            $adjuntos = $this->adjuntos([$this->pdf()]);
+            $adjuntos[0][$campo] = 'valor controlado por cliente';
+
+            $this->assertArrayHasKey('adjuntos.0', $this->errores($this->payload(['adjuntos' => $adjuntos])));
+        }
+    }
+
+    public function test_invalid_file_without_description_reports_binary_error_without_requiring_a_description(): void
+    {
+        $errores = $this->errores($this->payload(['adjuntos' => [
+            ['archivo' => $this->archivo('PDF falso', 'falso.pdf')],
+        ]]));
+
+        $this->assertSame(['adjuntos.0.archivo'], array_keys($errores));
+    }
+
+    public function test_partial_upload_keeps_its_indexed_file_error(): void
+    {
+        $archivo = $this->pdf();
+        $parcial = new UploadedFile($archivo->getPathname(), 'parcial.pdf', 'application/pdf', UPLOAD_ERR_PARTIAL, true);
+
+        $this->assertSame(['adjuntos.0.archivo'], array_keys($this->errores($this->payload(), $this->adjuntos([$parcial]))));
     }
 
     public function test_identity_requires_patient_derived_from_actor_even_with_valid_uuid(): void
@@ -387,8 +511,25 @@ class ConfirmarPrimeraConsultaRequestTest extends TestCase
         ], $cambios);
     }
 
+    private function adjuntos(array $archivos): array
+    {
+        $adjuntos = [];
+        foreach ($archivos as $indice => $archivo) {
+            $adjuntos[$indice] = ['archivo' => $archivo, 'descripcion' => 'Adjunto sintético '.$indice.'.'];
+        }
+
+        return $adjuntos;
+    }
+
     private function validar(array $payload, array $archivos = []): ConfirmarPrimeraConsultaRequest
     {
+        foreach ($archivos as $indice => $adjunto) {
+            if (is_array($adjunto) && array_key_exists('descripcion', $adjunto)) {
+                $payload['adjuntos'][$indice]['descripcion'] = $adjunto['descripcion'];
+                unset($archivos[$indice]['descripcion']);
+            }
+        }
+
         $request = ConfirmarPrimeraConsultaRequest::create('/_tests/requests/confirmar', 'POST', $payload, [], $archivos === [] ? [] : ['adjuntos' => $archivos]);
         $request->setContainer($this->app)->setRedirector($this->app['redirect']);
         $request->setUserResolver(fn () => $this->actor);
