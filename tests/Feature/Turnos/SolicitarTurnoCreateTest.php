@@ -472,6 +472,49 @@ class SolicitarTurnoCreateTest extends TestCase
             ->assertDontSee('C:\\fakepath', false);
     }
 
+    public function test_review_shows_the_real_interval_and_each_file_description_without_editable_payload_inputs(): void
+    {
+        $response = $this->actingAs($this->paciente->user)->get($this->url())->assertOk();
+        $html = preg_replace('/\s@([a-z][a-z.-]*)=/', ' x-on:$1=', $response->getContent());
+        $dom = new \DOMDocument;
+        @$dom->loadHTML('<?xml encoding="UTF-8">'.$html);
+        $xpath = new \DOMXPath($dom);
+        $paso = $xpath->query('//section[@aria-labelledby="titulo-paso-4"]')->item(0);
+        $this->assertNotNull($paso);
+        $this->assertSame('paso === 4', $paso->getAttribute('x-show'));
+        $campos = [];
+        foreach ($xpath->query('.//dl/div/dt', $paso) as $campo) {
+            $campos[] = trim($campo->textContent);
+        }
+        $this->assertSame(['Tipo', 'Fecha', 'Hora de inicio', 'Horario de atención', 'Profesional', 'Motivo', 'Documentación adjunta', 'Estado al registrar'], $campos);
+        $this->assertSame(1, $xpath->query('.//*[@x-text="intervaloSeleccionado ? horaLegible(intervaloSeleccionado.inicio_at) + \' a \' + horaLegible(intervaloSeleccionado.fin_at) : \'Pendiente de selección\'"]', $paso)->length);
+        $this->assertSame(1, $xpath->query('.//*[@x-text="profesionalSeleccionada ? profesionalSeleccionada.nombre : \'Sin seleccionar\'"]', $paso)->length);
+        $motivo = $xpath->query('.//dd[@x-text="motivo"]', $paso)->item(0);
+        $this->assertNotNull($motivo);
+        $this->assertStringContainsString('whitespace-pre-wrap', $motivo->getAttribute('class'));
+        $documentos = $xpath->query('.//template[@x-for="entrada in archivos"]', $paso);
+        $this->assertSame(1, $documentos->length);
+        $this->assertSame('entrada.id', $documentos->item(0)->getAttribute(':key'));
+        foreach (['entrada.archivo.name', 'tamanioLegible(entrada.archivo.size)', 'entrada.descripcion'] as $dato) {
+            $this->assertSame(1, $xpath->query('.//*[@x-text="'.$dato.'"]', $documentos->item(0))->length);
+        }
+        $this->assertSame(1, $xpath->query('.//p[@x-show="archivos.length === 0" and normalize-space(.)="Sin documentación adjunta"]', $paso)->length);
+        $this->assertSame(0, $xpath->query('.//input | .//textarea | .//*[@x-html]', $paso)->length);
+        $markup = $dom->saveHTML($paso);
+        foreach (['erroresSeleccionArchivos', 'Asignada', 'finSeleccionado', 'duracion_turno_minutos', 'foto_url', 'matricula', 'especialidad'] as $prohibido) {
+            $this->assertStringNotContainsString($prohibido, $markup);
+        }
+        $boton = $xpath->query('.//button[@*[name()="x-on:click"]="confirmarTurno()"]', $paso)->item(0);
+        $this->assertNotNull($boton);
+        $this->assertSame('button', $boton->getAttribute('type'));
+        $this->assertSame('!puedeConfirmar', $boton->getAttribute(':disabled'));
+        $this->assertSame('enviando', $boton->getAttribute(':aria-busy'));
+        $this->assertStringContainsString('Confirmar turno', $boton->textContent);
+        $this->assertStringContainsString('Primera consulta', $paso->textContent);
+        $this->assertStringContainsString('Pendiente', $paso->textContent);
+        $this->assertStringContainsString('ocupa agenda', $paso->textContent);
+    }
+
     private function url(): string
     {
         return route('turnos.solicitar.create');

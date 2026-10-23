@@ -267,18 +267,23 @@ test('POST multipart exacto: UUID, motivo, profesional, inicio y sólo File vige
     assert.equal(opciones.credentials, 'same-origin');
     assert.deepEqual(opciones.headers, { Accept: 'application/json', 'X-CSRF-TOKEN': 'token-meta-real' });
     assert.ok(datos instanceof FormData);
-    assert.deepEqual([...new Set(datos.keys())], ['clave_idempotencia', 'motivo_solicitud', 'kinesiologa_id', 'inicio_at', 'adjuntos[]']);
+    assert.deepEqual([...datos.keys()], ['clave_idempotencia', 'motivo_solicitud', 'kinesiologa_id', 'inicio_at',
+        'adjuntos[0][archivo]', 'adjuntos[0][descripcion]', 'adjuntos[1][archivo]', 'adjuntos[1][descripcion]',
+        'adjuntos[2][archivo]', 'adjuntos[2][descripcion]']);
     assert.equal(datos.get('clave_idempotencia'), configuracion.uuid);
     assert.equal(datos.get('motivo_solicitud'), w.motivo);
     assert.equal(datos.get('kinesiologa_id'), '1'); assert.equal(datos.get('inicio_at'), slot().inicio_at);
-    assert.deepEqual(datos.getAll('adjuntos[]'), [files[0], files[2], files[3]]);
-    for (const campo of ['fin_at', 'paciente_id', 'tipo', 'estado', 'es_replay', 'ruta_storage', 'mime_type']) assert.equal(datos.has(campo), false);
+    for (const [indice, entrada] of w.archivos.entries()) {
+        assert.equal(datos.get(`adjuntos[${indice}][archivo]`), [files[0], files[2], files[3]][indice]);
+        assert.equal(datos.get(`adjuntos[${indice}][descripcion]`), entrada.descripcion);
+    }
+    for (const campo of ['adjuntos[]', 'fin_at', 'fecha', 'duracion', 'paciente_id', 'user_id', 'tipo', 'estado', 'profesionales', 'es_replay', 'ruta_storage', 'mime_type']) assert.equal(datos.has(campo), false);
 });
 
 for (const replay of [false, true]) test(`éxito ${replay ? '200 replay' : '201 nuevo'}: sin adjuntos, un feedback normal, sin beforeunload y redirect backend`, async () => {
     const { avisos, feedback, destinos } = entornoConfirmacion();
     let posts = 0;
-    const w = enPaso4(async (url, opciones) => { posts++; assert.equal(opciones.body.has('adjuntos[]'), false); return exito(replay); });
+    const w = enPaso4(async (url, opciones) => { posts++; assert.equal([...opciones.body.keys()].some((clave) => clave.startsWith('adjuntos')), false); return exito(replay); });
     w.archivos = [];
     assert.equal(avisos.size, 1);
     await w.confirmarTurno(); await w.confirmarTurno();
@@ -409,7 +414,15 @@ for (const [nombre, respuesta] of [
     await w.confirmarTurno(); assert.notEqual(envios[0], envios[1]);
     for (const datos of envios) {
         assert.equal(datos.get('clave_idempotencia'), antes.uuid);
-        assert.deepEqual(datos.getAll('adjuntos[]'), antes.archivos);
+        assert.equal(datos.get('motivo_solicitud'), antes.motivo);
+        assert.equal(datos.get('inicio_at'), antes.slot.inicio_at);
+        assert.equal(datos.get('kinesiologa_id'), String(antes.profesional));
+        assert.equal([...datos.keys()].length, 4 + w.archivos.length * 2);
+        for (const [indice, entrada] of w.archivos.entries()) {
+            assert.equal(datos.get(`adjuntos[${indice}][archivo]`), antes.archivos[indice]);
+            assert.equal(datos.get(`adjuntos[${indice}][descripcion]`), entrada.descripcion);
+        }
+        assert.equal(datos.has('adjuntos[]'), false);
     }
     assert.equal(w.consolidado, true); assert.equal(feedback.length, 1); assert.equal(destinos.length, 1);
 });
@@ -755,4 +768,72 @@ test('Paso 3: errores servidor de descripción siguen por ID; corregir una no al
     assert.equal(a.errorDescripcionServidor, undefined); assert.equal(b.errorDescripcionServidor, 'Error B');
     w.corregirDescripcion(b.id, 'B corregida'); assert.equal(w.puedeAvanzarPaso3, true);
     await w.siguiente(); assert.equal(w.paso, 4);
+});
+
+for (const campo of ['archivo', 'descripcion']) test(`V2: dos pares exactos y 422 ${campo} usan snapshot tras quitar B, con nombres duplicados y array posterior distinto`, async () => {
+    entornoConfirmacion(); const pendiente = diferida(); let datos;
+    const w = enPaso4(async (url, opciones) => { datos = opciones.body; return pendiente.promise; });
+    const a = new File(['A'], 'estudio.pdf', { type: 'application/pdf' });
+    const c = new File(['C'], 'estudio.pdf', { type: 'application/pdf' });
+    w.archivos = [
+        { id: 10, archivo: a, descripcion: ' Descripción A\noriginal ', error: '' },
+        { id: 11, archivo: new File(['B'], 'retirado.pdf', { type: 'application/pdf' }), descripcion: 'Descripción B', error: '' },
+        { id: 12, archivo: c, descripcion: 'Descripción C', error: '' },
+    ];
+    w.quitarArchivo(11); const originalC = w.archivos[1];
+    const envio = w.confirmarTurno();
+    assert.deepEqual([...datos.keys()], ['clave_idempotencia', 'motivo_solicitud', 'kinesiologa_id', 'inicio_at',
+        'adjuntos[0][archivo]', 'adjuntos[0][descripcion]', 'adjuntos[1][archivo]', 'adjuntos[1][descripcion]']);
+    assert.equal(datos.get('adjuntos[0][archivo]'), a); assert.equal(datos.get('adjuntos[0][descripcion]'), ' Descripción A\noriginal ');
+    assert.equal(datos.get('adjuntos[1][archivo]'), c); assert.equal(datos.get('adjuntos[1][descripcion]'), 'Descripción C');
+    assert.equal(datos.has('adjuntos[12][archivo]'), false); assert.equal(datos.has('adjuntos[]'), false);
+    // Simula mutación externa fuera de los controles bloqueados: el mapping debe seguir usando la copia enviada.
+    w.archivos = [{ ...w.archivos[1] }, { ...w.archivos[0] }];
+    originalC.id = 999; originalC.descripcion = 'Cambio posterior en el objeto anterior';
+    pendiente.resolve(json({ errors: { [`adjuntos.1.${campo}`]: ['Error en C'] } }, 422)); await envio;
+    const entradaC = w.archivos.find((e) => e.id === 12), entradaA = w.archivos.find((e) => e.id === 10);
+    assert.equal(w.paso, 3); assert.equal(entradaC.archivo, c); assert.equal(entradaC.descripcion, 'Descripción C');
+    assert.equal(entradaC[campo === 'archivo' ? 'errorServidor' : 'errorDescripcionServidor'], 'Error en C');
+    assert.equal(entradaC[campo === 'archivo' ? 'errorDescripcionServidor' : 'errorServidor'], undefined);
+    assert.equal(entradaA.errorServidor, undefined); assert.equal(entradaA.errorDescripcionServidor, undefined);
+    assert.equal(w.claveIdempotencia, configuracion.uuid);
+});
+
+test('V2: reemplazo previo envía sólo File y descripción nuevos; FormData conserva el texto local exacto', async () => {
+    entornoConfirmacion(); let datos;
+    const w = enPaso4(async (url, opciones) => { datos = opciones.body; return exito(); });
+    const viejo = w.archivos[0].archivo, idViejo = w.archivos[0].id;
+    const nuevo = new File(['nuevo'], 'nuevo.pdf', { type: 'application/pdf' });
+    w.reemplazarArchivo(idViejo, nuevo); assert.equal(w.archivos[0].descripcion, '');
+    w.corregirDescripcion(w.archivos[0].id, '  Descripción nueva\ncon salto  ');
+    await w.confirmarTurno();
+    assert.equal(datos.get('adjuntos[0][archivo]'), nuevo); assert.notEqual(datos.get('adjuntos[0][archivo]'), viejo);
+    assert.equal(datos.get('adjuntos[0][descripcion]'), '  Descripción nueva\ncon salto  ');
+    assert.equal(w.archivos[0].descripcion, '  Descripción nueva\ncon salto  ');
+    assert.equal([...datos.keys()].length, 6); assert.equal(datos.has('adjuntos[1][archivo]'), false);
+});
+
+test('V2: estado inválido programático impide POST incluso estando en revisión', async () => {
+    for (const invalidar of [
+        (w) => { w.motivo = ' '; }, (w) => { w.motivo = 'x'.repeat(501); },
+        (w) => { w.archivos[0].descripcion = ' '; }, (w) => { w.archivos[0].descripcion = 'x'.repeat(501); },
+        (w) => { w.archivos[0].errorServidor = 'Archivo rechazado'; },
+        (w) => { w.archivos[0].errorDescripcionServidor = 'Descripción rechazada'; },
+        (w) => { w.erroresServidor.adjuntos = 'Conjunto rechazado'; },
+        (w) => { w.inicioProfesionales = 'otro inicio'; }, (w) => { w.kinesiologaId = null; },
+        (w) => { w.confirmacionBloqueada = true; }, (w) => { w.enviando = true; },
+        (w) => { w.consolidado = true; }, (w) => { w.redireccionando = true; },
+    ]) {
+        const w = enPaso4(() => assert.fail('No debe enviarse un POST inválido'));
+        invalidar(w); assert.equal(w.puedeConfirmar, false); await w.confirmarTurno();
+    }
+});
+
+for (const destino of [1, 2, 3]) test(`V2: editar desde revisión vuelve a Paso ${destino} sin borrar selección ni consultar`, () => {
+    const w = seleccionCompleta(), antes = capturaLocal(w), intervalo = w.intervaloSeleccionado;
+    w.paso = 4; w.editarDesdeRevision(destino);
+    assert.equal(w.paso, destino); assert.deepEqual(capturaLocal(w), antes); assert.deepEqual(w.intervaloSeleccionado, intervalo);
+    w.paso = 4; w.enviando = true; w.editarDesdeRevision(destino); assert.equal(w.paso, 4);
+    w.enviando = false; w.editarDesdeRevision(0); w.editarDesdeRevision(4); assert.equal(w.paso, 4);
+    w.paso = 2; w.editarDesdeRevision(1); assert.equal(w.paso, 2);
 });

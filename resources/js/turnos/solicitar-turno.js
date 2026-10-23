@@ -323,6 +323,12 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
             this.enfocarPaso();
         },
 
+        editarDesdeRevision(destino) {
+            if (this.bloqueado || this.paso !== 4 || ![1, 2, 3].includes(destino)) return;
+            this.paso = destino;
+            this.enfocarPaso();
+        },
+
         enfocarPaso(...destinos) {
             const paso = this.paso;
             this.$nextTick(() => {
@@ -573,7 +579,10 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
             datos.append('motivo_solicitud', this.motivo);
             datos.append('kinesiologa_id', this.kinesiologaId);
             datos.append('inicio_at', this.inicioSeleccionado);
-            for (const entrada of archivos) datos.append('adjuntos[]', entrada.archivo);
+            archivos.forEach((entrada, indice) => {
+                datos.append(`adjuntos[${indice}][archivo]`, entrada.archivo);
+                datos.append(`adjuntos[${indice}][descripcion]`, entrada.descripcion);
+            });
             return datos;
         },
 
@@ -582,8 +591,8 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
             this.enviando = true;
             this.resultadoIncierto = false;
             this.mensajeConfirmacion = '';
-            // El índice Laravel corresponde a esta tentativa, no al input nativo.
-            const archivosEnviados = [...this.archivos];
+            // Copiar los valores de la tentativa; el índice Laravel se resuelve luego por este ID local.
+            const archivosEnviados = this.archivos.map(({ id, archivo, descripcion }) => ({ id, archivo, descripcion }));
             let refrescar = false;
             try {
                 const response = await fetchImpl(config.urlConfirmacion, {

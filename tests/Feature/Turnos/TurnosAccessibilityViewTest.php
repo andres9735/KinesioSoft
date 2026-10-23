@@ -125,8 +125,15 @@ class TurnosAccessibilityViewTest extends TestCase
         $this->assertTrue($slot->hasAttribute(':aria-pressed'));
         $this->assertStringContainsString('fechaLegible(fechaSeleccionada)', $slot->getAttribute(':aria-label'));
         $this->assertSame(1, $xpath->query('ancestor::fieldset[1]/legend', $slot)->length);
-        $this->assertSame(7, $xpath->query('//section[@aria-labelledby="titulo-paso-4"]//dl/div/dt')->length);
-        $this->assertSame(7, $xpath->query('//section[@aria-labelledby="titulo-paso-4"]//dl/div/dd')->length);
+        $this->assertSame(8, $xpath->query('//section[@aria-labelledby="titulo-paso-4"]//dl/div/dt')->length);
+        $this->assertSame(8, $xpath->query('//section[@aria-labelledby="titulo-paso-4"]//dl/div/dd')->length);
+        $review = $xpath->query('//section[@aria-labelledby="titulo-paso-4"]')->item(0);
+        foreach (['revision-fecha-titulo', 'revision-profesional-titulo', 'revision-motivo-titulo', 'revision-documentacion-titulo'] as $titulo) {
+            $this->assertSame(1, $xpath->query('.//section[@aria-labelledby="'.$titulo.'"]', $review)->length);
+        }
+        foreach ([1, 2, 3] as $paso) {
+            $this->assertSame(1, $xpath->query('.//button[@type="button" and @*[name()="x-on:click"]="editarDesdeRevision('.$paso.')" and @*[name()=":disabled"]="bloqueado"]', $review)->length);
+        }
         $confirm = $xpath->query('//button[@*[name()="x-on:click"]="confirmarTurno()"]')->item(0);
         $this->assertSame('!puedeConfirmar', $confirm->getAttribute(':disabled'));
         $this->assertSame('enviando', $confirm->getAttribute(':aria-busy'));
