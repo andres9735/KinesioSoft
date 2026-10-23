@@ -4,6 +4,7 @@ namespace Tests\Feature\Actions\Turnos;
 
 use App\Actions\Turnos\ConfirmarPrimeraConsultaAction;
 use App\Enums\DiaSemanaEnum;
+use App\Enums\EstadoTurnoEnum;
 use App\Enums\RoleEnum;
 use App\Enums\TipoTurnoEnum;
 use App\Exceptions\Turnos\AlmacenamientoDocumentalException;
@@ -12,6 +13,8 @@ use App\Exceptions\Turnos\PrimeraConsultaActivaException;
 use App\Exceptions\Turnos\ProfesionalNoElegibleException;
 use App\Exceptions\Turnos\ResultadoConfirmacionInciertoException;
 use App\Exceptions\Turnos\SlotNoDisponibleException;
+use App\Http\Controllers\SolicitarTurnoController;
+use App\Http\Requests\ConfirmarPrimeraConsultaRequest;
 use App\Models\Auditoria;
 use App\Models\ColegioEmisor;
 use App\Models\ConfiguracionAgenda;
@@ -139,13 +142,17 @@ class AtomicidadPrimeraConsultaTest extends TestCase
         $resultado = $this->confirmar($archivos);
         $this->assertTrue($commitObservado);
         $this->assertFalse($resultado->esReplay);
+        $this->assertSame(TipoTurnoEnum::PRIMERA_CONSULTA, $resultado->turno->tipo);
+        $this->assertSame(EstadoTurnoEnum::PENDIENTE, $resultado->turno->estado);
         $this->conteos(1, $cantidad, 1 + $cantidad);
         $this->assertCount($cantidad, $this->disco->allFiles());
         $this->assertSame([], $this->coordinador->activos);
         $this->assertCount($cantidad, $this->coordinador->liberaciones);
         $documentos = DocumentoClinico::query()->orderBy('id')->get();
         foreach ($documentos as $indice => $documento) {
-            $archivo = array_values($archivos)[$indice];
+            $adjunto = array_values($archivos)[$indice];
+            $archivo = $adjunto['archivo'];
+            $this->assertSame($adjunto['descripcion'], $documento->descripcion);
             $this->assertSame($archivo->getClientOriginalName(), $documento->nombre_original);
             $this->assertSame('application/pdf', $documento->mime_type);
             $this->assertSame($archivo->getSize(), $documento->tamanio_bytes);
@@ -168,10 +175,14 @@ class AtomicidadPrimeraConsultaTest extends TestCase
             $this->assertSame($carga->auditable_id, $carga->valores_nuevos['documento_clinico_id']);
             $this->assertSame($resultado->turno->id, $carga->valores_nuevos['turno_id']);
             $this->assertSame(['documento_clinico_id', 'turno_id', 'paciente_id', 'origen', 'estado_validacion', 'tipo_documento_clinico', 'mime_type', 'tamanio_bytes'], array_keys($carga->valores_nuevos));
-            foreach (['nombre_original', 'ruta_storage', 'motivo_solicitud', 'contenido', 'bytes', 'clave_idempotencia'] as $prohibido) {
+            foreach (['nombre_original', 'descripcion', 'ruta_storage', 'motivo_solicitud', 'contenido', 'bytes', 'clave_idempotencia'] as $prohibido) {
                 $this->assertArrayNotHasKey($prohibido, $carga->valores_nuevos);
             }
             $this->assertStringNotContainsString('Diagnóstico sensible', json_encode($carga->toArray()));
+        }
+        $auditorias = json_encode(Auditoria::all()->toArray(), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        foreach ($archivos as $adjunto) {
+            $this->assertStringNotContainsString($adjunto['descripcion'], $auditorias);
         }
     }
 
@@ -195,6 +206,8 @@ class AtomicidadPrimeraConsultaTest extends TestCase
             'seis' => $this->archivos(6),
             'invalido' => [new \stdClass],
             'fallido' => [new UploadedFile($this->pdf()->getPathname(), 'fallido.pdf', null, UPLOAD_ERR_PARTIAL, true)],
+            'descripcion_invalida' => [['archivo' => new \stdClass, 'descripcion' => ['texto inválido']]],
+            'sin_descripcion' => [['archivo' => new \stdClass]],
         };
         $resultado = app(ConfirmarPrimeraConsultaAction::class)->ejecutar($this->actor, $this->uuid, adjuntos: $actuales);
         $this->assertTrue($resultado->esReplay);
@@ -207,7 +220,63 @@ class AtomicidadPrimeraConsultaTest extends TestCase
 
     public static function reintentos(): array
     {
-        return [[1, 'vacio'], [1, 'iguales'], [5, 'iguales'], [5, 'distintos'], [1, 'seis'], [5, 'invalido'], [1, 'fallido']];
+        return [[1, 'vacio'], [1, 'iguales'], [5, 'iguales'], [5, 'distintos'], [1, 'seis'], [5, 'invalido'], [1, 'fallido'], [1, 'descripcion_invalida'], [1, 'sin_descripcion']];
+    }
+
+    public function test_validated_controller_payload_preserves_document_pairs_and_replays_without_originals(): void
+    {
+        $adjuntos = $this->archivos(2);
+        $request = $this->requestValidado([
+            'clave_idempotencia' => $this->uuid,
+            'kinesiologa_id' => $this->kinesiologa->id,
+            'inicio_at' => '2026-10-05 10:00:00',
+            'motivo_solicitud' => 'Motivo sintético.',
+            'adjuntos' => array_map(static fn (array $adjunto): array => ['descripcion' => $adjunto['descripcion']], $adjuntos),
+        ], ['adjuntos' => array_map(static fn (array $adjunto): array => ['archivo' => $adjunto['archivo']], $adjuntos)]);
+        $controller = app(SolicitarTurnoController::class);
+        $action = app(ConfirmarPrimeraConsultaAction::class);
+        $creado = $controller->store($request, $action);
+
+        $this->assertSame(201, $creado->status());
+        $this->assertFalse($creado->getData(true)['es_replay']);
+        $this->assertSame(array_column($adjuntos, 'descripcion'), DocumentoClinico::orderBy('id')->pluck('descripcion')->all());
+        $documentos = DocumentoClinico::orderBy('id')->get()->toArray();
+        $paths = $this->disco->allFiles();
+        $replay = $controller->store($this->requestValidado(['clave_idempotencia' => $this->uuid]), $action);
+
+        $this->assertSame(200, $replay->status());
+        $this->assertTrue($replay->getData(true)['es_replay']);
+        $this->assertSame($creado->getData(true)['turno_id'], $replay->getData(true)['turno_id']);
+        $this->assertSame($documentos, DocumentoClinico::orderBy('id')->get()->toArray());
+        $this->assertSame($paths, $this->disco->allFiles());
+        $this->conteos(1, 2, 3);
+    }
+
+    public function test_replay_preserves_a_historical_null_description_without_inspecting_retry_files(): void
+    {
+        $turno = $this->turnoGanador($this->paciente, $this->uuid);
+        $documento = DocumentoClinico::factory()->for($this->paciente)->for($this->actor, 'cargadoPor')
+            ->create(['ruta_storage' => 'originales/historico', 'descripcion' => null]);
+        $documento->origenTurno()->create(['turno_id' => $turno->id]);
+        $this->disco->put($documento->ruta_storage, 'Documento histórico sintético.');
+        $original = $documento->fresh()->getAttributes();
+        $this->kinesiologa->user->update(['activo' => false]);
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2027-01-01 12:00:00', config('app.timezone')));
+        $archivo = $this->createMock(UploadedFile::class);
+        foreach (['isValid', 'getSize', 'getMimeType', 'getRealPath'] as $metodo) {
+            $archivo->expects($this->never())->method($metodo);
+        }
+        $resultado = app(ConfirmarPrimeraConsultaAction::class)->ejecutar(
+            $this->actor, $this->uuid, adjuntos: [['archivo' => $archivo, 'descripcion' => new \stdClass]],
+        );
+
+        $this->assertTrue($resultado->esReplay);
+        $this->assertSame($turno->id, $resultado->turno->id);
+        $this->assertSame($original, $documento->fresh()->getAttributes());
+        $this->assertSame('Documento histórico sintético.', $this->disco->get($documento->ruta_storage));
+        $this->assertSame(['originales/historico'], $this->disco->allFiles());
+        $this->assertSame([], $this->coordinador->adquisiciones);
+        $this->conteos(1, 1, 0);
     }
 
     #[DataProvider('conflictos')]
@@ -345,6 +414,38 @@ class AtomicidadPrimeraConsultaTest extends TestCase
         $this->assertSame([], $this->coordinador->activos);
         $this->assertSame($resultado->turno->id, $this->confirmar([new \stdClass])->turno->id);
         $this->conteos(1, 2, 3);
+    }
+
+    #[DataProvider('descripcionesInconsistentes')]
+    public function test_description_mismatch_after_uncertain_commit_cannot_be_reported_as_success(?string $descripcion): void
+    {
+        $adapter = $this->adapter();
+        $adapter->shouldReceive('put')->twice()->andReturnUsing(fn ($ruta, $stream, $opciones) => $this->disco->put($ruta, $stream, $opciones));
+        $adapter->shouldReceive('delete')->never();
+        Storage::set('documentos_clinicos', $adapter);
+        $original = new RuntimeException('Respuesta posterior al commit perdida.');
+        Event::listen(TransactionCommitted::class, function () use ($descripcion, $original): never {
+            // Corrupción controlada del fixture: las referencias existen pero el snapshot no coincide.
+            DB::table('documentos_clinicos')->where('id', DocumentoClinico::min('id'))->update(['descripcion' => $descripcion]);
+            throw $original;
+        });
+
+        try {
+            $this->confirmar($this->archivos(2));
+            $this->fail('Una descripción inconsistente no certifica el agregado consolidado.');
+        } catch (ResultadoConfirmacionInciertoException $error) {
+            $this->assertSame($original, $error->getPrevious());
+            $this->assertNull($error->errorVerificacion);
+        }
+
+        $this->conteos(1, 2, 3);
+        $this->assertCount(2, $this->disco->allFiles());
+        $this->assertCount(2, $this->coordinador->liberaciones);
+    }
+
+    public static function descripcionesInconsistentes(): array
+    {
+        return ['texto diferente' => ['Texto sintético diferente.'], 'NULL inesperado' => [null]];
     }
 
     public function test_verification_impossible_preserves_files_and_reports_original_without_reconnecting(): void
@@ -548,10 +649,23 @@ class AtomicidadPrimeraConsultaTest extends TestCase
     {
         $archivos = [];
         for ($indice = 0; $indice < $cantidad; $indice++) {
-            $archivos[$indice * 2 + 1] = $this->pdf('estudio '.$indice.'.jpg', $indice);
+            $archivos[$indice * 2 + 1] = [
+                'archivo' => $this->pdf('estudio '.$indice.'.jpg', $indice),
+                'descripcion' => $indice === 1 ? str_repeat('á', 500) : 'Adjunto sintético '.$indice.' 日本語.',
+            ];
         }
 
         return $archivos;
+    }
+
+    private function requestValidado(array $datos, array $archivos = []): ConfirmarPrimeraConsultaRequest
+    {
+        $request = ConfirmarPrimeraConsultaRequest::create('/turnos/solicitar', 'POST', $datos, [], $archivos);
+        $request->setContainer($this->app)->setRedirector($this->app['redirect']);
+        $request->setUserResolver(fn () => $this->actor);
+        $request->validateResolved();
+
+        return $request;
     }
 
     private function pdf(string $nombre = 'estudio.pdf', int $indice = 0): UploadedFile

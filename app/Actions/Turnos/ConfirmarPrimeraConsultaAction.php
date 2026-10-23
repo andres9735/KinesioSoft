@@ -280,6 +280,7 @@ final class ConfirmarPrimeraConsultaAction
                     && (int) ($documento['cargado_por_user_id'] ?? 0) === (int) $actor->getKey()
                     && ($documento['origen'] ?? null) === DocumentoClinico::ORIGEN_SOLICITUD_TURNO
                     && ($documento['nombre_original'] ?? null) === $esperado['nombre_original']
+                    && ($documento['descripcion'] ?? null) === $esperado['descripcion']
                     && ($documento['mime_type'] ?? null) === $esperado['mime_type']
                     && (int) ($documento['tamanio_bytes'] ?? -1) === $esperado['tamanio_bytes'];
             }
