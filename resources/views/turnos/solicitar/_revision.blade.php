@@ -3,8 +3,8 @@
     <dl class="grid grid-cols-1 gap-5 text-sm sm:grid-cols-2">
         <div><dt class="text-gray-500">Tipo</dt><dd class="font-semibold text-gray-900">Primera consulta</dd></div>
         <div><dt class="text-gray-500">Profesional</dt><dd class="font-semibold text-gray-900" x-text="profesionalSeleccionada?.nombre || 'Sin seleccionar'"></dd></div>
-        <div><dt class="text-gray-500">Fecha</dt><dd class="text-gray-900" x-text="slotSeleccionado ? fechaLegible(slotSeleccionado.inicio_at.slice(0, 10)) : 'Pendiente de selección'">Pendiente de selección</dd></div>
-        <div><dt class="text-gray-500">Horario</dt><dd class="text-gray-900" x-text="slotSeleccionado ? horaLegible(slotSeleccionado.inicio_at) + ' – ' + horaLegible(slotSeleccionado.fin_at) : 'Pendiente de selección'">Pendiente de selección</dd></div>
+        <div><dt class="text-gray-500">Fecha</dt><dd class="text-gray-900" x-text="intervaloSeleccionado ? fechaLegible(intervaloSeleccionado.inicio_at.slice(0, 10)) : 'Pendiente de selección'">Pendiente de selección</dd></div>
+        <div><dt class="text-gray-500">Horario</dt><dd class="text-gray-900" x-text="intervaloSeleccionado ? horaLegible(intervaloSeleccionado.inicio_at) + ' – ' + horaLegible(intervaloSeleccionado.fin_at) : 'Pendiente de selección'">Pendiente de selección</dd></div>
         <div class="sm:col-span-2"><dt class="text-gray-500">Motivo</dt><dd class="whitespace-pre-wrap break-words text-gray-900" x-text="motivo"></dd></div>
         <div class="sm:col-span-2">
             <dt class="text-gray-500">Documentación seleccionada</dt>

@@ -1,5 +1,5 @@
-<section x-show="paso === 1" aria-labelledby="titulo-paso-1" class="space-y-6">
-    <h2 id="titulo-paso-1" x-ref="tituloPaso1" tabindex="-1" class="rounded-lg text-xl font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">Motivo y documentación</h2>
+<section x-show="paso === 3" x-cloak aria-labelledby="titulo-paso-3" class="space-y-6">
+    <h2 id="titulo-paso-3" x-ref="tituloPaso3" tabindex="-1" class="rounded-lg text-xl font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">Motivo y documentación</h2>
     <div class="space-y-2">
         <x-input-label for="motivo-solicitud" value="Motivo de la consulta (obligatorio)" />
         <p id="motivo-ayuda" class="text-sm text-gray-500">Describí brevemente por qué necesitás atención kinésica.</p>

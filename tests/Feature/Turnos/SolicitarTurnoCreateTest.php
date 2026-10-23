@@ -22,6 +22,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Js;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
@@ -64,13 +65,26 @@ class SolicitarTurnoCreateTest extends TestCase
     public function test_verified_complete_patient_gets_the_four_step_local_wizard(): void
     {
         $response = $this->actingAs($this->paciente->user)->get($this->url())->assertOk()->assertViewIs('turnos.solicitar.create');
-        foreach (['Motivo y documentación', 'Elegir profesional', 'Fecha y horario', 'Revisar y confirmar'] as $paso) {
+        foreach (['Fecha y horario', 'Elegir profesional', 'Motivo y documentación', 'Revisar y confirmar'] as $paso) {
             $response->assertSee($paso);
         }
         $response->assertSee('Paso 1 de 4')->assertSee('aria-label="Pasos de la solicitud"', false)
             ->assertSee(':aria-current=', false)->assertSee('x-show="paso === 1"', false)
             ->assertSee('hidden grid-cols-4', false)->assertSee('md:hidden', false)
             ->assertSee('x-data="solicitarTurno(', false)->assertSee('x-cloak', false);
+        $dom = new \DOMDocument;
+        @$dom->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($dom);
+        $titulos = [];
+        foreach ($xpath->query('//h2[starts-with(@id,"titulo-paso-")]') as $titulo) {
+            $titulos[] = [$titulo->getAttribute('id'), $titulo->getAttribute('x-ref'), trim($titulo->textContent)];
+        }
+        $this->assertSame([
+            ['titulo-paso-1', 'tituloPaso1', 'Fecha y horario'],
+            ['titulo-paso-2', 'tituloPaso2', 'Elegir profesional'],
+            ['titulo-paso-3', 'tituloPaso3', 'Motivo y documentación'],
+            ['titulo-paso-4', 'tituloPaso4', 'Revisar y confirmar'],
+        ], $titulos);
     }
 
     #[DataProvider('actoresBloqueados')]
@@ -268,11 +282,14 @@ class SolicitarTurnoCreateTest extends TestCase
         }
     }
 
-    public function test_blade_has_only_an_empty_compatibility_adapter_for_the_unchanged_client_module(): void
+    public function test_blade_initializes_the_v2_module_without_the_v1_compatibility_adapter(): void
     {
         $response = $this->actingAs($this->paciente->user)->get($this->url())->assertOk();
         $this->assertArrayNotHasKey('profesionales', $response->viewData('configuracionWizard'));
-        $response->assertSee('x-data="solicitarTurno({ ...', false)->assertSee('profesionales: [] })', false)
+        $response->assertSee('x-data="solicitarTurno(', false)->assertDontSee('profesionales: []', false)
+            ->assertSee('grupo in diasDisponibles', false)->assertSee('horario in grupo.horarios', false)
+            ->assertSee('seleccionarInicio(horario.inicio_at)', false)->assertSee('intervaloSeleccionado', false)
+            ->assertDontSee('slotSeleccionado', false)->assertDontSee('slot.fin_at', false)
             ->assertDontSee('No hay profesionales disponibles para nuevas solicitudes en este momento.');
     }
 
@@ -304,7 +321,7 @@ class SolicitarTurnoCreateTest extends TestCase
             ->assertSee('Consultando horarios disponibles…')->assertSee('No hay horarios disponibles entre el')
             ->assertSee("estadoDisponibilidad === 'error'", false)->assertSee('Reintentar')
             ->assertSee('Semana anterior')->assertSee('Semana siguiente')->assertSee('Horarios disponibles')
-            ->assertSee(':aria-pressed=', false)->assertSee('Cambiar profesional')->assertSee('Pendiente de selección')
+            ->assertSee(':aria-pressed=', false)->assertSee('Pendiente de selección')
             ->assertSee('@click="confirmarTurno()"', false)->assertSee(':disabled="!puedeConfirmar"', false)
             ->assertSee(':disabled="bloqueado"', false)->assertSee('Registrando turno…')
             ->assertSee('Confirmar turno')->assertSee('ocupa agenda.')
@@ -315,6 +332,17 @@ class SolicitarTurnoCreateTest extends TestCase
         $xpath = new \DOMXPath($dom);
         $this->assertSame(0, $xpath->query('//main//form')->length);
         $this->assertSame(0, $xpath->query('//main//*[@type="submit"]')->length);
+        $botonesAnteriores = $xpath->query('//main//button[normalize-space(.)="Semana anterior"]');
+        $this->assertSame(1, $botonesAnteriores->length);
+        $botonAnterior = $botonesAnteriores->item(0);
+        $this->assertSame('button', $botonAnterior->getAttribute('type'));
+        // DOMDocument descarta atributos que comienzan con @; comprobar los bindings en ese botón del HTML original.
+        $this->assertSame(1, preg_match('/<button\b[^>]*>\s*Semana anterior\s*<\/button>/s', $response->getContent(), $botonHtml));
+        $this->assertStringContainsString('@click="cambiarVentana(-1)"', $botonHtml[0]);
+        $this->assertStringContainsString(
+            ':disabled="ventana.desde === '.Js::from($response->viewData('configuracionWizard')['fechaInicial'])->toHtml().'"',
+            $botonHtml[0],
+        );
         $this->assertSame([
             'turnos.mis-turnos.index', 'turnos.solicitar.create', 'turnos.solicitar.disponibilidad', 'turnos.solicitar.profesionales-disponibles', 'turnos.solicitar.store',
         ], collect(Route::getRoutes())->filter(fn ($ruta) => str_starts_with($ruta->uri(), 'turnos/') && ! str_starts_with($ruta->uri(), 'turnos/agenda'))
