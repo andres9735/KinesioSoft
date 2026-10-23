@@ -427,6 +427,51 @@ class SolicitarTurnoCreateTest extends TestCase
             ->assertSee('No quedan profesionales disponibles para este horario de inicio.');
     }
 
+    public function test_step_three_keeps_description_and_replacement_controls_inside_each_local_file_entry(): void
+    {
+        $response = $this->actingAs($this->paciente->user)->get($this->url())->assertOk();
+        $html = preg_replace('/\s@([a-z][a-z.-]*)=/', ' x-on:$1=', $response->getContent());
+        $dom = new \DOMDocument;
+        @$dom->loadHTML('<?xml encoding="UTF-8">'.$html);
+        $xpath = new \DOMXPath($dom);
+        $paso = $xpath->query('//section[@aria-labelledby="titulo-paso-3"]')->item(0);
+        $this->assertNotNull($paso);
+        $this->assertSame('paso === 3', $paso->getAttribute('x-show'));
+        $motivo = $xpath->query('.//textarea[@id="motivo-solicitud"]', $paso)->item(0);
+        $this->assertSame('motivo', $motivo->getAttribute('x-model'));
+        $this->assertTrue($motivo->hasAttribute('required'));
+        $this->assertSame('500', $motivo->getAttribute('maxlength'));
+        $agregar = $xpath->query('.//input[@id="adjuntos"]', $paso)->item(0);
+        $this->assertTrue($agregar->hasAttribute('multiple'));
+        $this->assertSame('.pdf,.jpg,.jpeg,.png', $agregar->getAttribute('accept'));
+        $this->assertSame('agregarArchivos($event)', $agregar->getAttribute('x-on:change'));
+        $entrada = $xpath->query('.//template[@x-for="entrada in archivos"]', $paso)->item(0);
+        $this->assertSame('entrada.id', $entrada->getAttribute(':key'));
+        $descripcion = $xpath->query('.//input[@type="text"]', $entrada);
+        $this->assertSame(1, $descripcion->length);
+        $this->assertSame(1, $xpath->query('.//input[@type="text"]', $paso)->length);
+        $descripcion = $descripcion->item(0);
+        $this->assertSame("'descripcion-adjunto-' + entrada.id", $descripcion->getAttribute(':id'));
+        $this->assertSame('entrada.descripcion', $descripcion->getAttribute(':value'));
+        $this->assertSame('corregirDescripcion(entrada.id, $event.target.value)', $descripcion->getAttribute('x-on:input'));
+        $this->assertSame('revisarDescripcion(entrada.id)', $descripcion->getAttribute('x-on:blur'));
+        $this->assertTrue($descripcion->hasAttribute('required'));
+        $this->assertSame('500', $descripcion->getAttribute('maxlength'));
+        $this->assertStringContainsString('entrada.errorDescripcionServidor', $descripcion->getAttribute(':aria-invalid'));
+        $reemplazo = $xpath->query('.//input[@type="file"]', $entrada)->item(0);
+        $this->assertSame("'reemplazo-adjunto-' + entrada.id", $reemplazo->getAttribute(':id'));
+        $this->assertSame($agregar->getAttribute('accept'), $reemplazo->getAttribute('accept'));
+        $this->assertFalse($reemplazo->hasAttribute('multiple'));
+        $this->assertSame("if (\$event.target.files.length) reemplazarArchivo(entrada.id, \$event.target.files[0]); \$event.target.value = ''", $reemplazo->getAttribute('x-on:change'));
+        $this->assertSame(1, $xpath->query('.//button[@type="button" and @*[name()="x-on:click"]="quitarArchivo(entrada.id)"]', $entrada)->length);
+        $this->assertSame(1, $xpath->query('.//template[@x-for="rechazo in erroresSeleccionArchivos"]//button[@type="button" and @*[name()="x-on:click"]="descartarErrorSeleccion(rechazo.id)"]', $paso)->length);
+        $this->assertSame(1, $xpath->query('.//*[@x-text="errorDescripcion(entrada)"]', $entrada)->length);
+        $this->assertSame(1, $xpath->query('.//*[@x-text="entrada.errorDescripcionServidor"]', $entrada)->length);
+        $response->assertSee('(paso === 3 && !puedeAvanzarPaso3)', false)
+            ->assertSee('Los archivos se enviarán al confirmar el turno.')
+            ->assertDontSee('C:\\fakepath', false);
+    }
+
     private function url(): string
     {
         return route('turnos.solicitar.create');

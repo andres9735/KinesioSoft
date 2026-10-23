@@ -153,9 +153,23 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
         },
 
         get erroresDescripciones() {
-            return this.archivos.filter((entrada) => entrada.errorDescripcionServidor
-                || typeof entrada.descripcion !== 'string' || !entrada.descripcion.trim()
-                || [...entrada.descripcion.trim()].length > 500);
+            return this.archivos.filter((entrada) => entrada.errorDescripcionServidor || this.errorDescripcion(entrada));
+        },
+
+        errorDescripcion(entrada) {
+            if (typeof entrada.descripcion !== 'string' || !entrada.descripcion.trim()) return 'Ingresá una descripción para este adjunto.';
+            return [...entrada.descripcion.trim()].length > 500 ? 'La descripción no puede superar 500 caracteres.' : '';
+        },
+
+        revisarDescripcion(id) {
+            const entrada = this.archivos.find((actual) => actual.id === id);
+            if (!this.bloqueado && entrada) entrada.descripcionRevisada = true;
+        },
+
+        get puedeAvanzarPaso3() {
+            return this.puedeRevisar && this.motivo.trim() !== '' && this.longitudMotivo <= this.maxMotivo
+                && !this.erroresServidor.motivo_solicitud && !this.erroresServidor.adjuntos
+                && !this.erroresArchivos.length && !this.erroresDescripciones.length && !this.erroresGeneralesArchivos.length;
         },
 
         get totalBytes() {
@@ -204,7 +218,7 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
             let error = '';
             if (!this.limites.extensionesPermitidas.includes(extension)
                 || (archivo.type && !this.limites.mimePermitidos.includes(archivo.type.toLowerCase()))) {
-                error = 'Elegí un archivo con formato permitido.';
+                error = `Formato no permitido. Sólo se admiten archivos ${this.limites.extensionesPermitidas.map((extension) => extension.toUpperCase()).join(', ')}.`;
             } else if (archivo.size > this.limites.maxBytesPorArchivo) {
                 error = `El archivo supera ${this.tamanioLegible(this.limites.maxBytesPorArchivo)}.`;
             }
@@ -213,7 +227,11 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
                 this.erroresSeleccionArchivos.push({ id, nombre: archivo.name, error });
                 return null;
             }
-            return { id, archivo, descripcion: '', error: '' };
+            return { id, archivo, descripcion: '', descripcionRevisada: false, error: '' };
+        },
+
+        descartarErrorSeleccion(id) {
+            if (!this.bloqueado) this.erroresSeleccionArchivos = this.erroresSeleccionArchivos.filter((error) => error.id !== id);
         },
 
         reemplazarArchivo(id, archivo) {
@@ -280,6 +298,7 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
                 }
                 this.paso = 3;
             } else if (this.paso === 3) {
+                this.archivos.forEach((entrada) => { entrada.descripcionRevisada = true; });
                 this.errorMotivo = this.motivo.trim() === '' ? 'Ingresá el motivo de consulta.'
                     : (this.longitudMotivo > this.maxMotivo ? `El motivo no puede superar ${this.maxMotivo} caracteres.` : '');
                 if (this.errorMotivo || this.erroresServidor.motivo_solicitud) {

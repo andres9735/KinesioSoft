@@ -95,6 +95,19 @@ class TurnosAccessibilityViewTest extends TestCase
         $this->assertNotNull($removal);
         $this->assertStringContainsString('entrada.archivo.name', $removal->getAttribute(':aria-label'));
         $this->assertStringContainsString('archivo-estado-', $removal->getAttribute(':aria-describedby'));
+        $entrada = $xpath->query('//template[@x-for="entrada in archivos"]')->item(0);
+        $descripcion = $xpath->query('.//input[@type="text"]', $entrada)->item(0);
+        $this->assertNotNull($descripcion);
+        $this->assertSame(1, $xpath->query('.//label[@*[name()=":for"]="\'descripcion-adjunto-\' + entrada.id"]', $entrada)->length);
+        $this->assertSame(1, $xpath->query('.//label/span[@class="sr-only" and @x-text="\' de \' + entrada.archivo.name"]', $entrada)->length);
+        foreach (['descripcion-ayuda-', 'descripcion-error-', 'descripcion-error-servidor-'] as $prefijo) {
+            $this->assertStringContainsString($prefijo, $descripcion->getAttribute(':aria-describedby'));
+            $this->assertSame(1, $xpath->query('.//*[@*[name()=":id"]="\''.$prefijo.'\' + entrada.id"]', $entrada)->length);
+        }
+        $this->assertSame(1, $xpath->query('.//input[@type="file" and @*[name()=":id"]="\'reemplazo-adjunto-\' + entrada.id"]', $entrada)->length);
+        $this->assertSame(1, $xpath->query('.//label[@*[name()=":for"]="\'reemplazo-adjunto-\' + entrada.id"]', $entrada)->length);
+        $this->assertSame(1, $xpath->query('.//label/span[@x-text="\' \' + entrada.archivo.name"]', $entrada)->length);
+        $this->assertSame('!!errorDescripcion(entrada) || !!entrada.errorDescripcionServidor', $descripcion->getAttribute(':aria-invalid'));
     }
 
     public function test_slots_loading_errors_and_review_have_native_semantics(): void

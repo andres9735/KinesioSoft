@@ -655,3 +655,104 @@ test('Paso 2: nuevo inicio invalida selección y exige su propio GET sin cambiar
     assert.equal(w.inicioProfesionales, w.inicioSeleccionado); assert.equal(w.kinesiologaId, null);
     assert.deepEqual(capturaLocal(w), antes);
 });
+
+test('Paso 3: motivo válido sin adjuntos permite revisar; motivo vacío o >máximo no', async () => {
+    const w = seleccionCompleta(); w.paso = 3; w.archivos = [];
+    for (const motivo of [' ', 'x'.repeat(501)]) {
+        w.motivo = motivo; assert.equal(w.puedeAvanzarPaso3, false);
+        await w.siguiente(); assert.equal(w.paso, 3);
+    }
+    w.motivo = 'Motivo válido'; w.corregirMotivo();
+    assert.equal(w.puedeAvanzarPaso3, true); await w.siguiente(); assert.equal(w.paso, 4);
+});
+
+for (const [nombre, descripcion, valida] of [
+    ['vacía', '', false], ['espacios', '   ', false], ['mínimo significativo', ' x ', true],
+    ['máximo significativo', '  ' + 'x'.repeat(500) + '  ', true], ['superior al máximo', 'x'.repeat(501), false],
+    ['Unicode', '🦴'.repeat(500), true],
+]) test(`Paso 3: descripción ${nombre} valida por entrada sin recortar texto local`, async () => {
+    const w = seleccionCompleta(); w.paso = 3; w.archivos = [];
+    const file = new File(['pdf'], 'estudio.pdf', { type: 'application/pdf' });
+    const input = { target: { files: [file], value: 'seleccionado' } };
+    w.agregarArchivos(input); const entrada = w.archivos[0];
+    assert.equal(input.target.value, ''); assert.equal(entrada.archivo, file);
+    assert.equal(entrada.descripcion, ''); assert.equal(entrada.descripcionRevisada, false);
+    assert.equal(w.puedeAvanzarPaso3, false); assert.match(w.errorDescripcion(entrada), /Ingresá una descripción/);
+    w.corregirDescripcion(entrada.id, descripcion);
+    assert.equal(entrada.descripcion, descripcion); assert.equal(w.puedeAvanzarPaso3, valida);
+    assert.equal(w.erroresDescripciones.length, valida ? 0 : 1);
+    w.revisarDescripcion(entrada.id); assert.equal(entrada.descripcionRevisada, true);
+    await w.siguiente(); assert.equal(w.paso, valida ? 4 : 3);
+    assert.equal(entrada.descripcion, descripcion);
+});
+
+test('Paso 3: selección mixta rechaza sólo el inválido; contador y bytes incluyen sólo aceptados y descarte no bloquea', async () => {
+    const w = seleccionCompleta(); w.paso = 3; w.archivos = [];
+    w.agregarArchivos({ target: { files: [new File(['aa'], 'A.pdf', { type: 'application/pdf' }),
+        new File(['muchos bytes rechazados'], 'B.exe', { type: 'application/octet-stream' }),
+        new File(['ccc'], 'C.pdf', { type: 'application/pdf' })] } });
+    assert.equal(w.archivos.length, 2); assert.equal(w.totalBytes, 5); assert.equal(w.erroresSeleccionArchivos.length, 1);
+    const [a, c] = w.archivos; w.corregirDescripcion(a.id, 'Descripción A');
+    assert.equal(w.puedeAvanzarPaso3, false); w.corregirDescripcion(c.id, 'Descripción C');
+    assert.equal(w.puedeAvanzarPaso3, true); assert.equal(w.erroresSeleccionArchivos.length, 1);
+    const antes = capturaLocal(w); w.descartarErrorSeleccion(w.erroresSeleccionArchivos[0].id);
+    assert.equal(w.erroresSeleccionArchivos.length, 0); assert.deepEqual(capturaLocal(w), antes);
+    await w.siguiente(); assert.equal(w.paso, 4);
+});
+
+test('Paso 3: política configurable conserva límites exactos y separa errores individuales de cantidad/total', () => {
+    const w = solicitarTurno({ ...configuracion, limites: { ...configuracion.limites, maxArchivos: 1, maxBytesPorArchivo: 4, maxBytesTotal: 6 } });
+    w.agregarArchivos({ target: { files: [new File(['1234'], 'limite.pdf', { type: 'application/pdf' }),
+        new File(['12345'], 'grande.pdf', { type: 'application/pdf' })] } });
+    assert.equal(w.archivos.length, 1); assert.equal(w.totalBytes, 4); assert.equal(w.erroresGeneralesArchivos.length, 0);
+    assert.equal(w.erroresSeleccionArchivos.length, 1); assert.match(w.erroresSeleccionArchivos[0].error, /supera/);
+    w.agregarArchivos({ target: { files: [new File(['12'], 'otro.pdf', { type: 'application/pdf' })] } });
+    assert.equal(w.totalBytes, 6); assert.equal(w.erroresGeneralesArchivos.length, 1);
+    w.agregarArchivos({ target: { files: [new File(['1'], 'exceso.pdf', { type: 'application/pdf' })] } });
+    assert.equal(w.totalBytes, 7); assert.equal(w.erroresGeneralesArchivos.length, 2);
+    w.erroresServidor.adjuntos = 'Error global'; w.quitarArchivo(w.archivos.at(-1).id);
+    assert.equal(w.erroresServidor.adjuntos, undefined); assert.equal(w.erroresGeneralesArchivos.length, 1);
+    w.quitarArchivo(w.archivos.at(-1).id); assert.equal(w.erroresGeneralesArchivos.length, 0);
+});
+
+test('Paso 3: MIME/extensión provienen de política e incluyen JPG/JPEG/PNG sin leer contenidos', () => {
+    const w = solicitarTurno({ ...configuracion, limites: { ...configuracion.limites,
+        mimePermitidos: ['application/pdf', 'image/jpeg', 'image/png'], extensionesPermitidas: ['pdf', 'jpg', 'jpeg', 'png'] } });
+    w.agregarArchivos({ target: { files: [new File(['x'], 'A.JPG', { type: 'image/jpeg' }), new File(['x'], 'B.jpeg', { type: 'image/jpeg' }),
+        new File(['x'], 'C.png', { type: 'image/png' }), new File(['x'], 'D.pdf', { type: 'application/pdf' }),
+        new File(['x'], 'E.png', { type: 'video/mp4' }), new File(['x'], 'F.exe', { type: 'image/png' })] } });
+    assert.deepEqual(w.archivos.map((e) => e.archivo.name), ['A.JPG', 'B.jpeg', 'C.png', 'D.pdf']);
+    assert.equal(w.totalBytes, 4); assert.equal(w.erroresSeleccionArchivos.length, 2);
+    assert.match(w.erroresSeleccionArchivos[0].error, /Formato no permitido/);
+});
+
+test('Paso 3: reemplazo inválido conserva original; válido crea nueva identidad, sin descripción ni errores heredados', () => {
+    const w = seleccionCompleta(); const antesTurno = { inicio: w.inicioSeleccionado, fecha: w.fechaSeleccionada,
+        profesional: w.kinesiologaId, uuid: w.claveIdempotencia, motivo: w.motivo };
+    const a = w.archivos[0]; a.errorServidor = 'Error archivo'; a.errorDescripcionServidor = 'Error descripción';
+    w.reemplazarArchivo(a.id, new File(['x'], 'invalido.exe'));
+    assert.equal(w.archivos[0], a); assert.equal(a.descripcion, 'Descripción conservada');
+    assert.equal(w.erroresSeleccionArchivos.length, 1);
+    w.reemplazarArchivo(a.id, new File(['nuevo'], 'B.pdf', { type: 'application/pdf' }));
+    const b = w.archivos[0]; assert.notEqual(b.id, a.id); assert.equal(b.descripcion, ''); assert.equal(b.descripcionRevisada, false);
+    assert.equal(b.errorServidor, undefined); assert.equal(b.errorDescripcionServidor, undefined);
+    assert.equal(w.erroresSeleccionArchivos.length, 0); assert.equal(w.puedeAvanzarPaso3, false);
+    w.corregirDescripcion(b.id, 'Nueva descripción'); assert.equal(w.puedeAvanzarPaso3, true);
+    w.quitarArchivo(b.id); assert.equal(w.archivos.length, 0); assert.equal(w.totalBytes, 0);
+    w.agregarArchivos({ target: { files: [new File(['nuevo'], 'B.pdf', { type: 'application/pdf' })] } });
+    assert.notEqual(w.archivos[0].id, b.id); assert.equal(w.archivos[0].descripcion, '');
+    assert.deepEqual({ inicio: w.inicioSeleccionado, fecha: w.fechaSeleccionada, profesional: w.kinesiologaId,
+        uuid: w.claveIdempotencia, motivo: w.motivo }, antesTurno);
+});
+
+test('Paso 3: errores servidor de descripción siguen por ID; corregir una no altera otra ni envía requests', async () => {
+    const w = seleccionCompleta(); w.paso = 3; w.archivos = [];
+    w.agregarArchivos({ target: { files: [new File(['a'], 'A.pdf', { type: 'application/pdf' }), new File(['b'], 'B.pdf', { type: 'application/pdf' })] } });
+    const [a, b] = w.archivos; w.corregirDescripcion(a.id, 'A'); w.corregirDescripcion(b.id, 'B');
+    const snapshot = [...w.archivos];
+    w.aplicarErroresServidor({ 'adjuntos.0.descripcion': ['Error A'], 'adjuntos.1.descripcion': ['Error B'] }, snapshot);
+    assert.equal(w.puedeAvanzarPaso3, false); w.corregirDescripcion(a.id, 'A corregida');
+    assert.equal(a.errorDescripcionServidor, undefined); assert.equal(b.errorDescripcionServidor, 'Error B');
+    w.corregirDescripcion(b.id, 'B corregida'); assert.equal(w.puedeAvanzarPaso3, true);
+    await w.siguiente(); assert.equal(w.paso, 4);
+});
