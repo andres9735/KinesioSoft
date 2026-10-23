@@ -328,16 +328,18 @@ test('D-01 bloqueante dirige a Mis turnos una vez sin doble abandono ni nueva UU
     assert.deepEqual(destinos, [configuracion.urlMisTurnos]); assert.equal(avisos.size, 0); assert.equal(w.consolidado, false);
 });
 
-test('409 profesional conserva inicio y captura, pero exige recargar profesionales antes de seleccionar', async () => {
+test('409 profesional recupera R1 con lista fresca y exige selección explícita', async () => {
     const { destinos } = entornoConfirmacion();
-    const w = enPaso4(async () => json({ code: 'profesional_no_elegible', message: 'No comparar' }, 409));
+    const w = enPaso4(async (url, opciones) => opciones.method === 'POST'
+        ? json({ code: 'profesional_no_elegible', message: 'No comparar' }, 409) : json(profesionales()));
     const file = w.archivos[0].archivo;
     await w.confirmarTurno();
     assert.equal(w.paso, 2); assert.equal(w.kinesiologaId, null); assert.equal(w.intervaloSeleccionado, null);
-    assert.deepEqual(w.profesionales, []); assert.equal(w.archivos[0].archivo, file);
+    assert.deepEqual(w.profesionales, profesionales().profesionales); assert.equal(w.archivos[0].archivo, file);
     assert.equal(w.claveIdempotencia, configuracion.uuid); assert.equal(w.motivo, 'Motivo conservado');
-    w.seleccionarProfesional(1); assert.equal(w.kinesiologaId, null);
-    w.seleccionarProfesional(2); assert.equal(w.kinesiologaId, null); assert.deepEqual(destinos, []);
+    assert.equal(w.tipoRecuperacion, 'R1'); assert.equal(w.puedeConfirmar, false);
+    w.seleccionarProfesional(2); assert.equal(w.kinesiologaId, 2); assert.deepEqual(destinos, []);
+    assert.equal(w.tipoRecuperacion, null); assert.equal(w.mensajeConfirmacion, '');
     assert.equal(w.inicioSeleccionado, slot().inicio_at);
 });
 
@@ -345,13 +347,244 @@ test('409 slot retira el inicio y su profesional, conserva captura y vuelve al P
     entornoConfirmacion(); let gets = 0;
     const w = enPaso4(async (url, opciones) => {
         if (opciones.method === 'POST') return json({ code: 'slot_no_disponible', message: 'Irrelevante' }, 409);
-        gets++; return json(agregado(['2026-10-17 11:00:00']));
+        gets++; return json(gets === 1 ? { inicio_at: slot().inicio_at, profesionales: [] } : agregado(['2026-10-17 11:00:00']));
     });
     const antes = captura(w); await w.confirmarTurno();
-    assert.equal(gets, 1); assert.equal(w.paso, 1); assert.equal(w.intervaloSeleccionado, null);
+    assert.equal(gets, 2); assert.equal(w.paso, 1); assert.equal(w.intervaloSeleccionado, null);
     assert.deepEqual(captura(w), { ...antes, slot: null, profesional: null }); assert.equal(w.estadoDisponibilidad, 'success');
-    assert.equal(w.mensajeConfirmacion, 'Ese horario acaba de dejar de estar disponible. Elegí otro horario.');
+    assert.equal(w.mensajeConfirmacion, 'El horario que habías seleccionado ya no está disponible.');
     assert.equal(w.enviando, false);
+});
+
+for (const code of ['profesional_no_elegible', 'slot_no_disponible']) {
+    for (const resultado of ['R1', 'R2', 'R3', 'vacía']) {
+        test(`${code}: clasificación ${resultado} por GET frescos, conserva snapshot y no autoselecciona`, async () => {
+            const { feedback, destinos } = entornoConfirmacion(), llamadas = [];
+            const otroInicio = resultado === 'R2' ? '2026-10-17 11:00:00' : '2026-10-18 10:00:00';
+            const lista = profesionales(); lista.profesionales = [lista.profesionales[1]];
+            const w = enPaso4(async (url, opciones) => {
+                llamadas.push({ url: new URL(url), opciones });
+                if (opciones.method === 'POST') return json({ code, message: 'Causa interna que no debe mostrarse' }, 409);
+                if (new URL(url).pathname.endsWith('profesionales-disponibles')) {
+                    return json(resultado === 'R1' ? lista : { inicio_at: slot().inicio_at, profesionales: [] });
+                }
+                return json(agregado(resultado === 'vacía' ? [] : [otroInicio]));
+            });
+            const antes = capturaLocal(w), file = w.archivos[0].archivo;
+            await w.confirmarTurno();
+            assert.deepEqual(capturaLocal(w), antes); assert.equal(w.archivos[0].archivo, file);
+            assert.equal(llamadas[0].opciones.method, 'POST');
+            assert.deepEqual(Object.fromEntries(llamadas[1].url.searchParams), { inicio_at: slot().inicio_at });
+            assert.equal(llamadas[1].url.pathname, '/turnos/solicitar/profesionales-disponibles');
+            assert.equal(llamadas.length, resultado === 'R1' ? 2 : 3);
+            if (resultado !== 'R1') {
+                assert.equal(llamadas[2].url.pathname, '/turnos/solicitar/disponibilidad');
+                assert.deepEqual(Object.fromEntries(llamadas[2].url.searchParams), ventanaInicial);
+            }
+            for (const { opciones } of llamadas.slice(1)) {
+                assert.equal(opciones.method ?? 'GET', 'GET'); assert.equal(opciones.body, undefined);
+                assert.equal(opciones.credentials, 'same-origin'); assert.equal(opciones.cache, 'no-store');
+            }
+            assert.equal(w.tipoRecuperacion, resultado === 'vacía' ? 'R3' : resultado);
+            assert.equal(w.paso, resultado === 'R1' ? 2 : 1); assert.equal(w.kinesiologaId, null);
+            assert.equal(w.fechaSeleccionada, ['R1', 'R2'].includes(resultado) ? '2026-10-17' : null);
+            assert.equal(w.inicioSeleccionado, resultado === 'R1' ? slot().inicio_at : null);
+            assert.deepEqual(w.profesionales, resultado === 'R1' ? lista.profesionales : []);
+            if (resultado !== 'R1') {
+                assert.deepEqual(w.diasDisponibles, agregado(resultado === 'vacía' ? [] : [otroInicio]).dias);
+                assert.equal(w.estadoDisponibilidad, resultado === 'vacía' ? 'empty' : 'success');
+                assert.deepEqual(w.ventanaConsultada, ventanaInicial);
+            }
+            assert.equal(w.recuperacion, null); assert.equal(w.resultadoIncierto, false); assert.equal(w.puedeConfirmar, false);
+            assert.doesNotMatch(w.mensajeConfirmacion, /Causa interna/);
+            assert.ok(w.detalleRecuperacion.length); assert.deepEqual(feedback, []); assert.deepEqual(destinos, []);
+        });
+    }
+}
+
+for (const fase of ['profesionales', 'disponibilidad']) {
+    for (const fallo of ['red', '500', '422', 'JSON', 'contrato']) {
+        test(`recovery ${fase} ${fallo}: error técnico conserva contexto y retry repite sólo GET fallido`, async () => {
+            const { feedback, destinos } = entornoConfirmacion(), llamadas = [];
+            let fallar = true;
+            const w = enPaso4(async (url, opciones) => {
+                llamadas.push({ url: new URL(url), opciones });
+                if (opciones.method === 'POST') return json({ code: 'slot_no_disponible' }, 409);
+                const esProfesionales = new URL(url).pathname.endsWith('profesionales-disponibles');
+                if (fallar && esProfesionales === (fase === 'profesionales')) {
+                    if (fallo === 'red') throw new TypeError('Red');
+                    if (fallo === 'JSON') return new Response('{', { status: 200 });
+                    return json({}, fallo === 'contrato' ? 200 : Number(fallo));
+                }
+                return json(esProfesionales ? (fase === 'profesionales' ? profesionales() : { inicio_at: slot().inicio_at, profesionales: [] })
+                    : agregado(['2026-10-17 11:00:00']));
+            });
+            const antes = capturaLocal(w), f = observarFoco(w);
+            await w.confirmarTurno(); f.flush();
+            assert.equal(w.recuperacion.estado, 'error'); assert.equal(w.recuperacion.fase, fase);
+            assert.equal(w.recuperacion.kinesiologa, 1); assert.equal(w.recuperacion.inicio, slot().inicio_at);
+            assert.equal(w.fechaSeleccionada, '2026-10-17'); assert.equal(w.inicioSeleccionado, slot().inicio_at);
+            assert.equal(w.kinesiologaId, null); assert.deepEqual(w.profesionales, []);
+            assert.deepEqual(capturaLocal(w), antes); assert.equal(w.resultadoIncierto, false);
+            assert.equal(w.tipoRecuperacion, null); assert.equal(w.bloqueado, true); assert.equal(w.puedeConfirmar, false);
+            assert.match(w.mensajeConfirmacion, /No se registró el turno/); assert.equal(f.focos.at(-1), 'mensajeConfirmacion');
+            const cantidad = llamadas.length;
+            await new Promise((resolve) => setImmediate(resolve));
+            assert.equal(llamadas.length, cantidad); // Sin acción del usuario no se inicia otro request.
+            await w.confirmarTurno(); await w.consultarDisponibilidad(); await w.cargarProfesionalesDisponibles();
+            w.seleccionarInicio('2026-10-17 10:30:00'); w.seleccionarProfesional(2); w.anterior();
+            assert.equal(llamadas.length, cantidad); assert.equal(w.inicioSeleccionado, slot().inicio_at);
+            fallar = false; await w.reintentarRecuperacion(); f.flush();
+            assert.equal(llamadas.length, cantidad + 1);
+            assert.equal(llamadas.at(-1).url.pathname.endsWith('profesionales-disponibles'), fase === 'profesionales');
+            assert.equal(llamadas.filter(({ opciones }) => opciones.method === 'POST').length, 1);
+            assert.equal(w.recuperacion, null); assert.equal(w.tipoRecuperacion, fase === 'profesionales' ? 'R1' : 'R2');
+            assert.deepEqual(capturaLocal(w), antes); assert.deepEqual(feedback, []); assert.deepEqual(destinos, []);
+        });
+    }
+}
+
+test('recovery pendiente bloquea doble click, navegación y consultas normales sin perder snapshot', async () => {
+    entornoConfirmacion(); const pendiente = diferida(); let llamadas = 0;
+    const w = enPaso4(async (url, opciones) => {
+        llamadas++; return opciones.method === 'POST' ? json({ code: 'slot_no_disponible' }, 409) : pendiente.promise;
+    });
+    const antes = capturaLocal(w), envio = w.confirmarTurno();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(w.recuperando, true); assert.equal(w.enviando, true); assert.equal(w.paso, 2);
+    assert.equal(w.recuperacion.kinesiologa, 1); assert.deepEqual(w.recuperacion.ventana, ventanaInicial);
+    await w.confirmarTurno(); await w.reintentarRecuperacion(); await w.volverAMisTurnos();
+    await w.consultarDisponibilidad(); await w.cargarProfesionalesDisponibles(); w.anterior();
+    assert.equal(llamadas, 2); assert.deepEqual(capturaLocal(w), antes);
+    pendiente.resolve(json(profesionales())); await envio; assert.equal(w.tipoRecuperacion, 'R1');
+});
+
+test('R1 conserva incluso la misma profesional reaparecida sin elegirla automáticamente', async () => {
+    entornoConfirmacion(); const lista = profesionales(); lista.profesionales = [lista.profesionales[0]];
+    const w = enPaso4(async (url, opciones) => opciones.method === 'POST'
+        ? json({ code: 'profesional_no_elegible' }, 409) : json(lista));
+    await w.confirmarTurno(); assert.equal(w.tipoRecuperacion, 'R1'); assert.equal(w.kinesiologaId, null);
+    assert.deepEqual(w.profesionales, lista.profesionales); w.seleccionarProfesional(1);
+    assert.equal(w.kinesiologaId, 1);
+});
+
+for (const quedanOtrosHorarios of [true, false]) test(`inicio alcanzado según backend: ${quedanOtrosHorarios ? 'R2' : 'R3'}, sin reloj cliente`, async () => {
+    entornoConfirmacion();
+    const w = enPaso4(async (url, opciones) => {
+        if (opciones.method === 'POST') return json({ code: 'slot_no_disponible' }, 409);
+        if (new URL(url).pathname.endsWith('profesionales-disponibles')) return json({ inicio_at: slot().inicio_at, profesionales: [] });
+        return json(agregado(quedanOtrosHorarios ? ['2026-10-17 11:00:00'] : []));
+    });
+    await w.confirmarTurno(); assert.equal(w.tipoRecuperacion, quedanOtrosHorarios ? 'R2' : 'R3');
+    assert.equal(w.inicioSeleccionado, null); assert.equal(w.fechaSeleccionada, quedanOtrosHorarios ? '2026-10-17' : null);
+});
+
+test('error técnico de recovery permite abandonar con el aviso existente, sin nuevos GET ni POST', async () => {
+    const { destinos } = entornoConfirmacion(); let llamadas = 0;
+    const w = enPaso4(async (url, opciones) => {
+        llamadas++; if (opciones.method === 'POST') return json({ code: 'slot_no_disponible' }, 409);
+        throw new TypeError('Red');
+    });
+    await w.confirmarTurno(); await w.volverAMisTurnos();
+    assert.equal(llamadas, 2); assert.deepEqual(destinos, [configuracion.urlMisTurnos]);
+});
+
+for (const fase of ['profesionales', 'disponibilidad']) test(`destroy durante recovery ${fase} aborta e ignora respuesta y JSON tardío`, async () => {
+    for (const tardio of ['respuesta', 'JSON']) {
+        entornoConfirmacion(); const pendiente = diferida(); let signal;
+        const w = enPaso4(async (url, opciones) => {
+            if (opciones.method === 'POST') return json({ code: 'slot_no_disponible' }, 409);
+            if (fase === 'disponibilidad' && new URL(url).pathname.endsWith('profesionales-disponibles')) {
+                return json({ inicio_at: slot().inicio_at, profesionales: [] });
+            }
+            signal = opciones.signal;
+            return tardio === 'respuesta' ? pendiente.promise : { status: 200, json: () => pendiente.promise };
+        });
+        const envio = w.confirmarTurno(); await new Promise((resolve) => setImmediate(resolve));
+        const antes = JSON.stringify(w);
+        w.destroy(); assert.equal(signal.aborted, true);
+        const body = fase === 'profesionales' ? profesionales() : agregado([]);
+        pendiente.resolve(tardio === 'respuesta' ? json(body) : body); await envio;
+        assert.equal(JSON.stringify(w), antes);
+    }
+});
+
+test('una recuperación nueva descarta respuesta tardía de la anterior, aunque fetch ignore abort', async () => {
+    entornoConfirmacion(); const pendiente = diferida(); let gets = 0, signal;
+    const w = enPaso4(async (url, opciones) => {
+        if (opciones.method === 'POST') return json({ code: 'slot_no_disponible' }, 409);
+        gets++; if (gets === 1) { signal = opciones.signal; return pendiente.promise; }
+        return json(profesionales('2026-10-18 10:00:00'));
+    });
+    const envio = w.confirmarTurno(); await new Promise((resolve) => setImmediate(resolve));
+    await w.iniciarRecuperacion({ fecha: '2026-10-18', inicio: '2026-10-18 10:00:00', kinesiologa: 2, ventana: ventanaInicial });
+    assert.equal(signal.aborted, true);
+    const estadoSinEnvio = () => {
+        const { enviando, bloqueado, ...estado } = JSON.parse(JSON.stringify(w));
+        return estado;
+    };
+    const antes = estadoSinEnvio();
+    pendiente.resolve(json({ inicio_at: slot().inicio_at, profesionales: [] })); await envio;
+    // Sólo finaliza el POST original; la selección/lista del nuevo contexto no se reemplaza.
+    assert.equal(w.inicioSeleccionado, '2026-10-18 10:00:00'); assert.equal(w.tipoRecuperacion, 'R1');
+    assert.deepEqual(w.profesionales, profesionales('2026-10-18 10:00:00').profesionales);
+    assert.deepEqual(estadoSinEnvio(), antes); assert.equal(w.enviando, false); assert.equal(gets, 2);
+});
+
+test('proyecciones cambiantes no clasifican falsamente R2 ni generan consultas automáticas', async () => {
+    entornoConfirmacion(); let llamadas = 0;
+    const w = enPaso4(async (url, opciones) => {
+        llamadas++;
+        if (opciones.method === 'POST') return json({ code: 'slot_no_disponible' }, 409);
+        return json(new URL(url).pathname.endsWith('profesionales-disponibles')
+            ? { inicio_at: slot().inicio_at, profesionales: [] } : agregado());
+    });
+    await w.confirmarTurno(); assert.equal(llamadas, 3); assert.equal(w.tipoRecuperacion, null);
+    assert.equal(w.recuperacion.estado, 'error'); assert.equal(w.recuperacion.fase, 'profesionales');
+    assert.equal(w.inicioSeleccionado, slot().inicio_at); assert.equal(w.resultadoIncierto, false);
+});
+
+for (const resultado of ['R1', 'R2', 'R3']) test(`${resultado}: selección posterior y nuevo POST conservan UUID, File y descripción`, async () => {
+    entornoConfirmacion(); const envios = [];
+    const nuevoInicio = resultado === 'R3' ? '2026-10-18 10:00:00' : '2026-10-17 10:15:00';
+    const w = enPaso4(async (url, opciones) => {
+        if (opciones.method === 'POST') {
+            envios.push(opciones.body); return envios.length === 1 ? json({ code: 'slot_no_disponible' }, 409) : exito();
+        }
+        if (new URL(url).pathname.endsWith('profesionales-disponibles')) {
+            const inicio = new URL(url).searchParams.get('inicio_at');
+            return json(resultado === 'R1' || inicio === nuevoInicio ? profesionales(inicio) : { inicio_at: inicio, profesionales: [] });
+        }
+        return json(agregado([nuevoInicio]));
+    });
+    const antes = capturaLocal(w); await w.confirmarTurno();
+    if (resultado !== 'R1') {
+        if (resultado === 'R3') w.seleccionarFecha('2026-10-18');
+        w.seleccionarInicio(nuevoInicio); await w.siguiente();
+    }
+    assert.equal(w.kinesiologaId, null); w.seleccionarProfesional(2); await w.siguiente(); await w.siguiente();
+    assert.equal(w.paso, 4); assert.equal(w.mensajeConfirmacion, '');
+    await w.confirmarTurno(); assert.equal(envios.length, 2);
+    for (const datos of envios) {
+        assert.equal(datos.get('clave_idempotencia'), antes.uuid);
+        assert.equal(datos.get('motivo_solicitud'), antes.motivo);
+        assert.equal(datos.get('adjuntos[0][archivo]'), antes.archivos[0].archivo);
+        assert.equal(datos.get('adjuntos[0][descripcion]'), antes.archivos[0].descripcion);
+    }
+    assert.equal(envios[1].get('kinesiologa_id'), '2');
+    assert.equal(envios[1].get('inicio_at'), resultado === 'R1' ? slot().inicio_at : nuevoInicio);
+});
+
+test('recovery usa ventana original; fallback contiene fecha sin imponer horizonte ni reloj local', async () => {
+    const w = preparar(async (url) => {
+        const parsed = new URL(url);
+        if (parsed.pathname.endsWith('profesionales-disponibles')) return json({ inicio_at: '2030-12-31 10:00:00', profesionales: [] });
+        assert.deepEqual(Object.fromEntries(parsed.searchParams), { desde: '2030-12-31', hasta: '2031-01-06' });
+        return json(agregado([], { desde: '2030-12-31', hasta: '2031-01-06' }));
+    });
+    await w.iniciarRecuperacion({ fecha: '2030-12-31', inicio: '2030-12-31 10:00:00', kinesiologa: 1, ventana: ventanaInicial });
+    assert.equal(w.tipoRecuperacion, 'R3'); assert.equal(w.fechaSeleccionada, null);
+    assert.deepEqual(w.ventana, { desde: '2030-12-31', hasta: '2031-01-06' });
 });
 
 test('409 sin code y UUID 422 son integración bloqueada, no otro conflicto ni UUID nueva', async () => {
@@ -469,11 +702,11 @@ for (const [errores, destino] of [[{ motivo_solicitud: ['Corregí el motivo'] },
     });
 }
 
-for (const [code, destino] of [['profesional_no_elegible', 'errorProfesional'], ['slot_no_disponible', 'mensajeConfirmacion']]) {
+for (const code of ['profesional_no_elegible', 'slot_no_disponible']) {
     test(`409 ${code}: foco contextual; refresh exitoso no lo roba`, async () => {
         entornoConfirmacion();
-        const w = enPaso4(async (url, opciones) => opciones.method === 'POST' ? json({ code }, 409) : json(agregado()));
-        const f = observarFoco(w); await w.confirmarTurno(); f.flush(); assert.deepEqual(f.focos, [destino]);
+        const w = enPaso4(async (url, opciones) => opciones.method === 'POST' ? json({ code }, 409) : json(profesionales()));
+        const f = observarFoco(w); await w.confirmarTurno(); f.flush(); assert.deepEqual(f.focos, ['mensajeConfirmacion']);
     });
 }
 

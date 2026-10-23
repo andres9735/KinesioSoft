@@ -140,6 +140,23 @@ class TurnosAccessibilityViewTest extends TestCase
         $this->assertSame(1, $xpath->query('//main//fieldset[@*[name()=":disabled"]="bloqueado"]/legend')->length);
     }
 
+    public function test_recovery_announces_context_and_keeps_its_retry_reachable_outside_the_disabled_form(): void
+    {
+        $xpath = $this->wizard();
+        $banner = $xpath->query('//*[@x-ref="mensajeConfirmacion"]')->item(0);
+        $this->assertSame('alert', $banner->getAttribute('role'));
+        $this->assertSame('-1', $banner->getAttribute('tabindex'));
+        $this->assertSame(1, $xpath->query('.//p[@x-show="tipoRecuperacion" and @x-text="detalleRecuperacion"]', $banner)->length);
+        $this->assertSame(1, $xpath->query('.//*[@role="status" and @x-show="recuperando"]', $banner)->length);
+        $retry = $xpath->query('.//button[@*[name()="x-on:click"]="reintentarRecuperacion()"]', $banner)->item(0);
+        $this->assertNotNull($retry);
+        $this->assertSame('button', $retry->getAttribute('type'));
+        $this->assertSame('Reintentar consulta', trim($retry->textContent));
+        $this->assertSame(0, $xpath->query('ancestor::fieldset', $retry)->length);
+        $this->assertFalse($retry->hasAttribute('tabindex'));
+        $this->assertStringContainsString('focus:ring-', $retry->getAttribute('class'));
+    }
+
     private function wizard(): DOMXPath
     {
         $html = (string) $this->view('turnos.solicitar.create', ['configuracionWizard' => [

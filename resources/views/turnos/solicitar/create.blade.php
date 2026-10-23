@@ -29,7 +29,10 @@
 
             <div x-show="mensajeConfirmacion" x-cloak x-ref="mensajeConfirmacion" tabindex="-1" role="alert" class="space-y-2 rounded-xl bg-amber-50 p-5 text-sm text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-600">
                 <p x-text="mensajeConfirmacion"></p>
-                <p x-show="paso === 1 && !resultadoIncierto">La disponibilidad se actualizó. Seleccioná otro horario disponible para continuar.</p>
+                <p x-show="tipoRecuperacion" x-text="detalleRecuperacion"></p>
+                <p x-show="recuperando" role="status">Consultando las opciones actuales.</p>
+                <button type="button" x-show="recuperacion?.estado === 'error'" @click="reintentarRecuperacion()" :disabled="enviando || recuperando || consolidado || redireccionando" class="inline-flex min-h-11 items-center rounded-lg px-4 py-2 font-semibold underline focus:outline-none focus:ring-2 focus:ring-amber-600">Reintentar consulta</button>
+                <p x-show="paso === 1 && !resultadoIncierto && !recuperacion && !tipoRecuperacion">La disponibilidad se actualizó. Seleccioná otro horario disponible para continuar.</p>
                 <p x-show="resultadoIncierto">Podés volver a pulsar Confirmar turno para reintentar.</p>
             </div>
 
@@ -42,7 +45,7 @@
             </fieldset>
 
             <div class="flex flex-col gap-3 rounded-2xl bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-                <button type="button" :disabled="bloqueado" @click="volverAMisTurnos()" class="inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Volver a Mis turnos</button>
+                <button type="button" :disabled="bloqueado && recuperacion?.estado !== 'error'" @click="volverAMisTurnos()" class="inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Volver a Mis turnos</button>
                 <div class="flex flex-col gap-3 sm:flex-row">
                     <button type="button" x-show="paso > 1" x-cloak :disabled="bloqueado" @click="anterior()" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-gray-100 px-5 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Anterior</button>
                     <button type="button" x-show="paso < 4" @click="siguiente()" :disabled="bloqueado || (paso === 1 && !puedeElegirProfesional) || (paso === 2 && !profesionalSeleccionada) || (paso === 3 && !puedeAvanzarPaso3)" x-text="paso === 3 ? 'Revisar turno' : 'Continuar'" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500">Continuar</button>

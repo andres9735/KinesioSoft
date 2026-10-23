@@ -87,6 +87,30 @@ class SolicitarTurnoCreateTest extends TestCase
         ], $titulos);
     }
 
+    public function test_contextual_recovery_has_a_separate_get_retry_outside_the_disabled_form(): void
+    {
+        $response = $this->actingAs($this->paciente->user)->get($this->url())->assertOk();
+        $html = preg_replace('/\s@([a-z][a-z.-]*)=/', ' x-on:$1=', $response->getContent());
+        $dom = new \DOMDocument;
+        @$dom->loadHTML('<?xml encoding="UTF-8">'.$html);
+        $xpath = new \DOMXPath($dom);
+        $banner = $xpath->query('//*[@x-ref="mensajeConfirmacion"]')->item(0);
+        $this->assertSame('alert', $banner->getAttribute('role'));
+        $this->assertSame('-1', $banner->getAttribute('tabindex'));
+        $this->assertSame(1, $xpath->query('.//p[@x-text="detalleRecuperacion"]', $banner)->length);
+        $retry = $xpath->query('.//button[@*[name()="x-on:click"]="reintentarRecuperacion()"]', $banner)->item(0);
+        $this->assertNotNull($retry);
+        $this->assertSame('button', $retry->getAttribute('type'));
+        $this->assertSame("recuperacion?.estado === 'error'", $retry->getAttribute('x-show'));
+        $this->assertSame('enviando || recuperando || consolidado || redireccionando', $retry->getAttribute(':disabled'));
+        $this->assertSame(0, $xpath->query('ancestor::fieldset', $retry)->length);
+        $this->assertSame(0, $xpath->query('.//*[@*[name()="x-on:click"]="confirmarTurno()"]', $banner)->length);
+        foreach (['errorDisponibilidad', 'errorProfesionales'] as $ref) {
+            $panel = $xpath->query('//*[@x-ref="'.$ref.'"]')->item(0);
+            $this->assertStringContainsString('&& !recuperacion', $panel->getAttribute('x-show'));
+        }
+    }
+
     #[DataProvider('actoresBloqueados')]
     public function test_access_uses_existing_patient_middleware(string $actor): void
     {

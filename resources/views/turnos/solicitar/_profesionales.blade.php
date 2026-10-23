@@ -24,7 +24,7 @@
             <p>Podés volver al Paso 1 y elegir otra fecha u horario.</p>
             <button type="button" @click="anterior()" :disabled="bloqueado" class="min-h-11 rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Elegir otro horario</button>
         </div>
-        <div x-show="estadoProfesionales === 'error'" x-cloak x-ref="errorProfesionales" tabindex="-1" role="alert" class="space-y-3 rounded-xl bg-amber-50 p-6 text-sm text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-600">
+        <div x-show="estadoProfesionales === 'error' && !recuperacion" x-cloak x-ref="errorProfesionales" tabindex="-1" role="alert" class="space-y-3 rounded-xl bg-amber-50 p-6 text-sm text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-600">
             <p x-text="errorConsultaProfesionales"></p>
             <button type="button" @click="cargarProfesionalesDisponibles()" :disabled="bloqueado || !puedeElegirProfesional" class="min-h-11 rounded-lg border border-amber-300 bg-white px-4 py-2 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-600 disabled:opacity-50">Reintentar</button>
         </div>

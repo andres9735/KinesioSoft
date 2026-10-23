@@ -73,6 +73,24 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
     let controladorProfesionales = null;
     let destruido = false;
     let inicializado = false;
+    let secuenciaRecuperacion = 0;
+    let controladorRecuperacion = null;
+
+    async function consultarJson(urlBase, parametros, signal, vigente) {
+        const url = new URL(urlBase);
+        url.search = new URLSearchParams(parametros);
+        const opciones = { headers: { Accept: 'application/json' }, credentials: 'same-origin', cache: 'no-store' };
+        if (signal) opciones.signal = signal;
+        const response = await fetchImpl(url.toString(), opciones);
+        if (!vigente()) return;
+        if (response.status !== 200) {
+            const error = new Error('No se pudo consultar la disponibilidad.');
+            error.status = response.status;
+            throw error;
+        }
+        const payload = await response.json();
+        if (vigente()) return payload;
+    }
 
     return {
         paso: 1,
@@ -106,9 +124,23 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
         resultadoIncierto: false,
         mensajeConfirmacion: '',
         erroresServidor: {},
+        recuperacion: null,
+        tipoRecuperacion: null,
+
+        get recuperando() {
+            return this.recuperacion?.estado === 'loading';
+        },
+
+        get detalleRecuperacion() {
+            return {
+                R1: 'Conservamos la fecha y la hora elegidas. Seleccioná otra profesional disponible o cambiá la fecha y el horario.',
+                R2: 'Conservamos la fecha elegida. Seleccioná otro horario disponible para continuar.',
+                R3: 'La disponibilidad se actualizó. Elegí otra fecha disponible para continuar.',
+            }[this.tipoRecuperacion] ?? '';
+        },
 
         get bloqueado() {
-            return this.enviando || this.consolidado || this.redireccionando;
+            return this.enviando || this.consolidado || this.redireccionando || this.recuperacion !== null;
         },
 
         get puedeConfirmar() {
@@ -137,6 +169,7 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
             destruido = true;
             this.cancelarConsultaDisponibilidad();
             this.cancelarConsultaProfesionales();
+            this.cancelarRecuperacion();
             this.desactivarAvisoAbandono();
         },
 
@@ -275,6 +308,7 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
                 return;
             }
             this.kinesiologaId = elegida;
+            this.limpiarAvisoRecuperacion();
             this.errorProfesional = '';
             delete this.erroresServidor.kinesiologa_id;
         },
@@ -456,6 +490,12 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
             this.limpiarProfesional();
         },
 
+        limpiarAvisoRecuperacion() {
+            if (!this.tipoRecuperacion) return;
+            this.tipoRecuperacion = null;
+            this.mensajeConfirmacion = '';
+        },
+
         seleccionarFecha(fecha) {
             if (this.bloqueado || this.estadoDisponibilidad !== 'success'
                 || fecha < config.fechaInicial
@@ -463,6 +503,7 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
             if (this.fechaSeleccionada !== fecha) {
                 this.invalidarInicio();
                 this.fechaSeleccionada = fecha;
+                this.limpiarAvisoRecuperacion();
             }
         },
 
@@ -472,6 +513,7 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
             if (this.inicioSeleccionado !== inicio) {
                 this.limpiarProfesional();
                 this.inicioSeleccionado = inicio;
+                this.limpiarAvisoRecuperacion();
             }
             delete this.erroresServidor.inicio_at;
         },
@@ -483,6 +525,7 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
             if (desde < config.fechaInicial) return;
             this.ventana = { desde, hasta: sumarDias(desde, 6) };
             this.fechaSeleccionada = null;
+            this.limpiarAvisoRecuperacion();
             return this.consultarDisponibilidad();
         },
 
@@ -496,19 +539,9 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
             const vigente = () => !destruido && requestId === secuenciaConsulta
                 && this.ventana.desde === ventana.desde && this.ventana.hasta === ventana.hasta;
             controladorConsulta = typeof AbortController === 'undefined' ? null : new AbortController();
-            const opciones = { headers: { Accept: 'application/json' }, credentials: 'same-origin', cache: 'no-store' };
-            if (controladorConsulta) opciones.signal = controladorConsulta.signal;
-            const url = new URL(config.urlDisponibilidad);
-            url.search = new URLSearchParams({ desde: ventana.desde, hasta: ventana.hasta });
             this.estadoDisponibilidad = 'loading';
             try {
-                const response = await fetchImpl(url.toString(), opciones);
-                if (!vigente()) return;
-                if (response.status !== 200) {
-                    this.tipoErrorDisponibilidad = response.status === 422 ? 'validacion' : 'tecnico';
-                    throw new Error('No se pudo consultar disponibilidad.');
-                }
-                const payload = await response.json();
+                const payload = await consultarJson(config.urlDisponibilidad, { desde: ventana.desde, hasta: ventana.hasta }, controladorConsulta?.signal, vigente);
                 if (!vigente()) return;
                 this.diasDisponibles = leerDias(payload, ventana);
                 this.ventanaConsultada = ventana;
@@ -517,7 +550,7 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
             } catch (error) {
                 if (!vigente() || error?.name === 'AbortError') return;
                 this.estadoDisponibilidad = 'error';
-                this.tipoErrorDisponibilidad ??= 'tecnico';
+                this.tipoErrorDisponibilidad = error?.status === 422 ? 'validacion' : 'tecnico';
                 this.errorDisponibilidad = 'No pudimos consultar los horarios. Intentá nuevamente.';
                 this.enfocarPaso('errorDisponibilidad');
             } finally {
@@ -535,19 +568,9 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
             const requestId = secuenciaProfesionales;
             const vigente = () => !destruido && requestId === secuenciaProfesionales && this.inicioSeleccionado === inicio;
             controladorProfesionales = typeof AbortController === 'undefined' ? null : new AbortController();
-            const opciones = { headers: { Accept: 'application/json' }, credentials: 'same-origin', cache: 'no-store' };
-            if (controladorProfesionales) opciones.signal = controladorProfesionales.signal;
-            const url = new URL(config.urlProfesionalesDisponibles);
-            url.search = new URLSearchParams({ inicio_at: inicio });
             this.estadoProfesionales = 'loading';
             try {
-                const response = await fetchImpl(url.toString(), opciones);
-                if (!vigente()) return;
-                if (response.status !== 200) {
-                    this.tipoErrorProfesionales = response.status === 422 ? 'validacion' : 'tecnico';
-                    throw new Error('No se pudo consultar profesionales.');
-                }
-                const payload = await response.json();
+                const payload = await consultarJson(config.urlProfesionalesDisponibles, { inicio_at: inicio }, controladorProfesionales?.signal, vigente);
                 if (!vigente()) return;
                 this.profesionales = leerProfesionales(payload, inicio);
                 this.inicioProfesionales = inicio;
@@ -555,7 +578,7 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
             } catch (error) {
                 if (!vigente() || error?.name === 'AbortError') return;
                 this.estadoProfesionales = 'error';
-                this.tipoErrorProfesionales ??= 'tecnico';
+                this.tipoErrorProfesionales = error?.status === 422 ? 'validacion' : 'tecnico';
                 this.errorConsultaProfesionales = 'No pudimos consultar las profesionales. Intentá nuevamente.';
                 this.enfocarPaso('errorProfesionales');
             } finally {
@@ -571,6 +594,95 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
             this.errorProfesional = 'La profesional ya no está disponible para atender. Elegí otra profesional.';
             this.paso = 2;
             this.enfocarPaso('errorProfesional');
+        },
+
+        cancelarRecuperacion() {
+            secuenciaRecuperacion++;
+            controladorRecuperacion?.abort();
+            controladorRecuperacion = null;
+        },
+
+        async iniciarRecuperacion(contexto) {
+            if (destruido) return;
+            this.cancelarRecuperacion();
+            this.cancelarConsultaDisponibilidad();
+            this.limpiarProfesional();
+            const ventana = contexto.ventana.desde <= contexto.fecha && contexto.ventana.hasta >= contexto.fecha
+                ? { ...contexto.ventana } : { desde: contexto.fecha, hasta: sumarDias(contexto.fecha, 6) };
+            this.recuperacion = { ...contexto, ventana, fase: 'profesionales', estado: 'idle' };
+            this.fechaSeleccionada = contexto.fecha;
+            this.inicioSeleccionado = contexto.inicio;
+            this.tipoRecuperacion = null;
+            this.paso = 2;
+            await this.reintentarRecuperacion();
+        },
+
+        async reintentarRecuperacion() {
+            if (destruido || !this.recuperacion || this.recuperando) return;
+            this.cancelarRecuperacion();
+            const requestId = secuenciaRecuperacion;
+            const contexto = this.recuperacion;
+            const vigente = () => !destruido && requestId === secuenciaRecuperacion
+                && this.recuperacion === contexto && this.fechaSeleccionada === contexto.fecha
+                && this.inicioSeleccionado === contexto.inicio;
+            controladorRecuperacion = typeof AbortController === 'undefined' ? null : new AbortController();
+            const signal = controladorRecuperacion?.signal;
+            contexto.estado = 'loading';
+            this.mensajeConfirmacion = 'Estamos actualizando la disponibilidad. Esperá un momento.';
+            try {
+                if (contexto.fase === 'profesionales') {
+                    this.estadoProfesionales = 'loading';
+                    const payload = await consultarJson(config.urlProfesionalesDisponibles, { inicio_at: contexto.inicio }, signal, vigente);
+                    if (!vigente()) return;
+                    const opciones = leerProfesionales(payload, contexto.inicio);
+                    this.profesionales = opciones;
+                    this.inicioProfesionales = contexto.inicio;
+                    this.estadoProfesionales = opciones.length ? 'success' : 'empty';
+                    if (opciones.length) {
+                        this.recuperacion = null;
+                        this.tipoRecuperacion = 'R1';
+                        this.mensajeConfirmacion = 'La profesional que habías seleccionado ya no está disponible para este horario.';
+                        this.enfocarPaso('mensajeConfirmacion');
+                        return;
+                    }
+                    contexto.fase = 'disponibilidad';
+                }
+                this.paso = 1;
+                this.ventana = { ...contexto.ventana };
+                this.diasDisponibles = [];
+                this.ventanaConsultada = null;
+                this.estadoDisponibilidad = 'loading';
+                const payload = await consultarJson(config.urlDisponibilidad, contexto.ventana, signal, vigente);
+                if (!vigente()) return;
+                const dias = leerDias(payload, contexto.ventana);
+                const fecha = dias.find((dia) => dia.fecha === contexto.fecha);
+                // Dos proyecciones que cambiaron entre lecturas no prueban que el inicio se perdió.
+                if (fecha?.horarios.some((horario) => horario.inicio_at === contexto.inicio)) {
+                    contexto.fase = 'profesionales';
+                    throw new Error('La disponibilidad cambió entre consultas.');
+                }
+                this.diasDisponibles = dias;
+                this.ventanaConsultada = { ...contexto.ventana };
+                this.estadoDisponibilidad = dias.length ? 'success' : 'empty';
+                this.invalidarInicio();
+                this.fechaSeleccionada = fecha ? contexto.fecha : null;
+                this.recuperacion = null;
+                this.tipoRecuperacion = fecha ? 'R2' : 'R3';
+                this.mensajeConfirmacion = fecha
+                    ? 'El horario que habías seleccionado ya no está disponible.'
+                    : 'La fecha que habías seleccionado ya no tiene horarios disponibles.';
+                this.enfocarPaso('mensajeConfirmacion');
+            } catch (error) {
+                if (!vigente() || error?.name === 'AbortError') return;
+                contexto.estado = 'error';
+                this.paso = contexto.fase === 'profesionales' ? 2 : 1;
+                if (contexto.fase === 'profesionales') this.estadoProfesionales = 'error';
+                else this.estadoDisponibilidad = 'error';
+                this.mensajeConfirmacion = 'No se registró el turno. No pudimos actualizar la disponibilidad. Reintentá la consulta para continuar.';
+                this.enfocarPaso('mensajeConfirmacion');
+            } finally {
+                if (requestId === secuenciaRecuperacion) controladorRecuperacion = null;
+            }
         },
 
         construirConfirmacion(archivos) {
@@ -593,6 +705,8 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
             this.mensajeConfirmacion = '';
             // Copiar los valores de la tentativa; el índice Laravel se resuelve luego por este ID local.
             const archivosEnviados = this.archivos.map(({ id, archivo, descripcion }) => ({ id, archivo, descripcion }));
+            const seleccionEnviada = { fecha: this.fechaSeleccionada, inicio: this.inicioSeleccionado,
+                kinesiologa: this.kinesiologaId, ventana: { ...this.ventana } };
             let refrescar = false;
             try {
                 const response = await fetchImpl(config.urlConfirmacion, {
@@ -615,14 +729,8 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
                         text: 'Podés consultar tus turnos en Mis turnos.', confirmButtonText: 'Ir a Mis turnos' });
                     this.desactivarAvisoAbandono();
                     window.location.assign(config.urlMisTurnos);
-                } else if (response.status === 409 && payload?.code === 'profesional_no_elegible') {
-                    this.invalidarProfesional(true);
-                } else if (response.status === 409 && payload?.code === 'slot_no_disponible') {
-                    this.invalidarInicio();
-                    this.paso = 1;
-                    this.mensajeConfirmacion = 'Ese horario acaba de dejar de estar disponible. Elegí otro horario.';
-                    this.enfocarPaso('mensajeConfirmacion');
-                    refrescar = true;
+                } else if (response.status === 409 && ['profesional_no_elegible', 'slot_no_disponible'].includes(payload?.code)) {
+                    await this.iniciarRecuperacion(seleccionEnviada);
                 } else if (response.status === 409) {
                     this.confirmacionBloqueada = true;
                     this.mensajeConfirmacion = 'No pudimos continuar con esta solicitud. Volvé a Mis turnos para iniciar un nuevo flujo.';
@@ -640,7 +748,7 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
                     this.mensajeConfirmacion = 'No pudimos confirmar el resultado. Tu turno podría haberse registrado. Reintentá con los mismos datos para comprobarlo de forma segura.';
                 }
             } finally {
-                this.enviando = false;
+                if (!destruido) this.enviando = false;
             }
             if (refrescar) await this.consultarDisponibilidad();
         },
@@ -733,7 +841,7 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
         },
 
         async volverAMisTurnos() {
-            if (this.bloqueado) return;
+            if (this.bloqueado && this.recuperacion?.estado !== 'error') return;
             if (this.hayDatosSignificativos) {
                 const confirmado = window.Swal
                     ? (await window.Swal.fire({

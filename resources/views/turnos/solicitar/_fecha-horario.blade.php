@@ -65,7 +65,7 @@
                 <p>No hay horarios disponibles entre el <span x-text="fechaLegible(ventana.desde)"></span> y el <span x-text="fechaLegible(ventana.hasta)"></span>.</p>
                 <p>Podés consultar otro período con Semana anterior o Semana siguiente.</p>
             </div>
-            <div x-show="estadoDisponibilidad === 'error'" x-cloak x-ref="errorDisponibilidad" tabindex="-1" role="alert" class="mt-6 space-y-3 rounded-xl bg-gray-50 px-5 py-10 text-center text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <div x-show="estadoDisponibilidad === 'error' && !recuperacion" x-cloak x-ref="errorDisponibilidad" tabindex="-1" role="alert" class="mt-6 space-y-3 rounded-xl bg-gray-50 px-5 py-10 text-center text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 <p class="text-lg font-semibold text-gray-900">No pudimos consultar la disponibilidad</p>
                 <p x-text="errorDisponibilidad"></p>
                 <button type="button" @click="consultarDisponibilidad()" class="min-h-11 rounded-lg bg-indigo-600 px-5 py-2 font-semibold text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Reintentar</button>
