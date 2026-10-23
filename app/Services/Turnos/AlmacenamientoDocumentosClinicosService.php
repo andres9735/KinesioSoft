@@ -17,14 +17,21 @@ final class AlmacenamientoDocumentosClinicosService
     /** @param array<array-key, mixed> $archivos */
     public function almacenar(array $archivos): OperacionAlmacenamientoDocumental
     {
-        $errores = $this->politica->validar($archivos);
+        // Los callers planos existentes conservan descripción NULL; los pares V2 viajan juntos.
+        $adjuntos = array_map(static fn (mixed $adjunto): array => is_array($adjunto)
+            ? $adjunto
+            : ['archivo' => $adjunto, 'descripcion' => null], $archivos);
+        $errores = $this->politica->validar(array_map(
+            static fn (array $adjunto): mixed => $adjunto['archivo'] ?? null,
+            $adjuntos,
+        ));
 
         if ($errores['coleccion'] !== [] || $errores['archivos'] !== []) {
             throw new AlmacenamientoDocumentalException('Los adjuntos incumplen la política documental.', violacionesPolitica: $errores);
         }
 
         return OperacionAlmacenamientoDocumental::almacenarValidados(
-            $archivos,
+            $adjuntos,
             Storage::disk(config('documentos_clinicos.disk')),
             $this->coordinador,
             config('documentos_clinicos.directorio'),

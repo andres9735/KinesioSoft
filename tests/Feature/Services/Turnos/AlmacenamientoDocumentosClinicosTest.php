@@ -93,7 +93,12 @@ class AlmacenamientoDocumentosClinicosTest extends TestCase
         });
         Storage::set('documentos_clinicos', $adapter);
         $archivos = [2 => $this->pdf('informe paciente ../../secreto.pdf'), 8 => $this->pdf('otro.jpg')];
-        $operacion = $this->service()->almacenar($archivos);
+        $adjuntos = [
+            2 => ['archivo' => $archivos[2], 'descripcion' => 'Adjunto sintético A ../secreto'],
+            8 => ['archivo' => $archivos[8], 'descripcion' => 'Adjunto sintético B 日本語'],
+        ];
+        Str::createUuidsUsingSequence([self::UUID_A, self::UUID_B]);
+        $operacion = $this->service()->almacenar($adjuntos);
         $documentos = $operacion->documentos();
 
         $this->assertSame([2, 8], array_keys($documentos));
@@ -104,6 +109,7 @@ class AlmacenamientoDocumentosClinicosTest extends TestCase
             $this->assertStringNotContainsString('secreto', $ruta);
             $this->assertStringNotContainsString('..', $ruta);
             $this->assertSame($archivos[$indice]->getClientOriginalName(), $documento['nombre_original']);
+            $this->assertSame($adjuntos[$indice]['descripcion'], $documento['descripcion']);
             $this->assertSame('application/pdf', $documento['mime_type']);
             $this->assertSame($archivos[$indice]->getSize(), $documento['tamanio_bytes']);
             $this->assertSame(file_get_contents($archivos[$indice]->getPathname()), $this->disco->get($ruta));
@@ -111,6 +117,7 @@ class AlmacenamientoDocumentosClinicosTest extends TestCase
             $this->assertArrayHasKey($ruta, $this->coordinador->activos);
         }
         $this->assertCount(2, array_unique(array_column($documentos, 'ruta_storage')));
+        $this->assertSame(['originales/'.self::UUID_A, 'originales/'.self::UUID_B], $this->coordinador->adquisiciones);
         $this->assertSame([], $consultas);
 
         $operacion->conservarYLiberar();
@@ -236,7 +243,10 @@ class AlmacenamientoDocumentosClinicosTest extends TestCase
         Storage::set('documentos_clinicos', $adapter);
 
         try {
-            $this->service()->almacenar([$this->pdf(), $this->pdf()]);
+            $this->service()->almacenar([
+                2 => ['archivo' => $this->pdf(), 'descripcion' => 'Adjunto sintético A.'],
+                7 => ['archivo' => $this->pdf(), 'descripcion' => 'Adjunto sintético B.'],
+            ]);
             $this->fail('Debe fallar la escritura.');
         } catch (AlmacenamientoDocumentalException $error) {
             if ($devuelveFalse) {

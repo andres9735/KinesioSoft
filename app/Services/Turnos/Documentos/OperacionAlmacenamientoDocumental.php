@@ -18,7 +18,7 @@ final class OperacionAlmacenamientoDocumental
     /** @var list<string> */
     private array $rutasPropias = [];
 
-    /** @var array<array-key, array{ruta_storage: string, nombre_original: string, mime_type: string, tamanio_bytes: int}> */
+    /** @var array<array-key, array{ruta_storage: string, nombre_original: string, descripcion: ?string, mime_type: string, tamanio_bytes: int}> */
     private array $documentos = [];
 
     private bool $finalizada = false;
@@ -29,7 +29,7 @@ final class OperacionAlmacenamientoDocumental
      * Uso interno del Service, después de validar la política 7.07.
      * No admite rutas proporcionadas por el caller.
      *
-     * @param  array<array-key, UploadedFile>  $archivos
+     * @param  array<array-key, array{archivo: UploadedFile, descripcion?: ?string}>  $archivos
      */
     public static function almacenarValidados(
         array $archivos,
@@ -44,7 +44,8 @@ final class OperacionAlmacenamientoDocumental
         $operacion = new self($disco);
 
         try {
-            foreach ($archivos as $indice => $archivo) {
+            foreach ($archivos as $indice => $adjunto) {
+                $archivo = $adjunto['archivo'];
                 $mime = $archivo->getMimeType();
                 $bytes = $archivo->getSize();
 
@@ -72,6 +73,7 @@ final class OperacionAlmacenamientoDocumental
                 $operacion->documentos[$indice] = [
                     'ruta_storage' => $ruta,
                     'nombre_original' => $archivo->getClientOriginalName(),
+                    'descripcion' => $adjunto['descripcion'] ?? null,
                     'mime_type' => $mime,
                     'tamanio_bytes' => $bytes,
                 ];
@@ -85,7 +87,7 @@ final class OperacionAlmacenamientoDocumental
         return $operacion;
     }
 
-    /** @return array<array-key, array{ruta_storage: string, nombre_original: string, mime_type: string, tamanio_bytes: int}> */
+    /** @return array<array-key, array{ruta_storage: string, nombre_original: string, descripcion: ?string, mime_type: string, tamanio_bytes: int}> */
     public function documentos(): array
     {
         return $this->documentos;

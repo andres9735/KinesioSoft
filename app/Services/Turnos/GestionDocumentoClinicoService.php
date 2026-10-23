@@ -13,7 +13,7 @@ final class GestionDocumentoClinicoService
 {
     public function __construct(private readonly AuditoriaService $auditoria) {}
 
-    /** @param array{ruta_storage: string, nombre_original: string, mime_type: string, tamanio_bytes: int} $metadata */
+    /** @param array{ruta_storage: string, nombre_original: string, descripcion?: ?string, mime_type: string, tamanio_bytes: int} $metadata */
     public function registrarOrigenTurno(User $actor, Paciente $paciente, Turno $turno, array $metadata): DocumentoClinico
     {
         if ((int) $turno->paciente_id !== (int) $paciente->getKey()
@@ -29,6 +29,7 @@ final class GestionDocumentoClinicoService
             'estado_validacion' => DocumentoClinico::ESTADO_VALIDACION_PENDIENTE,
             'tipo_documento_clinico' => DocumentoClinico::TIPO_SIN_CLASIFICAR,
             'nombre_original' => $metadata['nombre_original'],
+            'descripcion' => $metadata['descripcion'] ?? null,
             'ruta_storage' => $metadata['ruta_storage'],
             'mime_type' => $metadata['mime_type'],
             'tamanio_bytes' => $metadata['tamanio_bytes'],
