@@ -777,6 +777,232 @@ class SolicitarTurnoHttpTest extends TestCase
         return $casos;
     }
 
+    #[DataProvider('duracionesIntegradas')]
+    public function test_v2_both_gets_and_confirmation_preserve_individual_ends_and_replay(int $indice, string $fin, bool $conAdjunto): void
+    {
+        $otra = $this->profesionales30y45();
+        $this->actingAs($this->paciente->user);
+        $disponibilidad = $this->getJson($this->disponibilidadUrl())->assertOk()->assertExactJson([
+            'desde' => '2026-10-05', 'hasta' => '2026-10-05',
+            'dias' => [['fecha' => '2026-10-05', 'horarios' => [['inicio_at' => '2026-10-05 10:00:00']]]],
+        ]);
+        $inicio = $disponibilidad->json('dias.0.horarios.0.inicio_at');
+        $profesionales = $this->getJson($this->profesionalesUrl(['inicio_at' => $inicio]))->assertOk()->assertExactJson([
+            'inicio_at' => $inicio, 'profesionales' => [
+                $this->profesionalPublica($this->kinesiologa, '2026-10-05 10:30:00'),
+                $this->profesionalPublica($otra, '2026-10-05 10:45:00'),
+            ],
+        ]);
+        $seleccion = $profesionales->json("profesionales.$indice");
+        $payload = $this->payload(['inicio_at' => $inicio, 'kinesiologa_id' => $seleccion['kinesiologa_id']]);
+        if ($conAdjunto) {
+            $payload['adjuntos'] = [[
+                'archivo' => $this->archivo('integracion.pdf', "%PDF-1.7\nDocumento sintético\n%%EOF"),
+                'descripcion' => '  Descripción original sintética.  ',
+            ]];
+        }
+        $this->assertArrayNotHasKey('fin_at', $payload);
+        $respuesta = $this->post($this->storeUrl(), $payload, ['Accept' => 'application/json'])->assertCreated();
+        $turno = Turno::sole();
+        $respuesta->assertExactJson($this->success($turno, false));
+        $this->assertSame($inicio, $turno->inicio_at->toDateTimeString());
+        $this->assertSame(config('app.timezone'), $turno->inicio_at->timezoneName);
+        $this->assertSame($fin, $seleccion['fin_at']);
+        $this->assertSame($seleccion['fin_at'], $turno->fin_at->toDateTimeString());
+        $this->assertSame($seleccion['kinesiologa_id'], $turno->kinesiologa_id);
+        $this->assertSame($this->paciente->id, $turno->paciente_id);
+        $this->assertSame(TipoTurnoEnum::PRIMERA_CONSULTA, $turno->tipo);
+        $this->assertSame(EstadoTurnoEnum::PENDIENTE, $turno->estado);
+        $this->assertSame($payload['motivo_solicitud'], $turno->motivo_solicitud);
+        $this->assertSame($this->uuid, $turno->clave_idempotencia);
+        if ($conAdjunto) {
+            $documento = DocumentoClinico::sole();
+            $this->assertSame('Descripción original sintética.', $documento->descripcion);
+            $this->assertSame($this->paciente->id, $documento->paciente_id);
+            $this->assertSame($this->paciente->user_id, $documento->cargado_por_user_id);
+            $this->assertSame(file_get_contents($payload['adjuntos'][0]['archivo']->getRealPath()), $this->disco->get($documento->ruta_storage));
+            $this->assertDatabaseHas('documentos_clinicos_origen_turno', ['documento_clinico_id' => $documento->id, 'turno_id' => $turno->id]);
+        }
+        $this->postJson($this->storeUrl(), ['clave_idempotencia' => $this->uuid])->assertOk()->assertExactJson($this->success($turno, true));
+        $cantidadDocumentos = $conAdjunto ? 1 : 0;
+        $this->assertDatabaseCount('turnos', 1);
+        $this->assertDatabaseCount('documentos_clinicos', $cantidadDocumentos);
+        $this->assertDatabaseCount('documentos_clinicos_origen_turno', $cantidadDocumentos);
+        $this->assertDatabaseCount('auditorias', 1 + $cantidadDocumentos);
+        $this->assertCount($cantidadDocumentos, $this->disco->allFiles());
+    }
+
+    public static function duracionesIntegradas(): array
+    {
+        return ['A 30 minutos sin adjuntos' => [0, '2026-10-05 10:30:00', false], 'B 45 minutos con adjunto' => [1, '2026-10-05 10:45:00', true]];
+    }
+
+    public function test_v2_distinct_grids_are_preserved_through_both_gets_and_confirmation(): void
+    {
+        $this->configuracion->franjasHorarias()->sole()->update(['hora_fin' => '11:30:00']);
+        $otra = $this->profesional();
+        $this->agendaDe($otra, 45, '10:00:00', '12:15:00');
+        $this->actingAs($this->paciente->user);
+        $disponibilidad = $this->getJson($this->disponibilidadUrl())->assertOk();
+        $this->assertSame([
+            '2026-10-05 10:00:00', '2026-10-05 10:30:00', '2026-10-05 10:45:00',
+            '2026-10-05 11:00:00', '2026-10-05 11:30:00',
+        ], array_column($disponibilidad->json('dias.0.horarios'), 'inicio_at'));
+        $inicioA = $disponibilidad->json('dias.0.horarios.1.inicio_at');
+        $inicioB = $disponibilidad->json('dias.0.horarios.2.inicio_at');
+        $this->getJson($this->profesionalesUrl(['inicio_at' => $inicioA]))->assertOk()->assertExactJson([
+            'inicio_at' => $inicioA, 'profesionales' => [$this->profesionalPublica($this->kinesiologa, '2026-10-05 11:00:00')],
+        ]);
+        $seleccion = $this->getJson($this->profesionalesUrl(['inicio_at' => $inicioB]))->assertOk()->assertExactJson([
+            'inicio_at' => $inicioB, 'profesionales' => [$this->profesionalPublica($otra, '2026-10-05 11:30:00')],
+        ])->json('profesionales.0');
+        $this->assertConflict($this->postJson($this->storeUrl(), $this->payload(['kinesiologa_id' => $otra->id, 'inicio_at' => $inicioA])), 'slot_no_disponible');
+        $this->assertDatabaseCount('turnos', 0);
+        $this->postJson($this->storeUrl(), $this->payload(['kinesiologa_id' => $seleccion['kinesiologa_id'], 'inicio_at' => $inicioB]))->assertCreated();
+        $this->assertSame($inicioB, Turno::sole()->inicio_at->toDateTimeString());
+        $this->assertSame($seleccion['fin_at'], Turno::sole()->fin_at->toDateTimeString());
+    }
+
+    #[DataProvider('cambiosEntrePasos')]
+    public function test_v2_confirmation_revalidates_changes_after_both_gets(string $cambio): void
+    {
+        $otra = $this->profesionales30y45();
+        $this->actingAs($this->paciente->user);
+        $inicio = $this->getJson($this->disponibilidadUrl())->assertOk()->json('dias.0.horarios.0.inicio_at');
+        $this->getJson($this->profesionalesUrl(['inicio_at' => $inicio]))->assertOk()->assertJsonCount(2, 'profesionales');
+        switch ($cambio) {
+            case 'ocupacion':
+                $this->turno(['paciente_id' => $this->pacienteCompleto()->id, 'motivo_solicitud' => 'MOTIVO AJENO PRIVADO']);
+                break;
+            case 'bloqueo':
+                BloqueoAgenda::factory()->for($this->kinesiologa)->create([
+                    'inicio_at' => $inicio, 'fin_at' => '2026-10-05 10:30:00', 'motivo' => 'BLOQUEO PRIVADO',
+                ]);
+                break;
+            case 'elegibilidad':
+                $this->kinesiologa->user->update(['activo' => false]);
+                break;
+            case 'agenda':
+                $this->configuracion->franjasHorarias()->sole()->update(['hora_inicio' => '10:15:00', 'hora_fin' => '11:00:00']);
+                break;
+            case 'reloj':
+                CarbonImmutable::setTestNow(CarbonImmutable::parse($inicio, config('app.timezone')));
+                break;
+        }
+        $respuesta = $this->postJson($this->storeUrl(), $this->payload(['inicio_at' => $inicio]));
+        $this->assertConflict($respuesta, $cambio === 'elegibilidad' ? 'profesional_no_elegible' : 'slot_no_disponible');
+        $respuesta->assertDontSee('MOTIVO AJENO PRIVADO')->assertDontSee('BLOQUEO PRIVADO')->assertDontSee($this->uuid);
+        $this->assertDatabaseCount('turnos', $cambio === 'ocupacion' ? 1 : 0);
+        $this->assertDatabaseCount('documentos_clinicos', 0);
+        $this->assertDatabaseCount('documentos_clinicos_origen_turno', 0);
+        $this->assertDatabaseCount('auditorias', 0);
+        $this->assertSame([], $this->disco->allFiles());
+        $profesionales = $this->getJson($this->profesionalesUrl(['inicio_at' => $inicio]))->assertOk();
+        $disponibilidad = $this->getJson($this->disponibilidadUrl())->assertOk();
+        if ($cambio === 'reloj') {
+            $profesionales->assertExactJson(['inicio_at' => $inicio, 'profesionales' => []]);
+            $disponibilidad->assertJsonPath('dias', []);
+        } else {
+            $profesionales->assertExactJson(['inicio_at' => $inicio, 'profesionales' => [$this->profesionalPublica($otra, '2026-10-05 10:45:00')]]);
+            $this->assertContains($inicio, array_column($disponibilidad->json('dias.0.horarios'), 'inicio_at'));
+            $this->postJson($this->storeUrl(), $this->payload(['inicio_at' => $inicio, 'kinesiologa_id' => $profesionales->json('profesionales.0.kinesiologa_id')]))->assertCreated();
+            $this->assertSame('2026-10-05 10:45:00', Turno::where('clave_idempotencia', $this->uuid)->sole()->fin_at->toDateTimeString());
+        }
+    }
+
+    public static function cambiosEntrePasos(): array
+    {
+        return array_map(static fn (string $cambio): array => [$cambio], ['ocupacion', 'bloqueo', 'elegibilidad', 'agenda', 'reloj']);
+    }
+
+    public function test_v2_losing_all_contributors_removes_the_start_from_both_gets(): void
+    {
+        $otra = $this->profesionales30y45();
+        $this->actingAs($this->paciente->user);
+        $inicio = $this->getJson($this->disponibilidadUrl())->assertOk()->json('dias.0.horarios.0.inicio_at');
+        $this->getJson($this->profesionalesUrl(['inicio_at' => $inicio]))->assertOk()->assertJsonCount(2, 'profesionales');
+        foreach ([$this->kinesiologa, $otra] as $profesional) {
+            BloqueoAgenda::factory()->for($profesional)->create(['inicio_at' => $inicio, 'fin_at' => '2026-10-05 10:45:00']);
+        }
+        $this->getJson($this->profesionalesUrl(['inicio_at' => $inicio]))->assertOk()->assertExactJson(['inicio_at' => $inicio, 'profesionales' => []]);
+        $this->getJson($this->disponibilidadUrl())->assertOk()->assertExactJson(['desde' => '2026-10-05', 'hasta' => '2026-10-05', 'dias' => []]);
+        $this->assertDatabaseCount('turnos', 0);
+    }
+
+    public function test_v2_future_configuration_matches_both_gets_and_the_created_interval(): void
+    {
+        $this->configuracion->update(['vigencia_hasta' => '2026-10-11']);
+        $futura = ConfiguracionAgenda::factory()->for($this->kinesiologa)->create([
+            'vigencia_desde' => '2026-10-12', 'vigencia_hasta' => null, 'duracion_turno_minutos' => 45,
+        ]);
+        FranjaHorariaAgenda::factory()->for($futura, 'configuracionAgenda')->create([
+            'dia_semana' => DiaSemanaEnum::LUNES, 'hora_inicio' => '13:00:00', 'hora_fin' => '14:30:00',
+        ]);
+        $this->actingAs($this->paciente->user);
+        $disponibilidad = $this->getJson($this->disponibilidadUrl(['desde' => '2026-10-12', 'hasta' => '2026-10-12']))->assertOk()->assertExactJson([
+            'desde' => '2026-10-12', 'hasta' => '2026-10-12', 'dias' => [['fecha' => '2026-10-12', 'horarios' => [
+                ['inicio_at' => '2026-10-12 13:00:00'], ['inicio_at' => '2026-10-12 13:45:00'],
+            ]]],
+        ]);
+        $inicio = $disponibilidad->json('dias.0.horarios.0.inicio_at');
+        $seleccion = $this->getJson($this->profesionalesUrl(['inicio_at' => $inicio]))->assertOk()->assertExactJson([
+            'inicio_at' => $inicio, 'profesionales' => [$this->profesionalPublica($this->kinesiologa, '2026-10-12 13:45:00')],
+        ])->json('profesionales.0');
+        $this->postJson($this->storeUrl(), $this->payload(['inicio_at' => $inicio, 'kinesiologa_id' => $seleccion['kinesiologa_id']]))->assertCreated();
+        $this->assertSame($inicio, Turno::sole()->inicio_at->toDateTimeString());
+        $this->assertSame($seleccion['fin_at'], Turno::sole()->fin_at->toDateTimeString());
+    }
+
+    public function test_v2_d01_acquired_after_both_gets_is_authoritative_only_at_confirmation(): void
+    {
+        $otra = $this->profesionales30y45();
+        $this->actingAs($this->paciente->user);
+        $inicio = $this->getJson($this->disponibilidadUrl())->assertOk()->json('dias.0.horarios.0.inicio_at');
+        $this->getJson($this->profesionalesUrl(['inicio_at' => $inicio]))->assertOk()->assertJsonCount(2, 'profesionales');
+        $this->turno(['tipo' => TipoTurnoEnum::PRIMERA_CONSULTA, 'inicio_at' => '2026-10-05 11:00:00', 'fin_at' => '2026-10-05 11:30:00']);
+        $this->getJson($this->disponibilidadUrl())->assertOk()->assertJsonPath('dias.0.horarios.0.inicio_at', $inicio);
+        $this->getJson($this->profesionalesUrl(['inicio_at' => $inicio]))->assertOk()->assertJsonCount(2, 'profesionales');
+        $this->assertConflict($this->postJson($this->storeUrl(), $this->payload(['inicio_at' => $inicio, 'kinesiologa_id' => $otra->id])), 'primera_consulta_activa');
+        $this->assertDatabaseCount('turnos', 1);
+        $this->assertDatabaseCount('documentos_clinicos', 0);
+        $this->assertDatabaseCount('auditorias', 0);
+    }
+
+    public function test_v2_both_gets_only_read_without_locks_or_idempotency_side_effects(): void
+    {
+        $this->profesionales30y45();
+        $this->actingAs($this->paciente->user);
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        try {
+            $disponibilidad = $this->getJson($this->disponibilidadUrl())->assertOk();
+            $this->getJson($this->profesionalesUrl(['inicio_at' => $disponibilidad->json('dias.0.horarios.0.inicio_at')]))->assertOk()->assertJsonCount(2, 'profesionales');
+            $consultas = DB::getQueryLog();
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
+        $this->assertNotEmpty($consultas);
+        foreach ($consultas as $consulta) {
+            $this->assertStringStartsWith('select ', strtolower(ltrim($consulta['query'])));
+            $this->assertStringNotContainsString('for update', strtolower($consulta['query']));
+        }
+        $this->assertDatabaseCount('turnos', 0);
+        $this->assertDatabaseCount('documentos_clinicos', 0);
+        $this->assertDatabaseCount('documentos_clinicos_origen_turno', 0);
+        $this->assertDatabaseCount('auditorias', 0);
+        $this->assertSame([], $this->disco->allFiles());
+    }
+
+    private function profesionales30y45(): Kinesiologa
+    {
+        $this->configuracion->franjasHorarias()->sole()->update(['hora_fin' => '10:45:00']);
+        $otra = $this->profesional();
+        $this->agendaDe($otra, 45, '10:00:00', '10:45:00');
+
+        return $otra;
+    }
+
     private function assertConflict($response, string $code): void
     {
         $response->assertConflict()->assertJsonPath('code', $code)->assertJsonStructure(['code', 'message'])->assertJsonCount(2);
