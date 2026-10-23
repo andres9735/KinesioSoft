@@ -17,7 +17,6 @@ class ConsultarDisponibilidadPrimeraConsultaRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'kinesiologa_id' => ['bail', 'required', 'integer', 'exists:kinesiologas,id'],
             'desde' => ['bail', 'required', 'date_format:Y-m-d'],
             'hasta' => ['bail', 'required', 'date_format:Y-m-d', 'after_or_equal:desde'],
         ];
@@ -27,7 +26,7 @@ class ConsultarDisponibilidadPrimeraConsultaRequest extends FormRequest
     {
         return [function (Validator $validator): void {
             foreach (array_keys($this->all()) as $campo) {
-                if (! in_array($campo, ['kinesiologa_id', 'desde', 'hasta', '_token'], true)) {
+                if (! in_array($campo, ['desde', 'hasta', '_token'], true)) {
                     $validator->errors()->add($campo, 'Este campo no está permitido.');
                 }
             }
@@ -49,6 +48,6 @@ class ConsultarDisponibilidadPrimeraConsultaRequest extends FormRequest
 
     public function attributes(): array
     {
-        return ['kinesiologa_id' => 'profesional', 'desde' => 'fecha desde', 'hasta' => 'fecha hasta'];
+        return ['desde' => 'fecha desde', 'hasta' => 'fecha hasta'];
     }
 }

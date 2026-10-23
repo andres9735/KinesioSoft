@@ -119,32 +119,38 @@ class SolicitarTurnoHttpTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_availability_uses_real_engine_and_exposes_only_ordered_intervals(): void
+    public function test_availability_uses_real_engine_and_exposes_only_ordered_dates_and_starts(): void
     {
         $this->turno(['inicio_at' => '2026-10-05 10:30:00', 'fin_at' => '2026-10-05 11:00:00']);
         BloqueoAgenda::factory()->for($this->kinesiologa)->create([
             'inicio_at' => '2026-10-05 11:00:00', 'fin_at' => '2026-10-05 11:30:00', 'motivo' => 'MOTIVO BLOQUEO PRIVADO',
         ]);
         $response = $this->actingAs($this->paciente->user)->getJson($this->disponibilidadUrl());
-        $response->assertOk()->assertExactJson(['slots' => [
-            ['inicio_at' => '2026-10-05 10:00:00', 'fin_at' => '2026-10-05 10:30:00'],
-            ['inicio_at' => '2026-10-05 11:30:00', 'fin_at' => '2026-10-05 12:00:00'],
-        ]])->assertDontSee('MOTIVO BLOQUEO PRIVADO');
+        $response->assertOk()->assertExactJson([
+            'desde' => '2026-10-05', 'hasta' => '2026-10-05',
+            'dias' => [['fecha' => '2026-10-05', 'horarios' => [
+                ['inicio_at' => '2026-10-05 10:00:00'],
+                ['inicio_at' => '2026-10-05 11:30:00'],
+            ]]],
+        ])->assertDontSee('MOTIVO BLOQUEO PRIVADO')->assertDontSee($this->paciente->user->email);
     }
 
     public function test_valid_empty_availability_is_200_json_even_without_accept_header(): void
     {
         $this->actingAs($this->paciente->user)->get($this->disponibilidadUrl(['desde' => '2026-10-06', 'hasta' => '2026-10-06']))
-            ->assertOk()->assertExactJson(['slots' => []]);
+            ->assertOk()->assertExactJson(['desde' => '2026-10-06', 'hasta' => '2026-10-06', 'dias' => []]);
     }
 
     public function test_same_day_availability_excludes_started_slots_without_controller_time_rules(): void
     {
         CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-05 10:30:00', config('app.timezone')));
-        $this->actingAs($this->paciente->user)->getJson($this->disponibilidadUrl())->assertOk()->assertExactJson(['slots' => [
-            ['inicio_at' => '2026-10-05 11:00:00', 'fin_at' => '2026-10-05 11:30:00'],
-            ['inicio_at' => '2026-10-05 11:30:00', 'fin_at' => '2026-10-05 12:00:00'],
-        ]]);
+        $this->actingAs($this->paciente->user)->getJson($this->disponibilidadUrl())->assertOk()->assertExactJson([
+            'desde' => '2026-10-05', 'hasta' => '2026-10-05',
+            'dias' => [['fecha' => '2026-10-05', 'horarios' => [
+                ['inicio_at' => '2026-10-05 11:00:00'],
+                ['inicio_at' => '2026-10-05 11:30:00'],
+            ]]],
+        ]);
     }
 
     #[DataProvider('disponibilidadInvalida')]
@@ -157,7 +163,8 @@ class SolicitarTurnoHttpTest extends TestCase
     public static function disponibilidadInvalida(): array
     {
         return [
-            [['kinesiologa_id' => 999999], 'kinesiologa_id'],
+            [['kinesiologa_id' => 1], 'kinesiologa_id'],
+            [['desde' => null], 'desde'], [['hasta' => null], 'hasta'],
             [['desde' => '05/10/2026'], 'desde'], [['hasta' => 'no-fecha'], 'hasta'],
             [['hasta' => '2026-10-04'], 'hasta'], [['hasta' => '2026-11-05'], 'hasta'],
             [['paciente_id' => 999], 'paciente_id'],
@@ -168,7 +175,7 @@ class SolicitarTurnoHttpTest extends TestCase
     public function test_31_inclusive_dates_and_distant_dates_are_valid(string $desde, string $hasta): void
     {
         $this->actingAs($this->paciente->user)->getJson($this->disponibilidadUrl(compact('desde', 'hasta')))
-            ->assertOk()->assertJsonStructure(['slots']);
+            ->assertOk()->assertJsonPath('desde', $desde)->assertJsonPath('hasta', $hasta)->assertJsonStructure(['dias']);
     }
 
     public static function ventanasValidas(): array
@@ -176,11 +183,97 @@ class SolicitarTurnoHttpTest extends TestCase
         return [['2026-10-05', '2026-11-04'], ['2030-10-07', '2030-10-07']];
     }
 
-    public function test_ineligible_availability_has_only_the_canonical_conflict_code_and_message(): void
+    public function test_no_eligible_professionals_is_a_successful_empty_window_not_a_conflict(): void
     {
         $this->kinesiologa->user->update(['activo' => false]);
         $response = $this->actingAs($this->paciente->user)->getJson($this->disponibilidadUrl());
-        $this->assertConflict($response, 'profesional_no_elegible');
+        $response->assertOk()->assertExactJson(['desde' => '2026-10-05', 'hasta' => '2026-10-05', 'dias' => []]);
+    }
+
+    public function test_shared_start_with_different_durations_exposes_neither_finishes_nor_professionals(): void
+    {
+        $this->configuracion->franjasHorarias()->update(['hora_fin' => '10:45:00']);
+        $otra = $this->profesional();
+        $this->agendaDe($otra, 45, '10:00:00', '10:45:00');
+
+        $response = $this->actingAs($this->paciente->user)->getJson($this->disponibilidadUrl());
+
+        $response->assertOk()->assertExactJson([
+            'desde' => '2026-10-05', 'hasta' => '2026-10-05',
+            'dias' => [['fecha' => '2026-10-05', 'horarios' => [['inicio_at' => '2026-10-05 10:00:00']]]],
+        ])->assertDontSee('10:30:00')->assertDontSee('10:45:00')
+            ->assertDontSee($this->kinesiologa->user->email)->assertDontSee($otra->user->email);
+    }
+
+    public function test_distinct_professional_grids_are_united_in_order_without_duplicate_starts(): void
+    {
+        $this->agendaDe($this->profesional(), 45, '10:00:00', '12:15:00');
+
+        $this->actingAs($this->paciente->user)->getJson($this->disponibilidadUrl())->assertOk()->assertExactJson([
+            'desde' => '2026-10-05', 'hasta' => '2026-10-05',
+            'dias' => [['fecha' => '2026-10-05', 'horarios' => [
+                ['inicio_at' => '2026-10-05 10:00:00'],
+                ['inicio_at' => '2026-10-05 10:30:00'],
+                ['inicio_at' => '2026-10-05 10:45:00'],
+                ['inicio_at' => '2026-10-05 11:00:00'],
+                ['inicio_at' => '2026-10-05 11:30:00'],
+            ]]],
+        ]);
+    }
+
+    public function test_response_identifies_its_window_and_omits_empty_and_unqueried_dates(): void
+    {
+        FranjaHorariaAgenda::factory()->for($this->configuracion, 'configuracionAgenda')->create([
+            'dia_semana' => DiaSemanaEnum::MIERCOLES, 'hora_inicio' => '09:00:00', 'hora_fin' => '09:30:00',
+        ]);
+        $this->configuracion->franjasHorarias()->where('dia_semana', DiaSemanaEnum::LUNES->value)->update(['hora_fin' => '10:30:00']);
+        $this->actingAs($this->paciente->user)->getJson($this->disponibilidadUrl(['hasta' => '2026-10-08']))
+            ->assertOk()->assertExactJson([
+                'desde' => '2026-10-05', 'hasta' => '2026-10-08',
+                'dias' => [
+                    ['fecha' => '2026-10-05', 'horarios' => [['inicio_at' => '2026-10-05 10:00:00']]],
+                    ['fecha' => '2026-10-07', 'horarios' => [['inicio_at' => '2026-10-07 09:00:00']]],
+                ],
+            ]);
+        $this->getJson($this->disponibilidadUrl(['desde' => '2026-10-06', 'hasta' => '2026-10-07']))
+            ->assertOk()->assertExactJson([
+                'desde' => '2026-10-06', 'hasta' => '2026-10-07',
+                'dias' => [['fecha' => '2026-10-07', 'horarios' => [['inicio_at' => '2026-10-07 09:00:00']]]],
+            ]);
+    }
+
+    public function test_start_disappears_only_when_no_eligible_professional_still_contributes_it(): void
+    {
+        $this->configuracion->franjasHorarias()->update(['hora_fin' => '10:30:00']);
+        $otra = $this->profesional();
+        $this->agendaDe($otra, 30, '10:00:00', '10:30:00');
+        $this->turno();
+        $this->actingAs($this->paciente->user)->getJson($this->disponibilidadUrl())->assertOk()->assertExactJson([
+            'desde' => '2026-10-05', 'hasta' => '2026-10-05',
+            'dias' => [['fecha' => '2026-10-05', 'horarios' => [['inicio_at' => '2026-10-05 10:00:00']]]],
+        ]);
+        $this->turno(['kinesiologa_id' => $otra->id]);
+        $this->getJson($this->disponibilidadUrl())->assertOk()
+            ->assertExactJson(['desde' => '2026-10-05', 'hasta' => '2026-10-05', 'dias' => []]);
+    }
+
+    public function test_projection_uses_only_eligible_professionals_and_does_not_restore_excluded_starts(): void
+    {
+        $this->kinesiologa->user->update(['activo' => false]);
+        $this->agendaDe($this->profesional(), 30, '14:00:00', '14:30:00');
+
+        $this->actingAs($this->paciente->user)->getJson($this->disponibilidadUrl())->assertOk()->assertExactJson([
+            'desde' => '2026-10-05', 'hasta' => '2026-10-05',
+            'dias' => [['fecha' => '2026-10-05', 'horarios' => [['inicio_at' => '2026-10-05 14:00:00']]]],
+        ]);
+    }
+
+    public function test_http_window_limit_is_enforced_even_when_no_professional_is_eligible(): void
+    {
+        $this->kinesiologa->user->update(['activo' => false]);
+
+        $this->actingAs($this->paciente->user)->getJson($this->disponibilidadUrl(['hasta' => '2026-11-05']))
+            ->assertUnprocessable()->assertJsonValidationErrors('hasta')->assertJsonMissingPath('dias');
     }
 
     public function test_creation_returns_201_only_after_commit_with_a_small_whitelist_and_localizable_destination(): void
@@ -207,12 +300,15 @@ class SolicitarTurnoHttpTest extends TestCase
     public function test_real_valid_multipart_flows_through_request_action_and_document_persistence(): void
     {
         $file = $this->archivo('Estudio privado.pdf', "%PDF-1.7\nDocumento de prueba\n%%EOF");
-        $response = $this->actingAs($this->paciente->user)->post($this->storeUrl(), $this->payload(['adjuntos' => [$file]]), ['Accept' => 'application/json']);
+        $response = $this->actingAs($this->paciente->user)->post($this->storeUrl(), $this->payload([
+            'adjuntos' => [['archivo' => $file, 'descripcion' => 'Documento sintético para la regresión HTTP.']],
+        ]), ['Accept' => 'application/json']);
         $response->assertCreated()->assertExactJson($this->success(Turno::sole(), false));
         $doc = DocumentoClinico::sole();
         $this->assertSame($this->paciente->id, $doc->paciente_id);
         $this->assertSame($this->paciente->user_id, $doc->cargado_por_user_id);
         $this->assertSame('application/pdf', $doc->mime_type);
+        $this->assertSame('Documento sintético para la regresión HTTP.', $doc->descripcion);
         $this->assertSame(file_get_contents($file->getRealPath()), $this->disco->get($doc->ruta_storage));
         $this->assertDatabaseHas('documentos_clinicos_origen_turno', ['documento_clinico_id' => $doc->id, 'turno_id' => $response->json('turno_id')]);
         $this->assertDatabaseCount('auditorias', 2);
@@ -274,8 +370,8 @@ class SolicitarTurnoHttpTest extends TestCase
     public function test_invalid_real_file_is_a_field_validation_error(): void
     {
         $this->actingAs($this->paciente->user)->post($this->storeUrl(), $this->payload([
-            'adjuntos' => [$this->archivo('falso.pdf', 'no es PDF')],
-        ]), ['Accept' => 'application/json'])->assertUnprocessable()->assertJsonValidationErrors('adjuntos.0');
+            'adjuntos' => [['archivo' => $this->archivo('falso.pdf', 'no es PDF'), 'descripcion' => 'Archivo sintético inválido.']],
+        ]), ['Accept' => 'application/json'])->assertUnprocessable()->assertJsonValidationErrors('adjuntos.0.archivo');
         $this->assertDatabaseCount('turnos', 0);
     }
 
@@ -463,7 +559,7 @@ class SolicitarTurnoHttpTest extends TestCase
     private function disponibilidadUrl(array $cambios = []): string
     {
         return route('turnos.solicitar.disponibilidad', array_replace([
-            'kinesiologa_id' => $this->kinesiologa->id, 'desde' => '2026-10-05', 'hasta' => '2026-10-05',
+            'desde' => '2026-10-05', 'hasta' => '2026-10-05',
         ], $cambios));
     }
 
@@ -521,5 +617,15 @@ class SolicitarTurnoHttpTest extends TestCase
         $kinesiologa->especialidades()->attach($especialidad);
 
         return $kinesiologa;
+    }
+
+    private function agendaDe(Kinesiologa $profesional, int $duracion, string $inicio, string $fin): void
+    {
+        $configuracion = ConfiguracionAgenda::factory()->for($profesional)->create([
+            'vigencia_desde' => '2026-10-01', 'vigencia_hasta' => null, 'duracion_turno_minutos' => $duracion,
+        ]);
+        FranjaHorariaAgenda::factory()->for($configuracion, 'configuracionAgenda')->create([
+            'dia_semana' => DiaSemanaEnum::LUNES, 'hora_inicio' => $inicio, 'hora_fin' => $fin,
+        ]);
     }
 }

@@ -11,7 +11,7 @@ use App\Http\Requests\ConsultarDisponibilidadPrimeraConsultaRequest;
 use App\Models\Kinesiologa;
 use App\Models\Paciente;
 use App\Services\Agenda\RelojAplicacion;
-use App\Services\Turnos\DisponibilidadPrimeraConsultaService;
+use App\Services\Turnos\DisponibilidadAgregadaPrimeraConsultaService;
 use App\Services\Turnos\ElegibilidadKinesiologaService;
 use App\Services\Turnos\ElegibilidadPrimeraConsultaService;
 use Carbon\CarbonImmutable;
@@ -61,23 +61,23 @@ final class SolicitarTurnoController extends Controller
         ]]);
     }
 
-    public function disponibilidad(ConsultarDisponibilidadPrimeraConsultaRequest $request, DisponibilidadPrimeraConsultaService $disponibilidad): JsonResponse
+    public function disponibilidad(ConsultarDisponibilidadPrimeraConsultaRequest $request, DisponibilidadAgregadaPrimeraConsultaService $disponibilidad): JsonResponse
     {
         $datos = $request->validated();
-        $profesional = Kinesiologa::findOrFail($datos['kinesiologa_id']);
         $desde = CarbonImmutable::createFromFormat('!Y-m-d', $datos['desde'], config('app.timezone'));
         $hasta = CarbonImmutable::createFromFormat('!Y-m-d', $datos['hasta'], config('app.timezone'));
+        $dias = $disponibilidad->consultarDisponibilidad($desde, $hasta);
 
-        try {
-            $slots = $disponibilidad->consultarDisponibilidad($profesional, $desde, $hasta);
-        } catch (ProfesionalNoElegibleException) {
-            return $this->conflicto('profesional_no_elegible', 'La profesional seleccionada ya no está disponible para atender.');
-        }
-
-        return response()->json(['slots' => array_map(static fn (array $slot): array => [
-            'inicio_at' => $slot['inicio_at']->toDateTimeString(),
-            'fin_at' => $slot['fin_at']->toDateTimeString(),
-        ], $slots)]);
+        return response()->json([
+            'desde' => $datos['desde'],
+            'hasta' => $datos['hasta'],
+            'dias' => array_map(static fn (array $dia): array => [
+                'fecha' => $dia['fecha'],
+                'horarios' => array_map(static fn (array $horario): array => [
+                    'inicio_at' => $horario['inicio_at']->toDateTimeString(),
+                ], $dia['horarios']),
+            ], $dias),
+        ]);
     }
 
     public function store(ConfirmarPrimeraConsultaRequest $request, ConfirmarPrimeraConsultaAction $confirmar): JsonResponse

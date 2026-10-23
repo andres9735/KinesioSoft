@@ -3,9 +3,6 @@
 namespace Tests\Feature\Requests;
 
 use App\Http\Requests\ConsultarDisponibilidadPrimeraConsultaRequest;
-use App\Models\Kinesiologa;
-use App\Models\TituloProfesional;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -15,17 +12,6 @@ use Tests\TestCase;
 class ConsultarDisponibilidadPrimeraConsultaRequestTest extends TestCase
 {
     use RefreshDatabase;
-
-    private Kinesiologa $kinesiologa;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $this->kinesiologa = Kinesiologa::create([
-            'user_id' => User::factory()->create(['activo' => false])->id,
-            'titulo_profesional_id' => TituloProfesional::create(['nombre' => 'Título', 'slug' => 'titulo-request', 'activo' => true])->id,
-        ]);
-    }
 
     protected function tearDown(): void
     {
@@ -61,9 +47,6 @@ class ConsultarDisponibilidadPrimeraConsultaRequestTest extends TestCase
     public static function entradasInvalidas(): array
     {
         return [
-            'profesional requerida' => [['kinesiologa_id' => null], 'kinesiologa_id'],
-            'profesional no entera' => [['kinesiologa_id' => 'abc'], 'kinesiologa_id'],
-            'profesional inexistente' => [['kinesiologa_id' => 999999], 'kinesiologa_id'],
             'desde requerido' => [['desde' => null], 'desde'],
             'hasta requerido' => [['hasta' => null], 'hasta'],
             'desde formato' => [['desde' => '05/10/2026'], 'desde'],
@@ -84,7 +67,7 @@ class ConsultarDisponibilidadPrimeraConsultaRequestTest extends TestCase
 
     public static function camposProhibidos(): array
     {
-        return array_map(fn ($campo) => [$campo], ['paciente_id', 'fin_at', 'estado', 'tipo', 'slot', 'motivo_solicitud', 'adjuntos', 'foo']);
+        return array_map(fn ($campo) => [$campo], ['kinesiologa_id', 'paciente_id', 'fin_at', 'estado', 'tipo', 'slot', 'motivo_solicitud', 'adjuntos', 'foo']);
     }
 
     public function test_window_limit_consumes_configuration_instead_of_a_fixed_31(): void
@@ -94,15 +77,35 @@ class ConsultarDisponibilidadPrimeraConsultaRequestTest extends TestCase
         $this->assertError($this->payload(['hasta' => '2026-10-07']), 'hasta');
     }
 
-    public function test_only_checks_structural_professional_existence_without_evaluating_eligibility_or_agenda(): void
+    public function test_window_validation_needs_no_professional_and_executes_no_queries(): void
     {
+        DB::flushQueryLog();
         DB::enableQueryLog();
-        $this->validar($this->payload());
+        $request = $this->validar($this->payload());
         $consultas = DB::getQueryLog();
-        $this->assertCount(1, $consultas);
-        $this->assertStringContainsString('"kinesiologas"', $consultas[0]['query']);
-        $this->assertStringNotContainsString('activo', $consultas[0]['query']);
-        $this->assertFalse($this->kinesiologa->user->activo);
+        DB::disableQueryLog();
+        $this->assertSame([], $consultas);
+        $this->assertSame($this->payload(), $request->validated());
+        $this->assertArrayNotHasKey('kinesiologa_id', $request->validated());
+    }
+
+    #[DataProvider('profesionalesObsoletas')]
+    public function test_professional_parameter_is_rejected_instead_of_enabling_a_v1_mode(mixed $valor): void
+    {
+        $this->assertError($this->payload(['kinesiologa_id' => $valor]), 'kinesiologa_id');
+    }
+
+    public static function profesionalesObsoletas(): array
+    {
+        return [[1], ['1'], [[1, 2]]];
+    }
+
+    public function test_window_counts_calendar_dates_across_a_daylight_saving_transition(): void
+    {
+        config(['app.timezone' => 'America/New_York']);
+        $valida = ['desde' => '2026-03-01', 'hasta' => '2026-03-31'];
+        $this->assertSame($valida, $this->validar($valida)->validated());
+        $this->assertError(['desde' => '2026-03-01', 'hasta' => '2026-04-01'], 'hasta');
     }
 
     public function test_csrf_metadata_is_allowed_but_is_not_validated_as_functional_input(): void
@@ -114,7 +117,7 @@ class ConsultarDisponibilidadPrimeraConsultaRequestTest extends TestCase
 
     private function payload(array $cambios = []): array
     {
-        return array_replace(['kinesiologa_id' => $this->kinesiologa->id, 'desde' => '2026-10-05', 'hasta' => '2026-10-07'], $cambios);
+        return array_replace(['desde' => '2026-10-05', 'hasta' => '2026-10-07'], $cambios);
     }
 
     private function validar(array $payload): ConsultarDisponibilidadPrimeraConsultaRequest
