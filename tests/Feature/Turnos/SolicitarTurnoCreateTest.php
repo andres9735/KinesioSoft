@@ -287,7 +287,7 @@ class SolicitarTurnoCreateTest extends TestCase
         $response = $this->actingAs($this->paciente->user)->get($this->url())->assertOk();
         $this->assertArrayNotHasKey('profesionales', $response->viewData('configuracionWizard'));
         $response->assertSee('x-data="solicitarTurno(', false)->assertDontSee('profesionales: []', false)
-            ->assertSee('grupo in diasDisponibles', false)->assertSee('horario in grupo.horarios', false)
+            ->assertSee('dia in fechasCalendario', false)->assertSee('horario in horariosDisponibles', false)
             ->assertSee('seleccionarInicio(horario.inicio_at)', false)->assertSee('intervaloSeleccionado', false)
             ->assertDontSee('slotSeleccionado', false)->assertDontSee('slot.fin_at', false)
             ->assertDontSee('No hay profesionales disponibles para nuevas solicitudes en este momento.');
@@ -332,12 +332,12 @@ class SolicitarTurnoCreateTest extends TestCase
         $xpath = new \DOMXPath($dom);
         $this->assertSame(0, $xpath->query('//main//form')->length);
         $this->assertSame(0, $xpath->query('//main//*[@type="submit"]')->length);
-        $botonesAnteriores = $xpath->query('//main//button[normalize-space(.)="Semana anterior"]');
+        $botonesAnteriores = $xpath->query('//main//button[@aria-label="Semana anterior"]');
         $this->assertSame(1, $botonesAnteriores->length);
         $botonAnterior = $botonesAnteriores->item(0);
         $this->assertSame('button', $botonAnterior->getAttribute('type'));
         // DOMDocument descarta atributos que comienzan con @; comprobar los bindings en ese botón del HTML original.
-        $this->assertSame(1, preg_match('/<button\b[^>]*>\s*Semana anterior\s*<\/button>/s', $response->getContent(), $botonHtml));
+        $this->assertSame(1, preg_match('/<button\b(?=[^>]*aria-label="Semana anterior")[^>]*>.*?<\/button>/s', $response->getContent(), $botonHtml));
         $this->assertStringContainsString('@click="cambiarVentana(-1)"', $botonHtml[0]);
         $this->assertStringContainsString(
             ':disabled="ventana.desde === '.Js::from($response->viewData('configuracionWizard')['fechaInicial'])->toHtml().'"',
@@ -347,6 +347,41 @@ class SolicitarTurnoCreateTest extends TestCase
             'turnos.mis-turnos.index', 'turnos.solicitar.create', 'turnos.solicitar.disponibilidad', 'turnos.solicitar.profesionales-disponibles', 'turnos.solicitar.store',
         ], collect(Route::getRoutes())->filter(fn ($ruta) => str_starts_with($ruta->uri(), 'turnos/') && ! str_starts_with($ruta->uri(), 'turnos/agenda'))
             ->map(fn ($ruta) => $ruta->getName())->values()->all());
+    }
+
+    public function test_step_one_has_separate_native_date_and_time_controls_without_professional_or_universal_end(): void
+    {
+        $response = $this->actingAs($this->paciente->user)->get($this->url())->assertOk();
+        $html = preg_replace('/\s@([a-z][a-z.-]*)=/', ' x-on:$1=', $response->getContent());
+        $dom = new \DOMDocument;
+        @$dom->loadHTML($html);
+        $xpath = new \DOMXPath($dom);
+        $paso = $xpath->query('//section[@aria-labelledby="titulo-paso-1"]')->item(0);
+        $this->assertNotNull($paso);
+        $fecha = $xpath->query('.//button[@*[name()="x-on:click"]="seleccionarFecha(dia.fecha)"]', $paso)->item(0);
+        $hora = $xpath->query('.//button[@*[name()="x-on:click"]="seleccionarInicio(horario.inicio_at)"]', $paso)->item(0);
+        foreach ([$fecha, $hora] as $control) {
+            $this->assertNotNull($control);
+            $this->assertSame('button', $control->getAttribute('type'));
+            $this->assertTrue($control->hasAttribute(':aria-pressed'));
+            $this->assertTrue($control->hasAttribute(':aria-label'));
+            $this->assertTrue($control->hasAttribute(':disabled'));
+        }
+        $this->assertSame("!['disponible', 'seleccionada'].includes(dia.estado)", $fecha->getAttribute(':disabled'));
+        $this->assertSame("estadoDisponibilidad !== 'success'", $hora->getAttribute(':disabled'));
+        $this->assertSame(1, $xpath->query('.//button[@aria-label="Semana siguiente" and @*[name()="x-on:click"]="cambiarVentana(1)"]', $paso)->length);
+        $this->assertSame(1, $xpath->query('.//button[@*[name()="x-on:click"]="consultarDisponibilidad()" and normalize-space(.)="Reintentar"]', $paso)->length);
+        $this->assertGreaterThanOrEqual(2, $xpath->query('.//*[@role="status"]', $paso)->length);
+        $this->assertSame(1, $xpath->query('.//*[@role="alert" and @x-ref="errorDisponibilidad"]', $paso)->length);
+        $markup = $dom->saveHTML($paso);
+        foreach (['fin_at', 'kinesiologa_id', 'profesionalSeleccionada', 'configuracionWizard.profesionales', 'seleccionarFecha(grupo.fecha);'] as $prohibido) {
+            $this->assertStringNotContainsString($prohibido, $markup);
+        }
+        $this->assertStringContainsString('horario in horariosDisponibles', $markup);
+        $this->assertStringContainsString('No consultada', $markup);
+        $this->assertStringContainsString('Seleccionar un horario no lo reserva.', $markup);
+        $this->assertStringContainsString('min-w-0', $markup);
+        $response->assertSee('(paso === 1 && !puedeElegirProfesional)', false)->assertDontSee('x-init=', false);
     }
 
     private function url(): string

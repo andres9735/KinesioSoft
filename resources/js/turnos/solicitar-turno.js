@@ -17,6 +17,14 @@ function instanteValido(instante) {
         && fechaValida(instante.slice(0, 10));
 }
 
+function fechaCivil(fecha) {
+    const [anio, mes, dia] = fecha.split('-').map(Number);
+    const civil = new Date(0);
+    civil.setUTCFullYear(anio, mes - 1, dia);
+    civil.setUTCHours(0, 0, 0, 0);
+    return civil;
+}
+
 function leerDias(payload, ventana) {
     if (!payload || payload.desde !== ventana.desde || payload.hasta !== ventana.hasta || !Array.isArray(payload.dias)) {
         throw new Error('Respuesta de disponibilidad inválida.');
@@ -64,6 +72,7 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
     let secuenciaProfesionales = 0;
     let controladorProfesionales = null;
     let destruido = false;
+    let inicializado = false;
 
     return {
         paso: 1,
@@ -112,6 +121,8 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
         },
 
         init() {
+            if (inicializado) return;
+            inicializado = true;
             antesDeSalir = (event) => {
                 if (this.hayDatosSignificativos && !this.consolidado && !this.redireccionando) {
                     event.preventDefault();
@@ -119,6 +130,7 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
                 }
             };
             this.$watch('hayDatosSignificativos', () => this.actualizarAvisoAbandono());
+            this.$nextTick(() => this.consultarDisponibilidad());
         },
 
         destroy() {
@@ -320,6 +332,42 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
             return this.diasDisponibles.find((dia) => dia.fecha === this.fechaSeleccionada)?.horarios ?? [];
         },
 
+        estadoFecha(fecha) {
+            if (fecha < config.fechaInicial) return 'pasada';
+            if (!['success', 'empty'].includes(this.estadoDisponibilidad) || !this.ventanaConsultada
+                || fecha < this.ventanaConsultada.desde || fecha > this.ventanaConsultada.hasta) return 'no_consultada';
+            if (!this.diasDisponibles.some((dia) => dia.fecha === fecha)) return 'sin_disponibilidad';
+            return fecha === this.fechaSeleccionada ? 'seleccionada' : 'disponible';
+        },
+
+        etiquetaFecha(fecha) {
+            const estados = { pasada: 'Fecha pasada', no_consultada: 'No consultada', sin_disponibilidad: 'Sin disponibilidad',
+                disponible: 'Disponible', seleccionada: 'Seleccionada' };
+            return `${this.fechaLegible(fecha)}. ${estados[this.estadoFecha(fecha)]}`;
+        },
+
+        get fechasCalendario() {
+            const primero = this.ventana.desde.slice(0, 7) + '-01';
+            const siguienteMes = fechaCivil(primero);
+            siguienteMes.setUTCMonth(siguienteMes.getUTCMonth() + 1);
+            const ultimoMes = sumarDias(siguienteMes.toISOString().slice(0, 10), -1);
+            const ultimo = ultimoMes > this.ventana.hasta ? ultimoMes : this.ventana.hasta;
+            const desde = sumarDias(primero, -((fechaCivil(primero).getUTCDay() + 6) % 7));
+            const hasta = sumarDias(ultimo, (7 - fechaCivil(ultimo).getUTCDay()) % 7);
+            const fechas = [];
+            for (let fecha = desde; fecha <= hasta; fecha = sumarDias(fecha, 1)) {
+                fechas.push({ fecha, dia: Number(fecha.slice(8)), estado: this.estadoFecha(fecha) });
+            }
+            return fechas;
+        },
+
+        get mesCalendario() {
+            const formato = new Intl.DateTimeFormat('es-AR', { timeZone: 'UTC', month: 'long', year: 'numeric' });
+            const desde = formato.format(fechaCivil(this.ventana.desde));
+            return this.ventana.desde.slice(0, 7) === this.ventana.hasta.slice(0, 7)
+                ? desde : `${desde} – ${formato.format(fechaCivil(this.ventana.hasta))}`;
+        },
+
         fechaLegible(fecha) {
             const [anio, mes, dia] = fecha.split('-').map(Number);
             const civil = new Date(0);
@@ -371,6 +419,7 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
 
         seleccionarFecha(fecha) {
             if (this.bloqueado || this.estadoDisponibilidad !== 'success'
+                || fecha < config.fechaInicial
                 || !this.diasDisponibles.some((dia) => dia.fecha === fecha)) return;
             if (this.fechaSeleccionada !== fecha) {
                 this.invalidarInicio();

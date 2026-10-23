@@ -29,11 +29,11 @@ class TurnosAccessibilityViewTest extends TestCase
         $xpath = $this->wizard();
         $this->assertSame('Solicitar turno', trim($xpath->query('//h1')->item(0)->textContent));
         $this->assertSame(1, $xpath->query('//h1')->length);
-        $this->assertSame(4, $xpath->query('//main//section/h2')->length);
+        $this->assertSame(4, $xpath->query('//main//section//h2[starts-with(@id,"titulo-paso-")]')->length);
         $this->assertSame(4, $xpath->query('//nav[@aria-label="Pasos de la solicitud"]/ol/li')->length);
         $this->assertSame(1, $xpath->query('//nav//li[@aria-current="step"]')->length);
         $this->assertSame(1, $xpath->query('//progress[@max="4" and @value="1" and @aria-label]')->length);
-        foreach (['Motivo y documentación', 'Elegir profesional', 'Fecha y horario', 'Revisar y confirmar'] as $i => $nombre) {
+        foreach (['Fecha y horario', 'Elegir profesional', 'Motivo y documentación', 'Revisar y confirmar'] as $i => $nombre) {
             $this->assertSame($nombre, trim($xpath->query('//*[@id="titulo-paso-'.($i + 1).'"]')->item(0)->textContent));
         }
         $this->assertStringContainsString('Paso 1 de 4', $xpath->document->textContent);
@@ -61,21 +61,12 @@ class TurnosAccessibilityViewTest extends TestCase
         $this->assertSame(0, $xpath->query('//*[@tabindex > 0]')->length);
     }
 
-    public function test_native_professional_select_and_label_cards_share_the_canonical_selection(): void
+    public function test_step_one_does_not_expose_professional_controls_and_step_two_keeps_its_neutral_heading(): void
     {
         $xpath = $this->wizard();
-        $select = $xpath->query('//select[@id="profesional-movil"]')->item(0);
-        $this->assertNotNull($select);
-        $this->assertSame("kinesiologaId ?? ''", $select->getAttribute(':value'));
-        $this->assertSame('seleccionarProfesional($event.target.value)', $select->getAttribute('x-on:change'));
-        $this->assertSame('profesional-error', $select->getAttribute('aria-describedby'));
-        $this->assertSame(2, $xpath->query('//select/option[@value!=""]')->length);
-        $radios = $xpath->query('//label/input[@type="radio" and @name="kinesiologa_id"]');
-        $this->assertSame(2, $radios->length);
-        foreach ($radios as $radio) {
-            $this->assertStringContainsString('seleccionarProfesional(', $radio->getAttribute('x-on:change'));
-            $this->assertSame('profesional-error', $radio->getAttribute('aria-describedby'));
-        }
+        $this->assertSame(0, $xpath->query('//section[@aria-labelledby="titulo-paso-1"]//*[@name="kinesiologa_id"]')->length);
+        $this->assertSame('Elegir profesional', trim($xpath->query('//*[@id="titulo-paso-2"]')->item(0)->textContent));
+        $this->assertSame(0, $xpath->query('//main//select[@id="profesional-movil"]')->length);
     }
 
     public function test_reason_and_files_expose_help_errors_and_named_removal(): void
@@ -99,11 +90,16 @@ class TurnosAccessibilityViewTest extends TestCase
     {
         $xpath = $this->wizard();
         $this->assertGreaterThanOrEqual(2, $xpath->query('//main//*[@role="status"]')->length);
-        $this->assertSame(1, $xpath->query('//*[@id="profesional-error" and @role="alert" and @tabindex="-1"]')->length);
-        $slot = $xpath->query('//button[@*[name()="x-on:click"]="seleccionarSlot(slot.inicio_at)"]')->item(0);
+        $fecha = $xpath->query('//button[@*[name()="x-on:click"]="seleccionarFecha(dia.fecha)"]')->item(0);
+        $this->assertNotNull($fecha);
+        $this->assertSame('button', $fecha->getAttribute('type'));
+        $this->assertTrue($fecha->hasAttribute(':disabled'));
+        $this->assertTrue($fecha->hasAttribute(':aria-pressed'));
+        $slot = $xpath->query('//button[@*[name()="x-on:click"]="seleccionarInicio(horario.inicio_at)"]')->item(0);
+        $this->assertNotNull($slot);
         $this->assertSame('button', $slot->getAttribute('type'));
         $this->assertTrue($slot->hasAttribute(':aria-pressed'));
-        $this->assertStringContainsString('fechaLegible(grupo.fecha)', $slot->getAttribute(':aria-label'));
+        $this->assertStringContainsString('fechaLegible(fechaSeleccionada)', $slot->getAttribute(':aria-label'));
         $this->assertSame(1, $xpath->query('ancestor::fieldset[1]/legend', $slot)->length);
         $this->assertSame(7, $xpath->query('//section[@aria-labelledby="titulo-paso-4"]//dl/div/dt')->length);
         $this->assertSame(7, $xpath->query('//section[@aria-labelledby="titulo-paso-4"]//dl/div/dd')->length);
@@ -117,9 +113,9 @@ class TurnosAccessibilityViewTest extends TestCase
     {
         $html = (string) $this->view('turnos.solicitar.create', ['configuracionWizard' => [
             'uuid' => (string) Str::uuid(), 'maxMotivo' => 500, 'fechaInicial' => '2026-10-17',
-            'profesionales' => [['id' => 1, 'nombre' => 'Ana Prueba'], ['id' => 2, 'nombre' => 'Bea Prueba']],
             'urlMisTurnos' => route('turnos.mis-turnos.index'), 'urlDisponibilidad' => route('turnos.solicitar.disponibilidad'),
             'urlConfirmacion' => route('turnos.solicitar.store'),
+            'urlProfesionalesDisponibles' => route('turnos.solicitar.profesionales-disponibles'),
             'limites' => ['maxArchivos' => 5, 'maxBytesPorArchivo' => 10485760, 'maxBytesTotal' => 26214400,
                 'mimePermitidos' => ['application/pdf', 'image/jpeg', 'image/png'], 'extensionesPermitidas' => ['pdf', 'jpg', 'jpeg', 'png']],
         ]]);

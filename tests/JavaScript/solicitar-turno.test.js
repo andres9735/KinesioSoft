@@ -27,10 +27,11 @@ const diferida = () => {
 function preparar(fetchImpl = () => assert.fail('Consulta no esperada')) {
     const w = solicitarTurno(configuracion, { fetchImpl });
     w.$refs = new Proxy({}, { get: () => ({ focus() {} }) });
-    w.$nextTick = (fn) => fn(); w.$watch = () => {};
+    // Los tests unitarios de estado consultan explícitamente; el ciclo inicial completo se prueba aparte.
+    w.$nextTick = () => {}; w.$watch = () => {};
     w.motivo = 'Motivo conservado';
     w.archivos = [{ id: 100, archivo: new File(['%PDF'], 'estudio.pdf', { type: 'application/pdf' }), descripcion: 'Descripción conservada', error: '' }];
-    w.init(); return w;
+    w.init(); w.$nextTick = (fn) => fn(); return w;
 }
 function conInicio(fetchImpl) {
     const w = preparar(fetchImpl);
@@ -477,4 +478,89 @@ test('Retry lleva foco a contexto visible antes de ocultar el error; success no 
     assert.deepEqual(f.focos, ['tituloPaso1']);
     pendiente.resolve(json(agregado())); await consulta; f.flush();
     assert.deepEqual(f.focos, ['tituloPaso1']);
+});
+
+test('Paso 1: init agenda exactamente una consulta inicial, sin watcher/x-init duplicados ni profesionales anticipadas', async () => {
+    const ticks = [], llamadas = []; let watchers = 0;
+    const inicio = '2026-10-17 10:00:37';
+    const w = solicitarTurno(configuracion, { fetchImpl: async (url) => {
+        llamadas.push(new URL(url));
+        return json(llamadas.length === 1 ? agregado([inicio]) : profesionales(inicio));
+    } });
+    w.$watch = () => watchers++; w.$refs = {}; w.$nextTick = (fn) => ticks.push(fn);
+    w.init(); w.init(); assert.equal(ticks.length, 1); assert.equal(watchers, 1); assert.equal(llamadas.length, 0);
+    await ticks.shift()(); assert.equal(llamadas.length, 1);
+    assert.equal(llamadas[0].pathname, '/turnos/solicitar/disponibilidad');
+    assert.deepEqual(Object.fromEntries(llamadas[0].searchParams), ventanaInicial);
+    w.seleccionarFecha('2026-10-17'); assert.equal(w.inicioSeleccionado, null);
+    w.seleccionarInicio(inicio); assert.equal(llamadas.length, 1); assert.equal(w.estadoProfesionales, 'idle');
+    await w.siguiente(); assert.equal(w.paso, 2); assert.equal(llamadas.length, 2);
+    assert.deepEqual(Object.fromEntries(llamadas[1].searchParams), { inicio_at: inicio });
+});
+
+test('Paso 1: calendario mensual deriva pasado, no consultada, sin disponibilidad, disponible y seleccionada', async () => {
+    const w = preparar(async () => json(agregado()));
+    assert.equal(w.estadoFecha('2026-10-16'), 'pasada');
+    assert.equal(w.estadoFecha('2026-10-17'), 'no_consultada');
+    assert.equal(w.estadoFecha('2026-10-24'), 'no_consultada');
+    await w.consultarDisponibilidad();
+    assert.equal(w.estadoFecha('2026-10-17'), 'disponible');
+    assert.equal(w.estadoFecha('2026-10-18'), 'sin_disponibilidad');
+    assert.equal(w.estadoFecha('2026-10-24'), 'no_consultada');
+    w.seleccionarFecha('2026-10-18'); assert.equal(w.fechaSeleccionada, null);
+    w.seleccionarFecha('2026-10-24'); assert.equal(w.fechaSeleccionada, null);
+    w.seleccionarFecha('2026-10-16'); assert.equal(w.fechaSeleccionada, null);
+    w.seleccionarFecha('2026-10-17'); assert.equal(w.estadoFecha('2026-10-17'), 'seleccionada');
+    assert.equal(w.inicioSeleccionado, null); assert.equal(w.puedeElegirProfesional, false);
+    assert.match(w.etiquetaFecha('2026-10-17'), /Seleccionada/);
+    assert.match(w.etiquetaFecha('2026-10-24'), /No consultada/);
+    assert.equal(w.fechasCalendario[0].fecha, '2026-09-28');
+    assert.equal(w.fechasCalendario.at(-1).fecha, '2026-11-01');
+    assert.equal(w.fechasCalendario.length % 7, 0); assert.match(w.mesCalendario, /octubre.*2026/);
+});
+
+for (const [desde, hasta, fecha] of [
+    ['2026-10-31', '2026-11-06', '2026-11-06'],
+    ['2026-12-29', '2027-01-04', '2027-01-04'],
+    ['2028-02-27', '2028-03-04', '2028-02-29'],
+]) test(`Paso 1: calendario contiene toda la ventana civil ${desde}/${hasta}, incluso al cruzar mes/año`, () => {
+    const w = preparar(); w.ventana = { desde, hasta };
+    const fechas = w.fechasCalendario.map((dia) => dia.fecha);
+    assert.ok(fechas.includes(desde)); assert.ok(fechas.includes(hasta)); assert.ok(fechas.includes(fecha));
+    assert.equal(fechas.length % 7, 0); assert.equal(new Set(fechas).size, fechas.length);
+    for (let i = 1; i < fechas.length; i++) assert.equal(fechas[i], sumarDias(fechas[i - 1], 1));
+});
+
+test('Paso 1: elegir fecha muestra sólo sus horarios y nunca selecciona automáticamente inicio o profesional', async () => {
+    const a = '2026-10-17 10:00:37', b = '2026-10-18 15:30:13'; let requests = 0;
+    const w = preparar(async () => { requests++; return json(agregado([a, b])); });
+    await w.consultarDisponibilidad(); const antes = capturaLocal(w);
+    assert.deepEqual(w.horariosDisponibles, []);
+    w.seleccionarFecha('2026-10-17'); assert.deepEqual(w.horariosDisponibles, [{ inicio_at: a }]);
+    assert.equal(w.inicioSeleccionado, null); w.seleccionarInicio(b); assert.equal(w.inicioSeleccionado, null);
+    w.seleccionarInicio(a); assert.equal(w.inicioSeleccionado, a); assert.equal(w.puedeElegirProfesional, true);
+    w.seleccionarFecha('2026-10-18'); assert.equal(w.inicioSeleccionado, null);
+    assert.deepEqual(w.horariosDisponibles, [{ inicio_at: b }]); assert.equal(w.profesionalSeleccionada, null);
+    assert.deepEqual(capturaLocal(w), antes); assert.equal(requests, 1);
+});
+
+test('Paso 1: loading retira resultados anteriores y Continuar; vacío posterior es consultado sin disponibilidad', async () => {
+    const pendiente = diferida(), w = seleccionCompleta(() => pendiente.promise), antes = capturaLocal(w);
+    const consulta = w.consultarDisponibilidad();
+    assert.equal(w.estadoDisponibilidad, 'loading'); assert.equal(w.puedeElegirProfesional, false);
+    assert.deepEqual(w.horariosDisponibles, []); assert.equal(w.estadoFecha('2026-10-17'), 'no_consultada');
+    w.seleccionarFecha('2026-10-17'); w.seleccionarInicio(slot().inicio_at); assert.equal(w.inicioSeleccionado, null);
+    pendiente.resolve(json(agregado([]))); await consulta;
+    assert.equal(w.estadoDisponibilidad, 'empty'); assert.equal(w.estadoFecha('2026-10-17'), 'sin_disponibilidad');
+    assert.equal(w.estadoFecha('2026-10-24'), 'no_consultada'); assert.deepEqual(capturaLocal(w), antes);
+});
+
+test('Paso 1: retry mantiene ventana, File, descripción y UUID; error no declara fechas sin disponibilidad', async () => {
+    const urls = [];
+    const w = preparar(async (url) => { urls.push(url); if (urls.length === 1) throw new TypeError('red privada'); return json(agregado()); });
+    const antes = capturaLocal(w), archivo = w.archivos[0].archivo;
+    await w.consultarDisponibilidad(); assert.equal(w.estadoDisponibilidad, 'error');
+    assert.equal(w.estadoFecha('2026-10-17'), 'no_consultada'); assert.equal(w.ventanaConsultada, null);
+    await w.consultarDisponibilidad(); assert.equal(urls[0], urls[1]); assert.equal(w.estadoDisponibilidad, 'success');
+    assert.deepEqual(capturaLocal(w), antes); assert.equal(w.archivos[0].archivo, archivo);
 });
