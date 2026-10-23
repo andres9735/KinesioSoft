@@ -384,6 +384,49 @@ class SolicitarTurnoCreateTest extends TestCase
         $response->assertSee('(paso === 1 && !puedeElegirProfesional)', false)->assertDontSee('x-init=', false);
     }
 
+    public function test_step_two_renders_only_dynamic_professionals_with_their_own_interval_and_query_states(): void
+    {
+        $response = $this->actingAs($this->paciente->user)->get($this->url())->assertOk();
+        $html = preg_replace('/\s@([a-z][a-z.-]*)=/', ' x-on:$1=', $response->getContent());
+        $dom = new \DOMDocument;
+        @$dom->loadHTML('<?xml encoding="UTF-8">'.$html);
+        $xpath = new \DOMXPath($dom);
+        $paso = $xpath->query('//section[@aria-labelledby="titulo-paso-2"]')->item(0);
+        $this->assertNotNull($paso);
+        $this->assertSame('paso === 2', $paso->getAttribute('x-show'));
+        $templates = $xpath->query('.//template[@x-for="profesional in profesionales"]', $paso);
+        $this->assertSame(1, $templates->length);
+        $this->assertSame('profesional.kinesiologa_id', $templates->item(0)->getAttribute(':key'));
+        $cards = $xpath->query('.//template/button', $paso);
+        $this->assertSame(1, $cards->length);
+        $card = $cards->item(0);
+        $this->assertSame('button', $card->getAttribute('type'));
+        $this->assertSame('seleccionarProfesional(profesional.kinesiologa_id)', $card->getAttribute('x-on:click'));
+        $this->assertSame('kinesiologaId === profesional.kinesiologa_id', $card->getAttribute(':aria-pressed'));
+        $this->assertStringContainsString('horaLegible(inicioSeleccionado)', $card->getAttribute(':aria-label'));
+        $this->assertStringContainsString('horaLegible(profesional.fin_at)', $card->getAttribute(':aria-label'));
+        $fieldset = $xpath->query('ancestor::fieldset[1]', $card)->item(0);
+        $this->assertSame("estadoProfesionales === 'success' && inicioSeleccionado !== null && inicioProfesionales === inicioSeleccionado", $fieldset->getAttribute('x-show'));
+        $this->assertSame("bloqueado || estadoProfesionales !== 'success' || inicioProfesionales !== inicioSeleccionado", $fieldset->getAttribute(':disabled'));
+        $this->assertSame(1, $xpath->query('.//*[@x-text="profesional.nombre"]', $card)->length);
+        $this->assertSame(1, $xpath->query('.//*[@aria-hidden="true" and @x-text="inicialesProfesional(profesional.nombre)"]', $card)->length);
+        $this->assertSame(1, $xpath->query('.//button[@*[name()="x-on:click"]="cargarProfesionalesDisponibles()" and normalize-space(.)="Reintentar"]', $paso)->length);
+        foreach (["estadoProfesionales === 'idle'", "estadoProfesionales === 'loading'", "estadoProfesionales === 'empty' && inicioProfesionales === inicioSeleccionado"] as $estado) {
+            $this->assertSame(1, $xpath->query('.//*[@role="status" and @x-show="'.$estado.'"]', $paso)->length);
+        }
+        $this->assertSame(1, $xpath->query('.//*[@role="alert" and @x-ref="errorProfesionales" and @tabindex="-1"]', $paso)->length);
+        $markup = $dom->saveHTML($paso);
+        foreach (['dni', 'email', 'telefono', 'matricula', 'titulo_profesional_id', 'user_id', 'foto_url', 'profesionalesNoElegibles', 'finSeleccionado'] as $prohibido) {
+            $this->assertStringNotContainsString($prohibido, $markup);
+        }
+        $this->assertStringContainsString("horaLegible(inicioSeleccionado) + ' a ' + horaLegible(profesional.fin_at)", $markup);
+        $this->assertStringContainsString('duracionLegible(inicioSeleccionado, profesional.fin_at)', $markup);
+        $this->assertSame(0, $xpath->query('.//img | .//select | .//input', $paso)->length);
+        $this->assertArrayNotHasKey('profesionales', $response->viewData('configuracionWizard'));
+        $response->assertSee('(paso === 2 && !profesionalSeleccionada)', false)
+            ->assertSee('No quedan profesionales disponibles para este horario de inicio.');
+    }
+
     private function url(): string
     {
         return route('turnos.solicitar.create');

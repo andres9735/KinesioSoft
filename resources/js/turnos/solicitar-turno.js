@@ -379,6 +379,20 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
             return instante.slice(11, 16);
         },
 
+        inicialesProfesional(nombre) {
+            return nombre.trim().split(/\s+/u).slice(0, 2).map((parte) => [...parte][0].toUpperCase()).join('');
+        },
+
+        duracionLegible(inicio, fin) {
+            // Sólo presentación: aritmética civil sin interpretar zona ni recalcular el final backend.
+            const segundosCiviles = (instante) => {
+                const [hora, minuto, segundo] = instante.slice(11).split(':').map(Number);
+                return fechaCivil(instante.slice(0, 10)).getTime() / 1000 + hora * 3600 + minuto * 60 + segundo;
+            };
+            const minutos = (segundosCiviles(fin) - segundosCiviles(inicio)) / 60;
+            return new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(minutos) + ' min';
+        },
+
         cancelarConsultaDisponibilidad() {
             secuenciaConsulta++;
             controladorConsulta?.abort();

@@ -36,10 +36,7 @@
             <fieldset :disabled="bloqueado" class="min-w-0 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 sm:p-8">
                 <legend class="sr-only">Datos de la Primera consulta</legend>
                 @include('turnos.solicitar._fecha-horario')
-                <section x-show="paso === 2" x-cloak aria-labelledby="titulo-paso-2" class="space-y-5">
-                    <h2 id="titulo-paso-2" x-ref="tituloPaso2" tabindex="-1" class="rounded-lg text-xl font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">Elegir profesional</h2>
-                    <p class="text-sm text-gray-600">Las profesionales se consultan después de seleccionar una fecha y un horario.</p>
-                </section>
+                @include('turnos.solicitar._profesionales')
                 @include('turnos.solicitar._motivo-documentacion')
                 @include('turnos.solicitar._revision')
             </fieldset>

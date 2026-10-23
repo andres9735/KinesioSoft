@@ -61,12 +61,23 @@ class TurnosAccessibilityViewTest extends TestCase
         $this->assertSame(0, $xpath->query('//*[@tabindex > 0]')->length);
     }
 
-    public function test_step_one_does_not_expose_professional_controls_and_step_two_keeps_its_neutral_heading(): void
+    public function test_step_one_keeps_professionals_separate_and_step_two_has_accessible_dynamic_cards(): void
     {
         $xpath = $this->wizard();
         $this->assertSame(0, $xpath->query('//section[@aria-labelledby="titulo-paso-1"]//*[@name="kinesiologa_id"]')->length);
         $this->assertSame('Elegir profesional', trim($xpath->query('//*[@id="titulo-paso-2"]')->item(0)->textContent));
         $this->assertSame(0, $xpath->query('//main//select[@id="profesional-movil"]')->length);
+        $card = $xpath->query('//section[@aria-labelledby="titulo-paso-2"]//template/button')->item(0);
+        $this->assertNotNull($card);
+        $this->assertSame('button', $card->getAttribute('type'));
+        $this->assertSame('kinesiologaId === profesional.kinesiologa_id', $card->getAttribute(':aria-pressed'));
+        $this->assertSame('profesional-error', $card->getAttribute('aria-describedby'));
+        $this->assertTrue($card->hasAttribute(':aria-label'));
+        $this->assertSame(1, $xpath->query('ancestor::fieldset[1]/legend', $card)->length);
+        $this->assertSame(1, $xpath->query('ancestor::fieldset[1][@*[name()=":disabled"]]', $card)->length);
+        $this->assertSame(1, $xpath->query('//*[@x-ref="errorProfesionales" and @role="alert" and @tabindex="-1"]')->length);
+        $this->assertSame(1, $xpath->query('//*[@id="profesional-error" and @role="alert" and @tabindex="-1"]')->length);
+        $this->assertSame(1, $xpath->query('//button[@*[name()="x-on:click"]="cargarProfesionalesDisponibles()"]')->length);
     }
 
     public function test_reason_and_files_expose_help_errors_and_named_removal(): void

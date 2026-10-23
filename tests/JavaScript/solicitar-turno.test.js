@@ -564,3 +564,94 @@ test('Paso 1: retry mantiene ventana, File, descripción y UUID; error no declar
     await w.consultarDisponibilidad(); assert.equal(urls[0], urls[1]); assert.equal(w.estadoDisponibilidad, 'success');
     assert.deepEqual(capturaLocal(w), antes); assert.equal(w.archivos[0].archivo, archivo);
 });
+
+test('Paso 2: fallback local usa sólo nombre público y duración se deriva del intervalo civil propio', () => {
+    const w = preparar();
+    for (const [nombre, iniciales] of [['Ana Gómez', 'AG'], ['  María   del Carmen ', 'MD'], ['Érica', 'É'], ['李 明', '李明']]) {
+        assert.equal(w.inicialesProfesional(nombre), iniciales);
+    }
+    assert.equal(w.duracionLegible('2026-10-17 10:00:00', '2026-10-17 10:30:00'), '30 min');
+    assert.equal(w.duracionLegible('2026-10-17 10:00:00', '2026-10-17 10:45:00'), '45 min');
+    assert.equal(w.duracionLegible('2026-12-31 23:45:00', '2027-01-01 00:30:00'), '45 min');
+    assert.equal(w.duracionLegible('2028-02-28 23:45:37', '2028-02-29 00:15:37'), '30 min');
+});
+
+test('Paso 2: lista conserva orden backend, mismo inicio y finales propios; sólo elección explícita permite continuar', async () => {
+    const inicio = '2026-10-17 10:00:00';
+    const lista = [
+        { kinesiologa_id: 72, nombre: 'Zeta Prueba', fin_at: '2026-10-17 10:30:00' },
+        { kinesiologa_id: 19, nombre: 'Alfa Prueba', fin_at: '2026-10-17 10:45:00' },
+    ];
+    const w = conInicio(async () => json({ inicio_at: inicio, profesionales: lista }));
+    const antes = capturaLocal(w);
+    await w.siguiente(); assert.equal(w.paso, 2); assert.deepEqual(w.profesionales, lista);
+    assert.equal(w.profesionalSeleccionada, null); assert.equal(w.intervaloSeleccionado, null);
+    await w.siguiente(); assert.equal(w.paso, 2);
+    assert.deepEqual(w.profesionales.map((p) => [w.horaLegible(inicio), w.horaLegible(p.fin_at), w.duracionLegible(inicio, p.fin_at)]),
+        [['10:00', '10:30', '30 min'], ['10:00', '10:45', '45 min']]);
+    w.seleccionarProfesional(0); w.seleccionarProfesional('Alfa Prueba'); assert.equal(w.profesionalSeleccionada, null);
+    w.seleccionarProfesional(72); assert.deepEqual(w.intervaloSeleccionado, { inicio_at: inicio, fin_at: lista[0].fin_at });
+    w.seleccionarProfesional(19); assert.deepEqual(w.intervaloSeleccionado, { inicio_at: inicio, fin_at: lista[1].fin_at });
+    await w.siguiente(); assert.equal(w.paso, 3); assert.deepEqual(capturaLocal(w), antes);
+    assert.equal('finSeleccionado' in w, false);
+});
+
+test('Paso 2: una sola profesional tampoco se autoselecciona; volver sin cambiar contexto no repite el GET', async () => {
+    let consultas = 0;
+    const w = conInicio(async () => { consultas++; return json({ ...profesionales(), profesionales: profesionales().profesionales.slice(0, 1) }); });
+    const antes = capturaLocal(w);
+    await w.siguiente(); assert.equal(consultas, 1); assert.equal(w.profesionales.length, 1);
+    assert.equal(w.kinesiologaId, null); await w.siguiente(); assert.equal(w.paso, 2);
+    w.seleccionarProfesional(1); const intervalo = w.intervaloSeleccionado;
+    w.anterior(); assert.equal(w.paso, 1); assert.deepEqual(w.intervaloSeleccionado, intervalo);
+    await w.siguiente(); assert.equal(consultas, 1); assert.equal(w.kinesiologaId, 1);
+    assert.deepEqual(w.intervaloSeleccionado, intervalo); assert.deepEqual(capturaLocal(w), antes);
+});
+
+test('Paso 2: loading retira opciones anteriores y retry consulta el mismo inicio sin perder captura', async () => {
+    const pendiente = diferida(), urls = []; let consultas = 0;
+    const w = seleccionCompleta(async (url) => {
+        urls.push(url); consultas++;
+        if (consultas === 1) return pendiente.promise;
+        return json(profesionales());
+    });
+    w.paso = 2; const antes = capturaLocal(w), inicio = w.inicioSeleccionado, file = w.archivos[0].archivo;
+    const carga = w.cargarProfesionalesDisponibles();
+    assert.equal(w.estadoProfesionales, 'loading'); assert.deepEqual(w.profesionales, []);
+    w.seleccionarProfesional(1); await w.siguiente(); assert.equal(w.paso, 2); assert.equal(w.kinesiologaId, null);
+    pendiente.reject(new TypeError('Error privado de conexión')); await carga;
+    assert.equal(w.estadoProfesionales, 'error'); assert.doesNotMatch(w.errorConsultaProfesionales, /privado/);
+    await w.cargarProfesionalesDisponibles();
+    assert.equal(w.estadoProfesionales, 'success'); assert.equal(urls[0], urls[1]);
+    assert.deepEqual(Object.fromEntries(new URL(urls[1]).searchParams), { inicio_at: inicio });
+    assert.equal(w.inicioSeleccionado, inicio); assert.equal(w.kinesiologaId, null);
+    assert.equal(w.archivos[0].archivo, file); assert.deepEqual(capturaLocal(w), antes);
+});
+
+test('Paso 2: 200 vacío corresponde al inicio consultado y no permite avanzar ni se confunde con error', async () => {
+    const w = conInicio(async () => json({ inicio_at: slot().inicio_at, profesionales: [] })), antes = capturaLocal(w);
+    await w.siguiente(); assert.equal(w.paso, 2); assert.equal(w.estadoProfesionales, 'empty');
+    assert.equal(w.inicioProfesionales, w.inicioSeleccionado); assert.equal(w.errorConsultaProfesionales, '');
+    w.seleccionarProfesional(1); await w.siguiente(); assert.equal(w.paso, 2);
+    assert.equal(w.profesionalSeleccionada, null); assert.deepEqual(capturaLocal(w), antes);
+});
+
+test('Paso 2: nuevo inicio invalida selección y exige su propio GET sin cambiar UUID ni documentos', async () => {
+    const urls = [];
+    const w = conInicio(async (url) => {
+        urls.push(new URL(url));
+        return json({ inicio_at: new URL(url).searchParams.get('inicio_at'), profesionales: [
+            { kinesiologa_id: 1, nombre: 'Profesional A', fin_at: '2026-10-17 11:00:00' },
+            { kinesiologa_id: 2, nombre: 'Profesional B', fin_at: '2026-10-17 11:15:00' },
+        ] });
+    });
+    const antes = capturaLocal(w);
+    await w.siguiente(); w.seleccionarProfesional(1); w.anterior();
+    w.seleccionarInicio('2026-10-17 10:30:00');
+    assert.equal(w.kinesiologaId, null); assert.equal(w.inicioProfesionales, null); assert.deepEqual(w.profesionales, []);
+    assert.equal(w.intervaloSeleccionado, null); assert.equal(w.estadoProfesionales, 'idle');
+    await w.siguiente(); assert.equal(urls.length, 2);
+    assert.equal(urls[1].searchParams.get('inicio_at'), '2026-10-17 10:30:00');
+    assert.equal(w.inicioProfesionales, w.inicioSeleccionado); assert.equal(w.kinesiologaId, null);
+    assert.deepEqual(capturaLocal(w), antes);
+});
