@@ -172,7 +172,7 @@ class SolicitarTurnoCreateTest extends TestCase
     }
 
     #[DataProvider('condicionesProfesionales')]
-    public function test_only_canonically_eligible_professionals_are_delivered(string $condicion): void
+    public function test_initial_get_does_not_preload_professionals_regardless_of_their_eligibility(string $condicion): void
     {
         $otra = $this->profesional();
         match ($condicion) {
@@ -185,9 +185,8 @@ class SolicitarTurnoCreateTest extends TestCase
             'especialidad' => $otra->especialidades()->detach(),
         };
         $response = $this->actingAs($this->paciente->user)->get($this->url())->assertOk();
-        $profesionales = $response->viewData('configuracionWizard')['profesionales'];
-        $this->assertSame([['id' => $this->kinesiologa->id, 'nombre' => trim($this->kinesiologa->user->name.' '.$this->kinesiologa->user->apellido)]], $profesionales);
-        $response->assertDontSee($otra->user->name);
+        $this->assertArrayNotHasKey('profesionales', $response->viewData('configuracionWizard'));
+        $response->assertDontSee($otra->user->name)->assertDontSee($this->kinesiologa->user->name);
     }
 
     public static function condicionesProfesionales(): array
@@ -195,54 +194,86 @@ class SolicitarTurnoCreateTest extends TestCase
         return array_map(fn ($condicion) => [$condicion], ['activo', 'rol', 'verificado', 'datos_personales', 'titulo', 'matricula', 'especialidad']);
     }
 
-    public function test_professional_order_is_surname_name_id_and_cards_exclude_private_details(): void
+    public function test_multiple_eligible_professionals_are_not_exposed_as_an_initial_catalog(): void
     {
         $this->kinesiologa->user->update(['apellido' => 'Alfa', 'name' => 'Bea']);
         $zulu = $this->profesional(['apellido' => 'Zulu', 'name' => 'Ana']);
         $zoe = $this->profesional(['apellido' => 'Alfa', 'name' => 'Zoe']);
         $empate = $this->profesional(['apellido' => 'Alfa', 'name' => 'Bea']);
         $response = $this->actingAs($this->paciente->user)->get($this->url())->assertOk();
-        $this->assertSame([$this->kinesiologa->id, $empate->id, $zoe->id, $zulu->id], array_column($response->viewData('configuracionWizard')['profesionales'], 'id'));
-        $response->assertSee('Bea Alfa')->assertSee('type="radio"', false)->assertSee('Seleccionada')
-            ->assertDontSee($zulu->user->email)->assertDontSee($zulu->user->dni)
-            ->assertDontSee('MP-'.$zulu->user_id)->assertDontSee('titulo_profesional_id')->assertDontSee('paciente_id');
+        $this->assertArrayNotHasKey('profesionales', $response->viewData('configuracionWizard'));
+        foreach ([$this->kinesiologa, $empate, $zoe, $zulu] as $profesional) {
+            $response->assertDontSee(trim($profesional->user->name.' '.$profesional->user->apellido))
+                ->assertDontSee($profesional->user->email)->assertDontSee($profesional->user->dni)
+                ->assertDontSee($profesional->user->telefono)->assertDontSee('MP-'.$profesional->user_id);
+        }
+        $response->assertDontSee('name="kinesiologa_id"', false)->assertDontSee('titulo_profesional_id')->assertDontSee('paciente_id');
     }
 
-    public function test_empty_professional_list_is_contextual_and_does_not_claim_empty_availability(): void
+    public function test_without_eligible_professionals_the_initial_get_does_not_claim_empty_availability(): void
     {
         $this->kinesiologa->user->update(['activo' => false]);
         $this->actingAs($this->paciente->user)->get($this->url())->assertOk()
-            ->assertViewHas('configuracionWizard', fn ($config) => $config['profesionales'] === [])
-            ->assertSee('No hay profesionales disponibles para nuevas solicitudes en este momento.')
+            ->assertViewHas('configuracionWizard', fn ($config) => ! array_key_exists('profesionales', $config))
+            ->assertDontSee('No hay profesionales disponibles para nuevas solicitudes en este momento.')
+            ->assertSee('Las profesionales se consultan después de seleccionar una fecha y un horario.')
             ->assertSee('Volver a Mis turnos')->assertDontSee('Sin horarios disponibles');
     }
 
-    public function test_get_does_not_consult_agenda_or_use_blocking_reads(): void
+    public function test_initial_get_neither_lists_professionals_nor_consults_agenda_or_writes(): void
     {
+        $this->profesional();
+        $this->profesional();
         DB::flushQueryLog();
         DB::enableQueryLog();
         $this->actingAs($this->paciente->user)->get($this->url())->assertOk();
         $sql = strtolower(collect(DB::getQueryLog())->pluck('query')->implode("\n"));
-        foreach (['configuraciones_agenda', 'franjas_horarias_agenda', 'bloqueos_agenda', 'for update', 'insert into', 'update ', 'delete from'] as $prohibido) {
+        foreach (['kinesiologas', 'matriculas_profesionales', 'especialidades_kinesiologia', 'configuraciones_agenda', 'franjas_horarias_agenda', 'bloqueos_agenda', 'for update', 'insert into', 'update ', 'delete from'] as $prohibido) {
             $this->assertStringNotContainsString($prohibido, $sql);
         }
     }
 
     public function test_initial_configuration_is_a_minimal_whitelist_and_document_limits_come_from_policy(): void
     {
-        config(['documentos_clinicos.max_archivos' => 2, 'documentos_clinicos.max_bytes_por_archivo' => 6 * 1024 * 1024, 'documentos_clinicos.max_bytes_total' => 12 * 1024 * 1024]);
+        config([
+            'documentos_clinicos.max_archivos' => 2, 'documentos_clinicos.max_bytes_por_archivo' => 6 * 1024 * 1024,
+            'documentos_clinicos.max_bytes_total' => 12 * 1024 * 1024, 'documentos_clinicos.mime_permitidos' => ['application/pdf', 'image/png'],
+        ]);
         $response = $this->actingAs($this->paciente->user)->get($this->url())->assertOk();
         $config = $response->viewData('configuracionWizard');
-        $this->assertSame(['uuid', 'profesionales', 'maxMotivo', 'limites', 'urlMisTurnos', 'urlDisponibilidad', 'urlConfirmacion', 'fechaInicial'], array_keys($config));
+        $this->assertEqualsCanonicalizing(['uuid', 'maxMotivo', 'limites', 'urlMisTurnos', 'urlDisponibilidad', 'urlProfesionalesDisponibles', 'urlConfirmacion', 'fechaInicial'], array_keys($config));
+        $this->assertTrue(Str::isUuid($config['uuid']));
+        $this->assertSame(500, $config['maxMotivo']);
+        $this->assertSame(route('turnos.mis-turnos.index'), $config['urlMisTurnos']);
         $this->assertSame(route('turnos.solicitar.store'), $config['urlConfirmacion']);
         $this->assertSame(route('turnos.solicitar.disponibilidad'), $config['urlDisponibilidad']);
+        $this->assertSame(route('turnos.solicitar.profesionales-disponibles'), $config['urlProfesionalesDisponibles']);
         $this->assertSame('2026-10-17', $config['fechaInicial']);
-        $this->assertSame(['id', 'nombre'], array_keys($config['profesionales'][0]));
+        $this->assertArrayNotHasKey('profesionales', $config);
+        $this->assertEqualsCanonicalizing(['maxArchivos', 'maxBytesPorArchivo', 'maxBytesTotal', 'mimePermitidos', 'extensionesPermitidas'], array_keys($config['limites']));
         $this->assertSame(2, $config['limites']['maxArchivos']);
         $this->assertSame(6 * 1024 * 1024, $config['limites']['maxBytesPorArchivo']);
         $this->assertSame(12 * 1024 * 1024, $config['limites']['maxBytesTotal']);
         $this->assertSame(config('documentos_clinicos.mime_permitidos'), $config['limites']['mimePermitidos']);
-        $response->assertSee('Hasta 2 archivos.')->assertSee('Máximo 6 MiB por archivo y 12 MiB en total.');
+        $this->assertSame(['pdf', 'png'], $config['limites']['extensionesPermitidas']);
+        $response->assertSee('Hasta 2 archivos.')->assertSee('Máximo 6 MiB por archivo y 12 MiB en total.')->assertSee('PDF/PNG');
+    }
+
+    public function test_initial_date_tracks_the_canonical_clock_across_midnight(): void
+    {
+        $this->actingAs($this->paciente->user);
+        foreach (['2026-10-17 23:59:59' => '2026-10-17', '2026-10-18 00:00:00' => '2026-10-18'] as $ahora => $fecha) {
+            CarbonImmutable::setTestNow(CarbonImmutable::parse($ahora, config('app.timezone')));
+            $this->get($this->url())->assertOk()->assertViewHas('configuracionWizard', fn ($config) => $config['fechaInicial'] === $fecha);
+        }
+    }
+
+    public function test_blade_has_only_an_empty_compatibility_adapter_for_the_unchanged_client_module(): void
+    {
+        $response = $this->actingAs($this->paciente->user)->get($this->url())->assertOk();
+        $this->assertArrayNotHasKey('profesionales', $response->viewData('configuracionWizard'));
+        $response->assertSee('x-data="solicitarTurno({ ...', false)->assertSee('profesionales: [] })', false)
+            ->assertDontSee('No hay profesionales disponibles para nuevas solicitudes en este momento.');
     }
 
     public function test_reason_and_optional_files_have_local_controls_and_approved_default_limits(): void
@@ -255,12 +286,15 @@ class SolicitarTurnoCreateTest extends TestCase
             ->assertSee('Quitar')->assertSee('quitarArchivo(entrada.id)', false);
     }
 
-    public function test_configuration_and_professional_names_are_safely_serialized(): void
+    public function test_configuration_is_safely_serialized_and_professional_names_are_absent(): void
     {
         $peligroso = '</script><img src=x onerror=alert(1)>';
         $this->kinesiologa->user->update(['name' => $peligroso]);
+        // Aísla el escape de @js; la validez normal de la UUID se certifica por separado.
+        Str::createUuidsUsing(static fn (): string => $peligroso);
         $response = $this->actingAs($this->paciente->user)->get($this->url())->assertOk();
-        $response->assertDontSee($peligroso, false)->assertSee(e($peligroso), false);
+        $response->assertDontSee($peligroso, false)->assertSee('\\u003C', false);
+        $this->assertSame($peligroso, $response->viewData('configuracionWizard')['uuid']);
     }
 
     public function test_review_has_fetch_confirmation_and_keeps_existing_routes(): void

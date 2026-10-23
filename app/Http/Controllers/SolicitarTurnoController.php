@@ -13,7 +13,6 @@ use App\Models\Kinesiologa;
 use App\Models\Paciente;
 use App\Services\Agenda\RelojAplicacion;
 use App\Services\Turnos\DisponibilidadAgregadaPrimeraConsultaService;
-use App\Services\Turnos\ElegibilidadKinesiologaService;
 use App\Services\Turnos\ElegibilidadPrimeraConsultaService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -24,7 +23,7 @@ use Illuminate\View\View;
 
 final class SolicitarTurnoController extends Controller
 {
-    public function create(Request $request, ElegibilidadPrimeraConsultaService $d01, ElegibilidadKinesiologaService $elegibilidad, RelojAplicacion $reloj): View|RedirectResponse
+    public function create(Request $request, ElegibilidadPrimeraConsultaService $d01, RelojAplicacion $reloj): View|RedirectResponse
     {
         $paciente = $request->user()->paciente()->first();
         abort_unless($paciente instanceof Paciente, 403);
@@ -34,19 +33,12 @@ final class SolicitarTurnoController extends Controller
                 ->with('warning', 'Ya tenés una Primera consulta futura activa. Podés consultarla en Mis turnos.');
         }
 
-        $profesionales = $elegibilidad->listarElegibles()
-            ->sortBy([['user.apellido', 'asc'], ['user.name', 'asc'], ['id', 'asc']])
-            ->values()->map(static fn (Kinesiologa $profesional): array => [
-                'id' => $profesional->getKey(),
-                'nombre' => trim($profesional->user->name.' '.$profesional->user->apellido),
-            ])->all();
         $politica = config('documentos_clinicos');
         $extensionesPorMime = ['application/pdf' => ['pdf'], 'image/jpeg' => ['jpg', 'jpeg'], 'image/png' => ['png']];
         $extensiones = array_merge(...array_map(static fn (string $mime): array => $extensionesPorMime[$mime], $politica['mime_permitidos']));
 
         return view('turnos.solicitar.create', ['configuracionWizard' => [
             'uuid' => (string) Str::uuid(),
-            'profesionales' => $profesionales,
             'maxMotivo' => 500,
             'limites' => [
                 'maxArchivos' => $politica['max_archivos'],
@@ -57,6 +49,7 @@ final class SolicitarTurnoController extends Controller
             ],
             'urlMisTurnos' => route('turnos.mis-turnos.index'),
             'urlDisponibilidad' => route('turnos.solicitar.disponibilidad'),
+            'urlProfesionalesDisponibles' => route('turnos.solicitar.profesionales-disponibles'),
             'urlConfirmacion' => route('turnos.solicitar.store'),
             'fechaInicial' => $reloj->ahora()->toDateString(),
         ]]);

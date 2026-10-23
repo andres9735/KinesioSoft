@@ -5,7 +5,8 @@
     </x-slot>
 
     <style>.solicitud-turno [x-cloak] { display: none !important; }</style>
-    <div class="solicitud-turno py-8 sm:py-10" x-data="solicitarTurno(@js($configuracionWizard))">
+    {{-- Compatibilidad vacía con el módulo V1 hasta 7.39; no forma parte de la configuración servidor ni precarga un catálogo. --}}
+    <div class="solicitud-turno py-8 sm:py-10" x-data="solicitarTurno({ ...@js($configuracionWizard), profesionales: [] })">
         <div class="mx-auto max-w-4xl space-y-6 px-4 sm:px-6 lg:px-8">
             <noscript><p class="rounded-lg bg-amber-50 p-4 text-amber-900">Necesitás habilitar JavaScript para completar esta solicitud. <a href="{{ route('turnos.mis-turnos.index') }}" class="underline">Volver a Mis turnos</a>.</p></noscript>
             <nav aria-label="Pasos de la solicitud" class="rounded-2xl bg-white p-5 shadow-sm sm:p-6">
@@ -36,7 +37,10 @@
             <fieldset :disabled="bloqueado" class="min-w-0 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 sm:p-8">
                 <legend class="sr-only">Datos de la Primera consulta</legend>
                 @include('turnos.solicitar._motivo-documentacion')
-                @include('turnos.solicitar._profesionales')
+                <section x-show="paso === 2" x-cloak aria-labelledby="titulo-paso-2" class="space-y-5">
+                    <h2 id="titulo-paso-2" x-ref="tituloPaso2" tabindex="-1" class="rounded-lg text-xl font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">Elegir profesional</h2>
+                    <p class="text-sm text-gray-600">Las profesionales se consultan después de seleccionar una fecha y un horario.</p>
+                </section>
                 @include('turnos.solicitar._fecha-horario')
                 @include('turnos.solicitar._revision')
             </fieldset>
