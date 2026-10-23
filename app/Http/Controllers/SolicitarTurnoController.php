@@ -8,6 +8,7 @@ use App\Exceptions\Turnos\ProfesionalNoElegibleException;
 use App\Exceptions\Turnos\SlotNoDisponibleException;
 use App\Http\Requests\ConfirmarPrimeraConsultaRequest;
 use App\Http\Requests\ConsultarDisponibilidadPrimeraConsultaRequest;
+use App\Http\Requests\ConsultarProfesionalesDisponiblesPrimeraConsultaRequest;
 use App\Models\Kinesiologa;
 use App\Models\Paciente;
 use App\Services\Agenda\RelojAplicacion;
@@ -78,6 +79,36 @@ final class SolicitarTurnoController extends Controller
                 ], $dia['horarios']),
             ], $dias),
         ]);
+    }
+
+    public function profesionalesDisponibles(ConsultarProfesionalesDisponiblesPrimeraConsultaRequest $request, DisponibilidadAgregadaPrimeraConsultaService $disponibilidad): JsonResponse
+    {
+        $inicio = CarbonImmutable::createFromFormat('!Y-m-d H:i:s', $request->validated('inicio_at'), config('app.timezone'));
+        $horario = collect($disponibilidad->consultarDisponibilidad($inicio, $inicio))
+            ->flatMap(static fn (array $dia): array => $dia['horarios'])
+            ->first(static fn (array $horario): bool => $horario['inicio_at']->equalTo($inicio));
+        $contribuciones = $horario['profesionales'] ?? [];
+        $profesionales = [];
+
+        if ($contribuciones !== []) {
+            $identidades = Kinesiologa::query()->with('user:id,name,apellido')
+                ->whereKey(array_column($contribuciones, 'kinesiologa_id'))
+                ->get(['id', 'user_id'])->keyBy('id');
+
+            foreach ($contribuciones as $contribucion) {
+                $profesional = $identidades->get($contribucion['kinesiologa_id']);
+                if ($profesional === null || $profesional->user === null) {
+                    continue;
+                }
+                $profesionales[] = [
+                    'kinesiologa_id' => $profesional->getKey(),
+                    'nombre' => trim($profesional->user->name.' '.$profesional->user->apellido),
+                    'fin_at' => $contribucion['fin_at']->toDateTimeString(),
+                ];
+            }
+        }
+
+        return response()->json(['inicio_at' => $inicio->toDateTimeString(), 'profesionales' => $profesionales]);
     }
 
     public function store(ConfirmarPrimeraConsultaRequest $request, ConfirmarPrimeraConsultaAction $confirmar): JsonResponse

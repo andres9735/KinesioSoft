@@ -282,7 +282,7 @@ class SolicitarTurnoCreateTest extends TestCase
         $this->assertSame(0, $xpath->query('//main//form')->length);
         $this->assertSame(0, $xpath->query('//main//*[@type="submit"]')->length);
         $this->assertSame([
-            'turnos.mis-turnos.index', 'turnos.solicitar.create', 'turnos.solicitar.disponibilidad', 'turnos.solicitar.store',
+            'turnos.mis-turnos.index', 'turnos.solicitar.create', 'turnos.solicitar.disponibilidad', 'turnos.solicitar.profesionales-disponibles', 'turnos.solicitar.store',
         ], collect(Route::getRoutes())->filter(fn ($ruta) => str_starts_with($ruta->uri(), 'turnos/') && ! str_starts_with($ruta->uri(), 'turnos/agenda'))
             ->map(fn ($ruta) => $ruta->getName())->values()->all());
     }

@@ -52,6 +52,8 @@ Route::middleware(['auth', 'verified', 'perfil.completo', 'perfil.paciente'])->g
         ->name('turnos.solicitar.create');
     Route::get('/turnos/solicitar/disponibilidad', [SolicitarTurnoController::class, 'disponibilidad'])
         ->name('turnos.solicitar.disponibilidad');
+    Route::get('/turnos/solicitar/profesionales-disponibles', [SolicitarTurnoController::class, 'profesionalesDisponibles'])
+        ->name('turnos.solicitar.profesionales-disponibles');
     Route::post('/turnos/solicitar', [SolicitarTurnoController::class, 'store'])
         ->name('turnos.solicitar.store');
 });

@@ -276,6 +276,254 @@ class SolicitarTurnoHttpTest extends TestCase
             ->assertUnprocessable()->assertJsonValidationErrors('hasta')->assertJsonMissingPath('dias');
     }
 
+    public function test_professionals_endpoint_exposes_only_stable_professional_identity_and_individual_end(): void
+    {
+        $this->kinesiologa->user->update(['name' => 'Ana', 'apellido' => 'Gómez']);
+        $this->turno(['inicio_at' => '2026-10-05 11:00:00', 'fin_at' => '2026-10-05 11:30:00', 'motivo_solicitud' => 'MOTIVO PRIVADO TURNO']);
+        BloqueoAgenda::factory()->for($this->kinesiologa)->create([
+            'inicio_at' => '2026-10-05 11:30:00', 'fin_at' => '2026-10-05 12:00:00', 'motivo' => 'MOTIVO PRIVADO BLOQUEO',
+        ]);
+
+        $response = $this->actingAs($this->paciente->user)->getJson($this->profesionalesUrl());
+
+        $this->assertNotSame($this->kinesiologa->user_id, $this->kinesiologa->id);
+        $response->assertOk()->assertExactJson([
+            'inicio_at' => '2026-10-05 10:00:00',
+            'profesionales' => [[
+                'kinesiologa_id' => $this->kinesiologa->id, 'nombre' => 'Ana Gómez', 'fin_at' => '2026-10-05 10:30:00',
+            ]],
+        ])->assertDontSee('MOTIVO PRIVADO TURNO')->assertDontSee('MOTIVO PRIVADO BLOQUEO');
+        foreach ([$this->kinesiologa->user, $this->paciente->user] as $user) {
+            foreach ([$user->email, $user->dni, $user->telefono, '1990-01-01'] as $privado) {
+                $response->assertDontSee($privado);
+            }
+        }
+    }
+
+    public function test_professionals_sharing_start_keep_different_ends_and_stable_id_order(): void
+    {
+        $this->kinesiologa->user->update(['name' => 'Zeta', 'apellido' => 'Sintética']);
+        $otra = $this->profesional();
+        $otra->user->update(['name' => 'Ana', 'apellido' => 'Sintética']);
+        $this->agendaDe($otra, 45, '10:00:00', '12:15:00');
+
+        $this->actingAs($this->paciente->user)->getJson($this->profesionalesUrl())->assertOk()->assertExactJson([
+            'inicio_at' => '2026-10-05 10:00:00',
+            'profesionales' => [
+                $this->profesionalPublica($this->kinesiologa, '2026-10-05 10:30:00'),
+                $this->profesionalPublica($otra, '2026-10-05 10:45:00'),
+            ],
+        ]);
+    }
+
+    public function test_professionals_from_distinct_grids_match_only_the_exact_requested_start(): void
+    {
+        $otra = $this->profesional();
+        $this->agendaDe($otra, 45, '10:00:00', '12:15:00');
+        $this->actingAs($this->paciente->user)->getJson($this->profesionalesUrl(['inicio_at' => '2026-10-05 10:30:00']))
+            ->assertOk()->assertExactJson([
+                'inicio_at' => '2026-10-05 10:30:00',
+                'profesionales' => [$this->profesionalPublica($this->kinesiologa, '2026-10-05 11:00:00')],
+            ]);
+        $this->getJson($this->profesionalesUrl(['inicio_at' => '2026-10-05 10:45:00']))->assertOk()->assertExactJson([
+            'inicio_at' => '2026-10-05 10:45:00',
+            'profesionales' => [$this->profesionalPublica($otra, '2026-10-05 11:30:00')],
+        ]);
+    }
+
+    public function test_professionals_are_recomputed_after_occupancy_and_blocks_without_reserving(): void
+    {
+        $otra = $this->profesional();
+        $this->agendaDe($otra, 30, '10:00:00', '11:00:00');
+        $this->actingAs($this->paciente->user)->getJson($this->profesionalesUrl())->assertOk()->assertJsonCount(2, 'profesionales');
+        $this->turno();
+        $this->getJson($this->profesionalesUrl())->assertOk()->assertExactJson([
+            'inicio_at' => '2026-10-05 10:00:00',
+            'profesionales' => [$this->profesionalPublica($otra, '2026-10-05 10:30:00')],
+        ]);
+        BloqueoAgenda::factory()->for($otra)->create([
+            'inicio_at' => '2026-10-05 10:00:00', 'fin_at' => '2026-10-05 10:30:00', 'motivo' => 'CAUSA PRIVADA',
+        ]);
+        $this->getJson($this->profesionalesUrl())->assertOk()
+            ->assertExactJson(['inicio_at' => '2026-10-05 10:00:00', 'profesionales' => []])->assertDontSee('CAUSA PRIVADA');
+        $this->assertDatabaseCount('turnos', 1);
+        $this->assertDatabaseCount('bloqueos_agenda', 1);
+        $this->assertDatabaseCount('auditorias', 0);
+    }
+
+    public function test_professionals_losing_eligibility_disappear_while_alternatives_remain(): void
+    {
+        $otra = $this->profesional();
+        $this->agendaDe($otra, 30, '10:00:00', '11:00:00');
+        $this->actingAs($this->paciente->user)->getJson($this->profesionalesUrl())->assertOk()->assertJsonCount(2, 'profesionales');
+        $this->kinesiologa->user->update(['activo' => false]);
+
+        $this->getJson($this->profesionalesUrl())->assertOk()->assertExactJson([
+            'inicio_at' => '2026-10-05 10:00:00',
+            'profesionales' => [$this->profesionalPublica($otra, '2026-10-05 10:30:00')],
+        ]);
+        $otra->user->update(['activo' => false]);
+        $this->getJson($this->profesionalesUrl())->assertOk()
+            ->assertExactJson(['inicio_at' => '2026-10-05 10:00:00', 'profesionales' => []]);
+    }
+
+    #[DataProvider('iniciosSinProfesionales')]
+    public function test_well_formed_unavailable_starts_return_successful_empty_results(string $inicio): void
+    {
+        $this->actingAs($this->paciente->user)->get($this->profesionalesUrl(['inicio_at' => $inicio]))
+            ->assertOk()->assertExactJson(['inicio_at' => $inicio, 'profesionales' => []]);
+    }
+
+    public static function iniciosSinProfesionales(): array
+    {
+        return [
+            'pasado' => ['2020-01-01 10:00:00'],
+            'minuto inexistente' => ['2026-10-05 10:01:00'],
+            'dentro del intervalo pero no inicio' => ['2026-10-05 10:15:00'],
+            'segundo inexistente' => ['2026-10-05 10:00:01'],
+            'sin franja' => ['2026-10-06 10:00:00'],
+        ];
+    }
+
+    public function test_professionals_same_day_obeys_exact_canonical_clock_without_buffer(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-05 10:00:00', config('app.timezone')));
+        $this->actingAs($this->paciente->user)->getJson($this->profesionalesUrl())->assertOk()
+            ->assertExactJson(['inicio_at' => '2026-10-05 10:00:00', 'profesionales' => []]);
+        $this->getJson($this->profesionalesUrl(['inicio_at' => '2026-10-05 10:30:00']))->assertOk()->assertExactJson([
+            'inicio_at' => '2026-10-05 10:30:00',
+            'profesionales' => [$this->profesionalPublica($this->kinesiologa, '2026-10-05 11:00:00')],
+        ]);
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-05 09:59:59', config('app.timezone')));
+        $this->getJson($this->profesionalesUrl())->assertOk()->assertJsonCount(1, 'profesionales');
+    }
+
+    public function test_professionals_use_configuration_applicable_to_the_requested_future_date(): void
+    {
+        $this->configuracion->update(['vigencia_hasta' => '2026-10-05']);
+        $futura = ConfiguracionAgenda::factory()->for($this->kinesiologa)->create([
+            'vigencia_desde' => '2026-10-06', 'duracion_turno_minutos' => 45,
+        ]);
+        FranjaHorariaAgenda::factory()->for($futura, 'configuracionAgenda')->create([
+            'dia_semana' => DiaSemanaEnum::MARTES, 'hora_inicio' => '10:00:00', 'hora_fin' => '11:30:00',
+        ]);
+
+        $this->actingAs($this->paciente->user)->getJson($this->profesionalesUrl(['inicio_at' => '2026-10-06 10:00:00']))
+            ->assertOk()->assertExactJson([
+                'inicio_at' => '2026-10-06 10:00:00',
+                'profesionales' => [$this->profesionalPublica($this->kinesiologa, '2026-10-06 10:45:00')],
+            ]);
+    }
+
+    public function test_professionals_query_is_independent_of_patient_d01(): void
+    {
+        $this->turno([
+            'tipo' => TipoTurnoEnum::PRIMERA_CONSULTA,
+            'inicio_at' => '2026-10-05 11:00:00', 'fin_at' => '2026-10-05 11:30:00',
+        ]);
+
+        $this->actingAs($this->paciente->user)->getJson($this->profesionalesUrl())->assertOk()->assertJsonCount(1, 'profesionales');
+    }
+
+    #[DataProvider('entradasProfesionalesInvalidas')]
+    public function test_professionals_endpoint_preserves_422_errors_for_invalid_http_input(array $payload, string $campo): void
+    {
+        $this->actingAs($this->paciente->user)->getJson(route('turnos.solicitar.profesionales-disponibles', $payload))
+            ->assertUnprocessable()->assertJsonValidationErrors($campo)->assertJsonMissingPath('profesionales')->assertJsonMissingPath('code');
+    }
+
+    public static function entradasProfesionalesInvalidas(): array
+    {
+        return [
+            [[], 'inicio_at'],
+            [['inicio_at' => ['2026-10-05 10:00:00']], 'inicio_at'],
+            [['inicio_at' => '2026-02-30 10:00:00'], 'inicio_at'],
+            [['inicio_at' => '2026-10-05T10:00:00Z'], 'inicio_at'],
+            [['inicio_at' => '2026-10-05 10:00:00', 'kinesiologa_id' => 1], 'kinesiologa_id'],
+        ];
+    }
+
+    #[DataProvider('erroresProfesionales')]
+    public function test_professionals_technical_errors_do_not_become_successful_empty_results(string $tipo): void
+    {
+        $error = $tipo === 'sql'
+            ? new QueryException('sqlite', 'select dato_interno', [], new RuntimeException('SQL PRIVADO'))
+            : new LogicException('INTEGRIDAD PRIVADA');
+        Event::listen('eloquent.retrieved: '.ConfiguracionAgenda::class, static function () use ($error): void {
+            throw $error;
+        });
+
+        $this->actingAs($this->paciente->user)->getJson($this->profesionalesUrl())->assertStatus(500)
+            ->assertJsonMissingPath('profesionales')->assertJsonMissingPath('code')->assertDontSee('PRIVAD');
+    }
+
+    public static function erroresProfesionales(): array
+    {
+        return [['sql'], ['integridad']];
+    }
+
+    #[DataProvider('actoresProfesionalesNoAutorizados')]
+    public function test_professionals_endpoint_keeps_patient_middleware_protection(string $actor): void
+    {
+        if ($actor !== 'guest') {
+            $user = match ($actor) {
+                'kinesiologo' => $this->kinesiologa->user,
+                'administrador' => $this->usuario(RoleEnum::ADMINISTRADOR),
+                'superadmin' => $this->usuario(RoleEnum::SUPERADMIN),
+                'incompleto' => $this->usuario(RoleEnum::PACIENTE),
+                default => $this->paciente->user,
+            };
+            if ($actor === 'no_verificado') {
+                $user->forceFill(['email_verified_at' => null])->save();
+            }
+            $this->actingAs($user);
+        }
+        $response = $this->getJson($this->profesionalesUrl());
+        if ($actor === 'incompleto') {
+            $response->assertRedirect(route('perfil.completar'));
+        } else {
+            $response->assertStatus($actor === 'guest' ? 401 : 403);
+        }
+        $this->assertDatabaseCount('turnos', 0);
+    }
+
+    public static function actoresProfesionalesNoAutorizados(): array
+    {
+        return array_map(static fn (string $actor): array => [$actor], [
+            'guest', 'no_verificado', 'incompleto', 'kinesiologo', 'administrador', 'superadmin',
+        ]);
+    }
+
+    public function test_professional_identity_is_loaded_in_bulk_and_the_query_has_no_write_or_reservation(): void
+    {
+        for ($indice = 0; $indice < 2; $indice++) {
+            $this->agendaDe($this->profesional(), 30, '10:00:00', '11:00:00');
+        }
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        try {
+            $response = $this->actingAs($this->paciente->user)->getJson($this->profesionalesUrl());
+            $consultas = DB::getQueryLog();
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
+
+        $response->assertOk()->assertJsonCount(3, 'profesionales');
+        $ids = array_column($response->json('profesionales'), 'kinesiologa_id');
+        $this->assertSame($ids, array_values(array_unique($ids)));
+        foreach ($consultas as $consulta) {
+            $this->assertStringStartsWith('select ', strtolower(ltrim($consulta['query'])));
+            $this->assertStringNotContainsString('for update', strtolower($consulta['query']));
+        }
+        $this->assertCount(1, array_filter($consultas, static fn (array $consulta): bool => str_contains($consulta['query'], 'select "id", "user_id" from "kinesiologas"')));
+        $this->assertCount(1, array_filter($consultas, static fn (array $consulta): bool => str_contains($consulta['query'], 'select "id", "name", "apellido" from "users"')));
+        $this->assertDatabaseCount('turnos', 0);
+        $this->assertDatabaseCount('bloqueos_agenda', 0);
+        $this->assertDatabaseCount('auditorias', 0);
+        $this->assertSame([], $this->disco->allFiles());
+    }
+
     public function test_creation_returns_201_only_after_commit_with_a_small_whitelist_and_localizable_destination(): void
     {
         $committed = false;
@@ -561,6 +809,20 @@ class SolicitarTurnoHttpTest extends TestCase
         return route('turnos.solicitar.disponibilidad', array_replace([
             'desde' => '2026-10-05', 'hasta' => '2026-10-05',
         ], $cambios));
+    }
+
+    private function profesionalesUrl(array $cambios = []): string
+    {
+        return route('turnos.solicitar.profesionales-disponibles', array_replace(['inicio_at' => '2026-10-05 10:00:00'], $cambios));
+    }
+
+    private function profesionalPublica(Kinesiologa $profesional, string $fin): array
+    {
+        return [
+            'kinesiologa_id' => $profesional->id,
+            'nombre' => trim($profesional->user->name.' '.$profesional->user->apellido),
+            'fin_at' => $fin,
+        ];
     }
 
     private function success(Turno $turno, bool $replay): array
