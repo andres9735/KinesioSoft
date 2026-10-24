@@ -2,7 +2,12 @@
 
 namespace Tests\Feature\Turnos;
 
+use App\Enums\EstadoTurnoEnum;
 use App\Enums\RoleEnum;
+use App\Enums\TipoTurnoEnum;
+use App\Models\Kinesiologa;
+use App\Models\Paciente;
+use App\Models\Turno;
 use App\Models\User;
 use DOMDocument;
 use DOMXPath;
@@ -182,6 +187,43 @@ class TurnosAccessibilityViewTest extends TestCase
                 $this->assertSame('salirPorPrimeraConsultaActiva()', $cta->getAttribute('x-on:click.prevent'));
                 $this->assertSame(1, $xpath->query('//div[@x-show="!primeraConsultaActiva"]//nav[@aria-label="Pasos de la solicitud"]')->length);
             }
+        }
+    }
+
+    public function test_mis_turnos_has_semantic_cards_textual_state_and_an_operational_named_cta(): void
+    {
+        $paciente = Paciente::create(['user_id' => auth()->id(), 'activo' => true]);
+        $profesional = Kinesiologa::create(['user_id' => User::factory()->create()->id]);
+        $turno = Turno::factory()->for($paciente)->for($profesional)->create([
+            'tipo' => TipoTurnoEnum::PRIMERA_CONSULTA, 'estado' => EstadoTurnoEnum::PENDIENTE,
+            'inicio_at' => '2026-10-20 10:00:00', 'fin_at' => '2026-10-20 10:45:00',
+        ]);
+        $html = (string) $this->view('turnos.mis-turnos.index', [
+            'proximos' => Turno::with('kinesiologa.user')->whereKey($turno->id)->paginate(10, ['*'], 'proximos_page'),
+            'historicos' => Turno::whereKey([])->paginate(10, ['*'], 'historicos_page'),
+            'turnoDestacadoId' => null, 'primeraConsultaActiva' => true,
+        ]);
+        $dom = new DOMDocument;
+        @$dom->loadHTML('<?xml encoding="UTF-8">'.$html);
+        $xpath = new DOMXPath($dom);
+        $this->assertSame(1, $xpath->query('//h1[normalize-space(.)="Mis turnos"]')->length);
+        $cta = $xpath->query('//header//a[@href="'.route('turnos.solicitar.create').'"]')->item(0);
+        $this->assertNotNull($cta);
+        $this->assertSame('Solicitar nuevo turno', trim($cta->textContent));
+        $this->assertStringContainsString('focus:ring-', $cta->getAttribute('class'));
+        $this->assertFalse($cta->hasAttribute('aria-disabled'));
+        $this->assertSame(0, $xpath->query('//*[@tabindex > 0]')->length);
+        $card = $xpath->query('//section[@aria-labelledby="proximos-titulo"]/ul/li/article')->item(0);
+        $this->assertNotNull($card);
+        $this->assertSame('Primera consulta', trim($xpath->query('.//h3', $card)->item(0)->textContent));
+        $this->assertSame(1, $xpath->query('.//span[normalize-space(.)="Pendiente"]', $card)->length);
+        $this->assertSame(1, $xpath->query('.//dt[normalize-space(.)="Fecha"]/following-sibling::dd/time[@datetime="2026-10-20"]', $card)->length);
+        $this->assertSame(1, $xpath->query('.//dt[normalize-space(.)="Horario"]/following-sibling::dd/span[normalize-space(.)="10:00 – 10:45 hs"]', $card)->length);
+        foreach ($xpath->query('//main//svg | //header//a/svg') as $icono) {
+            $this->assertGreaterThan(0, $xpath->query('ancestor-or-self::*[@aria-hidden="true"]', $icono)->length);
+        }
+        foreach ($xpath->query('//main/descendant::section[@aria-labelledby]') as $seccion) {
+            $this->assertSame(1, $xpath->query('.//h2[@id="'.$seccion->getAttribute('aria-labelledby').'"]', $seccion)->length);
         }
     }
 

@@ -7,6 +7,8 @@ use App\Enums\RoleEnum;
 use App\Enums\TipoTurnoEnum;
 use App\Models\ColegioEmisor;
 use App\Models\DeclaracionSaludPaciente;
+use App\Models\DocumentoClinico;
+use App\Models\DocumentoClinicoOrigenTurno;
 use App\Models\EspecialidadKinesiologia;
 use App\Models\Jurisdiccion;
 use App\Models\Kinesiologa;
@@ -61,7 +63,7 @@ class MisTurnosTest extends TestCase
         $response = $this->actingAs($this->paciente->user)->get($this->url());
         $response->assertOk()->assertSee('Todavía no tenés turnos registrados')
             ->assertSee('Solicitar nuevo turno')
-            ->assertSee('Podés iniciar una nueva solicitud');
+            ->assertSee('Consultá tus próximos turnos y el historial de atenciones.');
         $this->assertSame(2, substr_count($response->getContent(), 'href="'.$this->url().'"'));
         $this->assertTrue(Route::has('turnos.solicitar.create'));
         $response->assertSee('href="'.route('turnos.solicitar.create').'"', false);
@@ -159,14 +161,58 @@ class MisTurnosTest extends TestCase
         return [[1, 1], [2, 1], [1, 2], [2, 2]];
     }
 
-    public function test_visible_fields_and_both_responsive_presentations_exclude_clinical_and_internal_data(): void
+    public function test_persisted_uc07_result_is_visible_once_in_its_own_card_without_client_state(): void
+    {
+        $inicio = $this->ahora->addDays(3)->setTime(10, 0);
+        $turno = $this->turno([
+            'tipo' => TipoTurnoEnum::PRIMERA_CONSULTA, 'estado' => EstadoTurnoEnum::PENDIENTE,
+            'inicio_at' => $inicio, 'fin_at' => $inicio->addMinutes(45), 'clave_idempotencia' => (string) Str::uuid(),
+        ]);
+        $otra = $this->profesional();
+        $this->turno(['kinesiologa_id' => $otra->id, 'estado' => EstadoTurnoEnum::CONFIRMADO]);
+        $this->turno(['paciente_id' => $this->pacienteCompleto()->id, 'kinesiologa_id' => $otra->id]);
+        // No existe agenda que la vista pueda usar para reconstruir la duración del snapshot.
+        $this->assertDatabaseCount('configuraciones_agenda', 0);
+
+        $response = $this->actingAs($this->paciente->user)->get($this->url())->assertOk()
+            ->assertViewHas('turnoDestacadoId', null)
+            ->assertViewHas('proximos', fn ($p) => $p->total() === 2 && $p->pluck('id')->contains($turno->id));
+        $dom = new \DOMDocument;
+        @$dom->loadHTML('<?xml encoding="UTF-8">'.$response->getContent());
+        $xpath = new \DOMXPath($dom);
+        $cards = $xpath->query('//section[@aria-labelledby="proximos-titulo"]/ul/li/article');
+        $this->assertSame(2, $cards->length);
+        $propios = $xpath->query('//section[@aria-labelledby="proximos-titulo"]/ul/li/article[.//h3[normalize-space(.)="Primera consulta"]]');
+        $this->assertSame(1, $propios->length);
+        $card = $propios->item(0);
+        $this->assertSame(1, $xpath->query('.//span[normalize-space(.)="Pendiente"]', $card)->length);
+        $this->assertSame(0, $xpath->query('.//*[normalize-space(.)="Confirmado" or normalize-space(.)="Seguimiento"]', $card)->length);
+        $this->assertSame(1, $xpath->query('.//time[@datetime="'.$inicio->format('Y-m-d').'"]', $card)->length);
+        $texto = preg_replace('/\s+/u', ' ', trim($card->textContent));
+        foreach ([trim($this->kinesiologa->user->name.' '.$this->kinesiologa->user->apellido), $inicio->format('d/m/Y'), '10:00 – 10:45 hs'] as $dato) {
+            $this->assertStringContainsString($dato, $texto);
+        }
+        $this->assertStringNotContainsString(trim($otra->user->name.' '.$otra->user->apellido), $texto);
+        $response->assertDontSee($turno->clave_idempotencia)->assertDontSee('Turno destacado');
+    }
+
+    public function test_visible_card_fields_exclude_clinical_and_internal_data(): void
     {
         $turno = $this->turno(['tipo' => TipoTurnoEnum::PRIMERA_CONSULTA, 'motivo_solicitud' => 'MOTIVO PRIVADO', 'clave_idempotencia' => (string) Str::uuid()]);
+        $documento = DocumentoClinico::factory()->create([
+            'paciente_id' => $this->paciente->id, 'cargado_por_user_id' => $this->paciente->user_id,
+            'nombre_original' => 'ARCHIVO-CLINICO-PRIVADO.pdf', 'descripcion' => 'DESCRIPCION CLINICA PRIVADA',
+            'ruta_storage' => 'fixtures/RUTA-CLINICA-PRIVADA.pdf',
+        ]);
+        DocumentoClinicoOrigenTurno::create(['documento_clinico_id' => $documento->id, 'turno_id' => $turno->id]);
         $this->actingAs($this->paciente->user)->get($this->url())->assertOk()
             ->assertSee('Primera consulta')->assertSee($this->kinesiologa->user->name.' '.$this->kinesiologa->user->apellido)
             ->assertSee($turno->inicio_at->format('d/m/Y'))->assertSee('12:00 – 12:45')->assertSee('Pendiente')
-            ->assertSee('hidden md:block', false)->assertSee('md:hidden', false)->assertSee('<table', false)->assertSee('<article', false)
+            ->assertSee('<article', false)->assertSee('md:flex-row', false)->assertDontSee('<table', false)
             ->assertDontSee('MOTIVO PRIVADO')->assertDontSee($turno->clave_idempotencia)
+            ->assertDontSee($documento->descripcion)->assertDontSee($documento->nombre_original)->assertDontSee($documento->ruta_storage)
+            ->assertDontSee($this->kinesiologa->user->dni)->assertDontSee($this->kinesiologa->user->email)
+            ->assertDontSee($this->kinesiologa->user->telefono)->assertDontSee('MP-'.$this->kinesiologa->user_id)
             ->assertDontSee('motivo_solicitud')->assertDontSee('paciente_id')->assertDontSee('recordatorio_enviado_at')
             ->assertDontSee('/documentos-clinicos/')->assertDontSee('Confirmar asistencia')->assertDontSee('Reprogramar')
             ->assertDontSee('Cancelar turno')->assertDontSee('Iniciar consulta')->assertDontSee('Cambiar estado');
@@ -188,7 +234,7 @@ class MisTurnosTest extends TestCase
     {
         $this->turno(['inicio_at' => $futuro ? $this->ahora->addDay() : $this->ahora->subDay()]);
         $this->actingAs($this->paciente->user)->get($this->url())->assertOk()
-            ->assertSee('Próximos turnos')->assertSee('Historial de turnos')->assertSee('Seguimiento')
+            ->assertSee('Próximos turnos')->assertSee('Historial de atenciones')->assertSee('Seguimiento')
             ->assertSee($futuro ? 'Todavía no tenés turnos en el historial.' : 'No tenés próximos turnos.')
             ->assertDontSee('Todavía no tenés turnos registrados');
     }
@@ -199,20 +245,20 @@ class MisTurnosTest extends TestCase
     }
 
     #[DataProvider('estadosCanonicos')]
-    public function test_preliminary_d01_follows_every_canonical_state(EstadoTurnoEnum $estado): void
+    public function test_cta_always_reaches_create_where_canonical_d01_is_authoritative(EstadoTurnoEnum $estado): void
     {
         $this->turno(['tipo' => TipoTurnoEnum::PRIMERA_CONSULTA, 'estado' => $estado]);
         $ocupa = in_array($estado, EstadoTurnoEnum::estadosQueReservanAgenda(), true);
         $response = $this->actingAs($this->paciente->user)->get($this->url())->assertOk()
             ->assertViewHas('primeraConsultaActiva', $ocupa)
-            ->assertSee($ocupa ? 'Ya tenés una Primera consulta futura' : 'Podés iniciar una nueva solicitud');
+            ->assertSee('href="'.route('turnos.solicitar.create').'"', false)
+            ->assertDontSee('Ya tenés una Primera consulta futura')->assertDontSee('id="estado-solicitud"', false);
         if ($ocupa) {
-            $response->assertDontSee('href="'.route('turnos.solicitar.create').'"', false)
-                ->assertSee('<button type="button" disabled aria-describedby="estado-solicitud"', false);
             $this->get(route('turnos.solicitar.create'))->assertOk()
                 ->assertViewIs('turnos.solicitar.create')->assertViewHas('bloqueadoPorPrimeraConsulta', true);
         } else {
-            $response->assertSee('href="'.route('turnos.solicitar.create').'"', false);
+            $this->get(route('turnos.solicitar.create'))->assertOk()
+                ->assertViewIs('turnos.solicitar.create')->assertViewHas('configuracionWizard');
         }
     }
 
