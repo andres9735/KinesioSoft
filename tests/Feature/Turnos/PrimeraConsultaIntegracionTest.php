@@ -94,14 +94,20 @@ class PrimeraConsultaIntegracionTest extends TestCase
     {
         $wizard = $this->get(route('turnos.solicitar.create'))->assertOk()->viewData('configuracionWizard');
         $this->uuid = $wizard['uuid'];
-        $slots = $this->getJson(route('turnos.solicitar.disponibilidad', [
-            'kinesiologa_id' => $this->profesional->id, 'desde' => '2026-10-05', 'hasta' => '2026-10-05',
-        ]))->assertOk()->json('slots');
-        $this->assertNotEmpty($slots);
+        $horarios = $this->getJson(route('turnos.solicitar.disponibilidad', [
+            'desde' => '2026-10-05', 'hasta' => '2026-10-05',
+        ]))->assertOk()->json('dias.0.horarios');
+        $this->assertNotEmpty($horarios);
+        $inicio = $horarios[0]['inicio_at'];
+        $seleccion = $this->getJson(route('turnos.solicitar.profesionales-disponibles', [
+            'inicio_at' => $inicio,
+        ]))->assertOk()->json('profesionales.0');
+        $this->assertSame($this->profesional->id, $seleccion['kinesiologa_id']);
         $archivos = array_map(fn ($i) => $this->archivo('Estudio '.$i.'.pdf', $i), range(1, max(1, $cantidad)));
         $archivos = $cantidad === 0 ? [] : $archivos;
+        $adjuntos = array_map(fn ($archivo, $i) => $this->adjunto($archivo, '  Descripción original '.$i.'.  '), $archivos, array_keys($archivos));
         $respuesta = $this->post(route('turnos.solicitar.store'), $this->payload([
-            'inicio_at' => $slots[0]['inicio_at'], 'adjuntos' => $archivos,
+            'kinesiologa_id' => $seleccion['kinesiologa_id'], 'inicio_at' => $inicio, 'adjuntos' => $adjuntos,
         ]), ['Accept' => 'application/json'])->assertCreated();
         $turno = Turno::sole();
         $this->assertSame($turno->id, $respuesta->json('turno_id'));
@@ -110,8 +116,8 @@ class PrimeraConsultaIntegracionTest extends TestCase
         $this->assertSame($this->profesional->id, $turno->kinesiologa_id);
         $this->assertSame(TipoTurnoEnum::PRIMERA_CONSULTA, $turno->tipo);
         $this->assertSame(EstadoTurnoEnum::PENDIENTE, $turno->estado);
-        $this->assertSame($slots[0]['inicio_at'], $turno->inicio_at->toDateTimeString());
-        $this->assertSame($slots[0]['fin_at'], $turno->fin_at->toDateTimeString());
+        $this->assertSame($inicio, $turno->inicio_at->toDateTimeString());
+        $this->assertSame($seleccion['fin_at'], $turno->fin_at->toDateTimeString());
         $this->assertSame($this->payload()['motivo_solicitud'], $turno->motivo_solicitud);
         $this->conteos(1, $cantidad, 1 + $cantidad);
         $this->get($respuesta->json('redirect_url'))->assertOk()
@@ -125,6 +131,7 @@ class PrimeraConsultaIntegracionTest extends TestCase
             $this->assertSame(DocumentoClinico::ESTADO_VALIDACION_PENDIENTE, $doc->estado_validacion);
             $this->assertSame(DocumentoClinico::TIPO_SIN_CLASIFICAR, $doc->tipo_documento_clinico);
             $this->assertSame($archivos[$i]->getClientOriginalName(), $doc->nombre_original);
+            $this->assertSame(trim($adjuntos[$i]['descripcion']), $doc->descripcion);
             $this->assertSame('application/pdf', $doc->mime_type);
             $this->assertSame(strlen($contenido), $doc->tamanio_bytes);
             $this->assertSame($contenido, $this->disco->get($doc->ruta_storage));
@@ -147,6 +154,7 @@ class PrimeraConsultaIntegracionTest extends TestCase
                 'turno_id' => $turno->id, 'es_replay' => true, 'redirect_url' => $respuesta->json('redirect_url'),
             ]);
         $this->conteos(1, $cantidad, 1 + 2 * $cantidad);
+        $this->assertSame(array_map(static fn ($adjunto) => trim($adjunto['descripcion']), $adjuntos), DocumentoClinico::orderBy('id')->pluck('descripcion')->all());
     }
 
     public static function cantidades(): array
@@ -157,7 +165,7 @@ class PrimeraConsultaIntegracionTest extends TestCase
     public function test_lost_response_then_uuid_only_replay_precedes_all_mutated_creation_conditions(): void
     {
         // Se envía el POST real y se descarta su respuesta, sin simular que no llegó al backend.
-        $this->post(route('turnos.solicitar.store'), $this->payload(['adjuntos' => [$this->archivo()]]),
+        $this->post(route('turnos.solicitar.store'), $this->payload(['adjuntos' => [$this->adjunto()]]),
             ['Accept' => 'application/json']);
         $turno = Turno::sole();
         $this->conteos(1, 1, 2);
@@ -172,6 +180,7 @@ class PrimeraConsultaIntegracionTest extends TestCase
         $this->postJson(route('turnos.solicitar.store'), ['clave_idempotencia' => $this->uuid])
             ->assertOk()->assertJsonPath('turno_id', $turno->id)->assertJsonPath('es_replay', true);
         $this->conteos(1, 1, 2);
+        $this->assertSame('Descripción original sintética.', DocumentoClinico::sole()->descripcion);
     }
 
     public function test_uncertain_commit_through_http_preserves_bytes_and_allows_safe_uuid_retry(): void
@@ -182,7 +191,7 @@ class PrimeraConsultaIntegracionTest extends TestCase
             throw new RuntimeException('Commit sin respuesta verificable');
         });
         try {
-            $this->post(route('turnos.solicitar.store'), $this->payload(['adjuntos' => [$this->archivo()]]),
+            $this->post(route('turnos.solicitar.store'), $this->payload(['adjuntos' => [$this->adjunto()]]),
                 ['Accept' => 'application/json'])->assertStatus(500)->assertJsonMissingPath('code')
                 ->assertJsonMissingPath('turno_id')->assertDontSee('Commit sin respuesta verificable');
         } finally {
@@ -196,6 +205,7 @@ class PrimeraConsultaIntegracionTest extends TestCase
             ->assertOk()->assertJsonPath('es_replay', true)->assertJsonPath('turno_id', Turno::sole()->id);
         $this->conteos(1, 1, 2);
         $this->assertSame($contenido, $this->disco->get($doc->ruta_storage));
+        $this->assertSame('Descripción original sintética.', $doc->fresh()->descripcion);
 
         // Antigüedad artificial: una referencia consolidada protege también el archivo antiguo.
         touch($this->disco->path($doc->ruta_storage), CarbonImmutable::getTestNow()->subHours(25)->getTimestamp());
@@ -208,7 +218,7 @@ class PrimeraConsultaIntegracionTest extends TestCase
 
     public function test_confirmed_originals_and_association_cannot_be_rewritten(): void
     {
-        $this->post(route('turnos.solicitar.store'), $this->payload(['adjuntos' => [$this->archivo()]]),
+        $this->post(route('turnos.solicitar.store'), $this->payload(['adjuntos' => [$this->adjunto()]]),
             ['Accept' => 'application/json'])->assertCreated();
         $turno = Turno::sole();
         $doc = DocumentoClinico::sole();
@@ -217,6 +227,7 @@ class PrimeraConsultaIntegracionTest extends TestCase
             [$turno, ['motivo_solicitud' => 'Otro motivo']],
             [$turno->fresh(), ['tipo' => TipoTurnoEnum::SEGUIMIENTO, 'motivo_solicitud' => 'Otro motivo']],
             [$doc, ['nombre_original' => 'otro.pdf']],
+            [$doc->fresh(), ['descripcion' => 'Otra descripción']],
             [$doc->fresh(), ['ruta_storage' => 'originales/'.Str::uuid()]],
             [$doc->fresh(), ['origen' => 'OTRO']],
             [$origen, ['turno_id' => 999999]],
@@ -234,7 +245,7 @@ class PrimeraConsultaIntegracionTest extends TestCase
 
     public function test_document_from_real_flow_is_private_for_patient_professional_and_admin_roles(): void
     {
-        $this->post(route('turnos.solicitar.store'), $this->payload(['adjuntos' => [$this->archivo()]]),
+        $this->post(route('turnos.solicitar.store'), $this->payload(['adjuntos' => [$this->adjunto()]]),
             ['Accept' => 'application/json'])->assertCreated();
         $turno = Turno::sole();
         $doc = DocumentoClinico::sole();
@@ -278,7 +289,7 @@ class PrimeraConsultaIntegracionTest extends TestCase
         }
         $this->post(route('turnos.solicitar.store'), $this->payload([
             'inicio_at' => $code === 'slot_no_disponible' ? '2026-10-05 10:00:00' : '2026-10-05 10:01:00',
-            'adjuntos' => [$this->archivo()],
+            'adjuntos' => [$this->adjunto()],
         ]), ['Accept' => 'application/json'])->assertConflict()->assertJsonCount(2)->assertJsonPath('code', $code)
             ->assertJsonMissingPath('turno_id')->assertJsonMissingPath('redirect_url');
         $this->conteos($code === 'profesional_no_elegible' ? 0 : 1, 0, 0);
@@ -300,11 +311,11 @@ class PrimeraConsultaIntegracionTest extends TestCase
         } elseif ($caso === 'estructura') {
             $payload['adjuntos'] = 'no-array';
         } elseif ($caso === 'cantidad') {
-            $payload['adjuntos'] = array_map(fn ($i) => $this->archivo('Estudio '.$i.'.pdf', $i), range(1, 6));
+            $payload['adjuntos'] = array_map(fn ($i) => $this->adjunto($this->archivo('Estudio '.$i.'.pdf', $i)), range(1, 6));
         } elseif ($caso === 'mime') {
             $archivo = $this->archivo();
             file_put_contents($archivo->getRealPath(), 'Contenido de texto plano sin PDF');
-            $payload['adjuntos'] = [$archivo];
+            $payload['adjuntos'] = [$this->adjunto($archivo)];
         } else {
             // Se comprueba el rechazo real de toda la whitelist derivada, no sólo su ausencia en validated().
             foreach ($campos as $campo) {
@@ -323,7 +334,7 @@ class PrimeraConsultaIntegracionTest extends TestCase
     {
         return [
             ['motivo', ['motivo_solicitud']], ['estructura', ['adjuntos']],
-            ['cantidad', ['adjuntos']], ['mime', ['adjuntos.0']],
+            ['cantidad', ['adjuntos']], ['mime', ['adjuntos.0.archivo']],
             ['derivados', ['paciente_id', 'tipo', 'estado', 'fin_at', 'cargado_por_user_id',
                 'origen', 'estado_validacion', 'tipo_documento_clinico', 'ruta_storage', 'mime_type', 'tamanio_bytes']],
         ];
@@ -344,6 +355,11 @@ class PrimeraConsultaIntegracionTest extends TestCase
         file_put_contents($ruta, "%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n% fixture ".$indice."\n%%EOF\n");
 
         return new UploadedFile($ruta, $nombre, 'application/octet-stream', UPLOAD_ERR_OK, true);
+    }
+
+    private function adjunto(?UploadedFile $archivo = null, string $descripcion = 'Descripción original sintética.'): array
+    {
+        return ['archivo' => $archivo ?? $this->archivo(), 'descripcion' => $descripcion];
     }
 
     private function conteos(int $turnos, int $docs, int $auditorias): void
