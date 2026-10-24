@@ -6,6 +6,7 @@ use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Cookie\CookieValuePrefix;
 use Illuminate\Database\Events\TransactionBeginning;
+use Illuminate\Database\Events\TransactionCommitted;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -109,9 +110,30 @@ try {
         '_token' => $token, 'clave_idempotencia' => $entrada['uuid'], 'kinesiologa_id' => $entrada['kinesiologa'],
         'inicio_at' => $entrada['inicio_at'] ?? '2026-10-05 10:00:00', 'motivo_solicitud' => 'Motivo privado del fixture',
     ];
+    if ($archivos !== []) {
+        $payload['adjuntos'] = array_map(static fn ($i) => [
+            'descripcion' => '  Descripción sintética '.$nombre.'-'.$i.'.  ',
+        ], array_keys($archivos));
+    }
     $request = Request::create('/turnos/solicitar', 'POST', $payload, $cookies,
-        $archivos === [] ? [] : ['adjuntos' => $archivos], $server);
-    $respuesta = $kernel->handle($request);
+        $archivos === [] ? [] : ['adjuntos' => array_map(static fn ($archivo) => ['archivo' => $archivo], $archivos)], $server);
+    $pdo = null;
+    if ($entrada['commit_incierto'] ?? false) {
+        // Sólo harness: el COMMIT real termina, pero la Action no puede verificar su resultado.
+        $pdo = DB::connection()->getPdo();
+        Event::listen(TransactionCommitted::class, static function (): never {
+            DB::connection()->setPdo(null);
+            throw new RuntimeException('Commit sin respuesta verificable del harness.');
+        });
+    }
+    try {
+        $respuesta = $kernel->handle($request);
+    } finally {
+        if ($pdo !== null) {
+            DB::connection()->setPdo($pdo);
+            Event::forget(TransactionCommitted::class);
+        }
+    }
     $body = json_decode($respuesta->getContent(), true, flags: JSON_THROW_ON_ERROR);
     $kernel->terminate($request, $respuesta);
     $salida = [

@@ -36,7 +36,10 @@ class PrimeraConsultaHttpConcurrencyTest extends MySqlTestCase
         $paciente = $this->paciente();
         $profesional = $this->profesional();
         $otroPaciente = $caso === 'mismo_slot' ? $this->paciente() : $paciente;
-        $otraProfesional = $caso === 'd01' ? $this->profesional() : $profesional;
+        $otraProfesional = in_array($caso, ['d01', 'd01_duraciones'], true) ? $this->profesional() : $profesional;
+        if ($caso === 'd01_duraciones') {
+            $profesional->configuracionesAgenda()->sole()->update(['duracion_turno_minutos' => 45]);
+        }
         $uuid = (string) Str::uuid();
         $this->iniciar('uno', $paciente, $profesional, [
             'uuid' => $uuid, 'archivos' => 2, 'pausar' => true, 'pausar_final' => true,
@@ -82,10 +85,13 @@ class PrimeraConsultaHttpConcurrencyTest extends MySqlTestCase
         $this->conteos(1, 2);
         $this->assertSame($paciente->id, Turno::sole()->paciente_id);
         $this->assertSame($profesional->id, Turno::sole()->kinesiologa_id);
+        $this->assertSame('2026-10-05 10:00:00', Turno::sole()->inicio_at->toDateTimeString());
+        $this->assertSame($caso === 'd01_duraciones' ? '2026-10-05 10:45:00' : '2026-10-05 10:30:00', Turno::sole()->fin_at->toDateTimeString());
         $this->assertEqualsCanonicalizing($rutas, Storage::disk('documentos_clinicos')->allFiles('originales'));
         foreach (DocumentoClinico::orderBy('id')->get() as $i => $doc) {
             $contenido = "%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n% uno-".$i."\n%%EOF\n";
             $this->assertSame('uno-'.$i.'.pdf', $doc->nombre_original);
+            $this->assertSame('Descripción sintética uno-'.$i.'.', $doc->descripcion);
             $this->assertSame(hash('sha256', $contenido), hash('sha256', Storage::disk('documentos_clinicos')->get($doc->ruta_storage)));
             $this->assertSame(strlen($contenido), $doc->tamanio_bytes);
             $this->assertSame('application/pdf', $doc->mime_type);
@@ -98,6 +104,7 @@ class PrimeraConsultaHttpConcurrencyTest extends MySqlTestCase
     {
         return [
             'dos pacientes mismo slot' => ['mismo_slot'], 'mismo paciente otras profesionales' => ['d01'],
+            'mismo inicio otras profesionales con duraciones distintas' => ['d01_duraciones'],
             'misma UUID' => ['misma_uuid'], 'UUID distintas intención incompatible' => ['uuid_distintas'],
         ];
     }
@@ -203,6 +210,38 @@ class PrimeraConsultaHttpConcurrencyTest extends MySqlTestCase
         $this->assertHttp($retry, $gano ? 200 : 201);
         $this->assertSame($gano, $retry['esReplay']);
         $this->conteos(1, 1);
+    }
+
+    public function test_real_uncertain_http_commit_preserves_description_and_bytes_until_uuid_replay(): void
+    {
+        $paciente = $this->paciente();
+        $profesional = $this->profesional();
+        $uuid = (string) Str::uuid();
+        $this->iniciar('incierto', $paciente, $profesional, [
+            'uuid' => $uuid, 'archivos' => 1, 'commit_incierto' => true,
+        ]);
+        $incierto = $this->resultado('incierto');
+        $this->assertHttp($incierto, 500);
+        $this->assertNull($incierto['code']);
+        $this->assertNull($incierto['turno_id']);
+        $this->assertNull($incierto['redirect_url']);
+        $this->conteos(1, 1);
+        $turno = Turno::sole();
+        $doc = DocumentoClinico::sole();
+        $contenido = "%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n% incierto-0\n%%EOF\n";
+        $this->assertSame('Descripción sintética incierto-0.', $doc->descripcion);
+        $this->assertSame($contenido, Storage::disk('documentos_clinicos')->get($doc->ruta_storage));
+        $this->assertSame($turno->id, $doc->origenTurno->turno_id);
+
+        $this->iniciar('retry', $paciente, $profesional, ['uuid' => $uuid, 'archivos' => 2]);
+        $replay = $this->resultado('retry');
+        $this->assertHttp($replay, 200);
+        $this->assertTrue($replay['esReplay']);
+        $this->assertSame($turno->id, $replay['turno_id']);
+        $this->conteos(1, 1);
+        $this->assertSame('Descripción sintética incierto-0.', $doc->fresh()->descripcion);
+        $this->assertSame($contenido, Storage::disk('documentos_clinicos')->get($doc->ruta_storage));
+        $this->auditoriaGanadora($paciente->user_id);
     }
 
     private function assertHttp(array $resultado, int $status): void
