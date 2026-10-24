@@ -115,6 +115,42 @@ class TurnosAccessibilityViewTest extends TestCase
         $this->assertSame('!!errorDescripcion(entrada) || !!entrada.errorDescripcionServidor', $descripcion->getAttribute(':aria-invalid'));
     }
 
+    public function test_file_picker_presents_the_accepted_selection_instead_of_the_reset_native_value(): void
+    {
+        $xpath = $this->wizard();
+        $input = $xpath->query('//input[@id="adjuntos"]')->item(0);
+        $this->assertSame('file', $input->getAttribute('type'));
+        $this->assertTrue($input->hasAttribute('multiple'));
+        $this->assertSame('.pdf,.jpg,.jpeg,.png', $input->getAttribute('accept'));
+        $this->assertSame('agregarArchivos($event)', $input->getAttribute('x-on:change'));
+        $this->assertFalse($input->hasAttribute('hidden'));
+        $this->assertFalse($input->hasAttribute('aria-hidden'));
+        $this->assertFalse($input->hasAttribute('tabindex'));
+        $this->assertStringContainsString('sr-only', $input->getAttribute('class'));
+        $this->assertStringContainsString('peer', $input->getAttribute('class'));
+        $label = $xpath->query('//label[@for="adjuntos"]')->item(0);
+        $this->assertSame('Elegir archivos', trim($label->textContent));
+        $this->assertStringContainsString('peer-focus:ring-2', $label->getAttribute('class'));
+        $this->assertStringContainsString('peer-focus:ring-indigo-500', $label->getAttribute('class'));
+        $status = $xpath->query('//*[@id="archivos-seleccion"]')->item(0);
+        $this->assertSame('Ningún archivo seleccionado', trim($status->textContent));
+        $this->assertSame("archivos.length > 0 ? 'Agregar más archivos' : 'Ningún archivo seleccionado'", $status->getAttribute('x-text'));
+        $this->assertSame('polite', $status->getAttribute('aria-live'));
+        $this->assertStringContainsString('archivos-seleccion', $input->getAttribute('aria-describedby'));
+        $this->assertSame(1, $xpath->query('//p[@*[name()="x-text"]="archivos.length > 0 ? \'Podés sumar más estudios o documentación si lo necesitás.\' : \'Elegí archivos o arrastralos aquí.\'"]')->length);
+        $this->assertSame(1, $xpath->query('//div[@*[name()="x-on:drop.prevent"]="agregarArchivos({ target: { files: $event.dataTransfer.files, value: \'\' } })"]')->length);
+    }
+
+    public function test_professional_heading_keeps_its_programmatic_focus_without_a_selection_ring(): void
+    {
+        $heading = $this->wizard()->query('//h2[@id="titulo-paso-2"]')->item(0);
+        $this->assertSame('tituloPaso2', $heading->getAttribute('x-ref'));
+        $this->assertSame('-1', $heading->getAttribute('tabindex'));
+        $classes = preg_split('/\s+/', $heading->getAttribute('class'));
+        $this->assertContains('focus:outline-none', $classes);
+        $this->assertDoesNotMatchRegularExpression('/\bfocus(?:-visible)?:ring(?:-|\b)/', $heading->getAttribute('class'));
+    }
+
     public function test_slots_loading_errors_and_review_have_native_semantics(): void
     {
         $xpath = $this->wizard();

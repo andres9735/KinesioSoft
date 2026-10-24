@@ -1,6 +1,6 @@
 <section x-show="paso === 2" x-cloak aria-labelledby="titulo-paso-2" class="min-w-0 space-y-6">
     <div class="space-y-2">
-        <h2 id="titulo-paso-2" x-ref="tituloPaso2" tabindex="-1" class="rounded-lg text-2xl font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">Elegir profesional</h2>
+        <h2 id="titulo-paso-2" x-ref="tituloPaso2" tabindex="-1" class="rounded-lg text-2xl font-semibold text-gray-900 focus:outline-none">Elegir profesional</h2>
         <p class="text-sm leading-6 text-gray-600">Te mostramos sólo las profesionales que tienen disponibilidad para el horario seleccionado. La hora de finalización puede variar según la duración configurada para cada agenda.</p>
     </div>
 

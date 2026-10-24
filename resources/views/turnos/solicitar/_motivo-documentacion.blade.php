@@ -40,9 +40,13 @@
             Máximo {{ $configuracionWizard['limites']['maxBytesPorArchivo'] / (1024 * 1024) }} MiB por archivo y {{ $configuracionWizard['limites']['maxBytesTotal'] / (1024 * 1024) }} MiB en total.
         </p>
         <div @dragover.prevent @drop.prevent="agregarArchivos({ target: { files: $event.dataTransfer.files, value: '' } })" class="rounded-xl border border-dashed border-indigo-200 bg-indigo-50 p-5 text-center sm:p-7">
-            <x-input-label for="adjuntos" value="Agregar archivos" />
-            <input id="adjuntos" type="file" multiple accept="{{ implode(',', array_map(static fn ($extension) => '.'.$extension, $configuracionWizard['limites']['extensionesPermitidas'])) }}" @change="agregarArchivos($event)" aria-describedby="archivos-ayuda archivos-errores archivos-privacidad" :aria-invalid="erroresArchivos.length > 0 || erroresGeneralesArchivos.length > 0 || !!erroresServidor.adjuntos" class="mx-auto mt-3 block w-full min-w-0 rounded-lg text-sm text-gray-700 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-4 file:py-3 file:font-semibold file:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2" />
-            <p class="mt-3 text-xs text-gray-600">Elegí archivos o arrastralos aquí.</p>
+            <p class="text-sm font-medium text-gray-700">Agregar archivos</p>
+            <div class="relative mt-3">
+                <input id="adjuntos" type="file" multiple accept="{{ implode(',', array_map(static fn ($extension) => '.'.$extension, $configuracionWizard['limites']['extensionesPermitidas'])) }}" @change="agregarArchivos($event)" aria-describedby="archivos-seleccion archivos-ayuda archivos-errores archivos-privacidad" :aria-invalid="erroresArchivos.length > 0 || erroresGeneralesArchivos.length > 0 || !!erroresServidor.adjuntos" class="peer sr-only focus:ring-2 focus:ring-indigo-500" />
+                <label for="adjuntos" class="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-lg bg-white px-4 py-3 text-sm font-semibold text-indigo-700 peer-focus:ring-2 peer-focus:ring-indigo-500 peer-focus:ring-offset-2">Elegir archivos</label>
+            </div>
+            <p id="archivos-seleccion" aria-live="polite" class="mt-3 text-sm text-gray-700" x-text="archivos.length > 0 ? 'Agregar más archivos' : 'Ningún archivo seleccionado'">Ningún archivo seleccionado</p>
+            <p class="mt-2 text-xs text-gray-600" x-text="archivos.length > 0 ? 'Podés sumar más estudios o documentación si lo necesitás.' : 'Elegí archivos o arrastralos aquí.'">Elegí archivos o arrastralos aquí.</p>
         </div>
         <div id="archivos-errores" x-ref="documentacion" tabindex="-1" class="space-y-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" aria-live="polite">
             <p x-show="erroresServidor.adjuntos" x-cloak x-text="erroresServidor.adjuntos" class="text-sm text-red-700"></p>
