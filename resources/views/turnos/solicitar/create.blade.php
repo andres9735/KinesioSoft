@@ -1,12 +1,29 @@
 <x-app-layout>
     <x-slot name="header">
         <h1 class="text-2xl font-semibold leading-tight text-gray-900">Solicitar turno</h1>
-        <p class="mt-1 text-sm text-gray-500">Completá los datos de tu Primera consulta.</p>
+        <p class="mt-1 text-sm text-gray-500">Primera consulta</p>
     </x-slot>
 
     <style>.solicitud-turno [x-cloak] { display: none !important; }</style>
-    <div class="solicitud-turno py-8 sm:py-10" x-data="solicitarTurno(@js($configuracionWizard))">
+    <div class="solicitud-turno py-8 sm:py-10" @unless ($bloqueadoPorPrimeraConsulta ?? false) x-data="solicitarTurno(@js($configuracionWizard))" @endunless>
         <div class="mx-auto max-w-4xl space-y-6 px-4 sm:px-6 lg:px-8">
+            <section id="bloqueo-primera-consulta" aria-labelledby="bloqueo-primera-consulta-titulo" role="alert" tabindex="-1" @unless ($bloqueadoPorPrimeraConsulta ?? false) x-show="primeraConsultaActiva" x-cloak x-ref="bloqueoPrimeraConsulta" @endunless class="space-y-6 rounded-2xl border-t-8 border-indigo-600 bg-white p-6 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:p-10">
+                <div class="flex min-w-0 items-start gap-4">
+                    <span aria-hidden="true" class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xl font-semibold text-indigo-600">i</span>
+                    <div class="min-w-0 space-y-3">
+                        <p class="inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-800">Primera consulta activa</p>
+                        <h2 id="bloqueo-primera-consulta-titulo" class="text-2xl font-semibold text-gray-900">Ya tenés una Primera consulta activa</h2>
+                        <p class="leading-6 text-gray-600">No podés registrar otra Primera consulta mientras este turno continúe activo.</p>
+                        <p class="leading-6 text-gray-600">Podés consultar sus datos desde <strong>Mis turnos</strong>.</p>
+                    </div>
+                </div>
+                <div class="flex justify-end">
+                    <a href="{{ $urlMisTurnos ?? $configuracionWizard['urlMisTurnos'] }}" @unless ($bloqueadoPorPrimeraConsulta ?? false) @click.prevent="salirPorPrimeraConsultaActiva()" @endunless class="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-indigo-600 px-6 py-3 text-center font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto">Ir a Mis turnos</a>
+                </div>
+            </section>
+
+            @unless ($bloqueadoPorPrimeraConsulta ?? false)
+            <div x-show="!primeraConsultaActiva" class="space-y-6">
             <noscript><p class="rounded-lg bg-amber-50 p-4 text-amber-900">Necesitás habilitar JavaScript para completar esta solicitud. <a href="{{ route('turnos.mis-turnos.index') }}" class="underline">Volver a Mis turnos</a>.</p></noscript>
             <nav aria-label="Pasos de la solicitud" class="rounded-2xl bg-white p-5 shadow-sm sm:p-6">
                 <ol class="hidden grid-cols-4 gap-4 md:grid">
@@ -51,6 +68,8 @@
                     <button type="button" x-show="paso < 4" @click="siguiente()" :disabled="bloqueado || (paso === 1 && !puedeElegirProfesional) || (paso === 2 && !profesionalSeleccionada) || (paso === 3 && !puedeAvanzarPaso3)" x-text="paso === 3 ? 'Revisar turno' : 'Continuar'" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500">Continuar</button>
                 </div>
             </div>
+            </div>
+            @endunless
         </div>
     </div>
 </x-app-layout>

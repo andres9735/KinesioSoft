@@ -209,7 +209,8 @@ class MisTurnosTest extends TestCase
         if ($ocupa) {
             $response->assertDontSee('href="'.route('turnos.solicitar.create').'"', false)
                 ->assertSee('<button type="button" disabled aria-describedby="estado-solicitud"', false);
-            $this->get(route('turnos.solicitar.create'))->assertRedirect($this->url());
+            $this->get(route('turnos.solicitar.create'))->assertOk()
+                ->assertViewIs('turnos.solicitar.create')->assertViewHas('bloqueadoPorPrimeraConsulta', true);
         } else {
             $response->assertSee('href="'.route('turnos.solicitar.create').'"', false);
         }

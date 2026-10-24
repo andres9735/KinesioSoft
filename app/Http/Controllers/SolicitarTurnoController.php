@@ -16,21 +16,22 @@ use App\Services\Turnos\DisponibilidadAgregadaPrimeraConsultaService;
 use App\Services\Turnos\ElegibilidadPrimeraConsultaService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 final class SolicitarTurnoController extends Controller
 {
-    public function create(Request $request, ElegibilidadPrimeraConsultaService $d01, RelojAplicacion $reloj): View|RedirectResponse
+    public function create(Request $request, ElegibilidadPrimeraConsultaService $d01, RelojAplicacion $reloj): View
     {
         $paciente = $request->user()->paciente()->first();
         abort_unless($paciente instanceof Paciente, 403);
 
         if ($d01->tienePrimeraConsultaFuturaActiva($paciente)) {
-            return redirect()->route('turnos.mis-turnos.index')
-                ->with('warning', 'Ya tenés una Primera consulta futura activa. Podés consultarla en Mis turnos.');
+            return view('turnos.solicitar.create', [
+                'bloqueadoPorPrimeraConsulta' => true,
+                'urlMisTurnos' => route('turnos.mis-turnos.index'),
+            ]);
         }
 
         $politica = config('documentos_clinicos');

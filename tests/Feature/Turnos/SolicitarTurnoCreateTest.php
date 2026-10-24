@@ -153,11 +153,27 @@ class SolicitarTurnoCreateTest extends TestCase
         }
         $response = $this->actingAs($this->paciente->user)->get($this->url());
         if ($ocupa) {
-            $response->assertRedirect(route('turnos.mis-turnos.index'))->assertSessionHas('warning');
-            $mensaje = session('warning');
-            $this->assertStringNotContainsString($this->kinesiologa->user->name, $mensaje);
-            $this->assertStringNotContainsString($turno->inicio_at->toDateTimeString(), $mensaje);
-            $this->assertStringNotContainsString('Motivo privado', $mensaje);
+            $response->assertOk()->assertViewIs('turnos.solicitar.create')
+                ->assertViewHas('bloqueadoPorPrimeraConsulta', true)
+                ->assertViewHas('urlMisTurnos', route('turnos.mis-turnos.index'))
+                ->assertSessionMissing('warning')
+                ->assertSee('Ya tenés una Primera consulta activa')
+                ->assertSee('No podés registrar otra Primera consulta mientras este turno continúe activo.')
+                ->assertDontSee($this->kinesiologa->user->name)
+                ->assertDontSee($turno->inicio_at->toDateTimeString())->assertDontSee('Motivo privado');
+            $this->assertArrayNotHasKey('configuracionWizard', $response->original->getData());
+            $dom = new \DOMDocument;
+            @$dom->loadHTML('<?xml encoding="UTF-8">'.$response->getContent());
+            $xpath = new \DOMXPath($dom);
+            $bloqueo = $xpath->query('//main//section[@id="bloqueo-primera-consulta"]')->item(0);
+            $this->assertNotNull($bloqueo);
+            $this->assertSame('alert', $bloqueo->getAttribute('role'));
+            $this->assertSame(1, $xpath->query('.//a[@href="'.route('turnos.mis-turnos.index').'" and normalize-space(.)="Ir a Mis turnos"]', $bloqueo)->length);
+            $this->assertSame(0, $xpath->query('//main//*[@x-data or @x-init or @x-show or @x-ref]')->length);
+            $this->assertSame(0, $xpath->query('//main//fieldset | //main//input | //main//button | //nav[@aria-label="Pasos de la solicitud"]')->length);
+            foreach (['consultarDisponibilidad()', 'cargarProfesionalesDisponibles()', 'confirmarTurno()', 'clave_idempotencia', 'uuid', 'horario in horariosDisponibles'] as $prohibido) {
+                $response->assertDontSee($prohibido, false);
+            }
         } else {
             $response->assertOk()->assertViewIs('turnos.solicitar.create');
         }

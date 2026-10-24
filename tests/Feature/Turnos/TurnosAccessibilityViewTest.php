@@ -157,9 +157,39 @@ class TurnosAccessibilityViewTest extends TestCase
         $this->assertStringContainsString('focus:ring-', $retry->getAttribute('class'));
     }
 
-    private function wizard(): DOMXPath
+    public function test_d01_has_a_named_alert_and_real_navigation_without_an_operational_wizard_on_entry(): void
     {
-        $html = (string) $this->view('turnos.solicitar.create', ['configuracionWizard' => [
+        foreach ([false, true] as $bloqueado) {
+            $xpath = $this->wizard($bloqueado);
+            $bloqueo = $xpath->query('//section[@id="bloqueo-primera-consulta"]')->item(0);
+            $this->assertNotNull($bloqueo);
+            $this->assertSame('alert', $bloqueo->getAttribute('role'));
+            $this->assertSame('-1', $bloqueo->getAttribute('tabindex'));
+            $this->assertSame('bloqueo-primera-consulta-titulo', $bloqueo->getAttribute('aria-labelledby'));
+            $this->assertSame('Ya tenés una Primera consulta activa', trim($xpath->query('.//h2', $bloqueo)->item(0)->textContent));
+            $cta = $xpath->query('.//a', $bloqueo)->item(0);
+            $this->assertSame('Ir a Mis turnos', trim($cta->textContent));
+            $this->assertSame(route('turnos.mis-turnos.index'), $cta->getAttribute('href'));
+            $this->assertStringContainsString('focus:ring-', $cta->getAttribute('class'));
+            $this->assertFalse($cta->hasAttribute('tabindex'));
+            if ($bloqueado) {
+                $this->assertFalse($bloqueo->hasAttribute('x-cloak'));
+                $this->assertSame(0, $xpath->query('//main//*[@x-data or @x-init or @x-show] | //main//fieldset | //main//progress')->length);
+                $this->assertFalse($cta->hasAttribute('x-on:click.prevent'));
+            } else {
+                $this->assertSame('primeraConsultaActiva', $bloqueo->getAttribute('x-show'));
+                $this->assertSame('bloqueoPrimeraConsulta', $bloqueo->getAttribute('x-ref'));
+                $this->assertSame('salirPorPrimeraConsultaActiva()', $cta->getAttribute('x-on:click.prevent'));
+                $this->assertSame(1, $xpath->query('//div[@x-show="!primeraConsultaActiva"]//nav[@aria-label="Pasos de la solicitud"]')->length);
+            }
+        }
+    }
+
+    private function wizard(bool $bloqueado = false): DOMXPath
+    {
+        $html = (string) $this->view('turnos.solicitar.create', $bloqueado ? [
+            'bloqueadoPorPrimeraConsulta' => true, 'urlMisTurnos' => route('turnos.mis-turnos.index'),
+        ] : ['configuracionWizard' => [
             'uuid' => (string) Str::uuid(), 'maxMotivo' => 500, 'fechaInicial' => '2026-10-17',
             'urlMisTurnos' => route('turnos.mis-turnos.index'), 'urlDisponibilidad' => route('turnos.solicitar.disponibilidad'),
             'urlConfirmacion' => route('turnos.solicitar.store'),

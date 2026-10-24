@@ -24,8 +24,8 @@ const diferida = () => {
     const promise = new Promise((si, no) => { resolve = si; reject = no; });
     return { promise, resolve, reject };
 };
-function preparar(fetchImpl = () => assert.fail('Consulta no esperada')) {
-    const w = solicitarTurno(configuracion, { fetchImpl });
+function preparar(fetchImpl = () => assert.fail('Consulta no esperada'), config = configuracion) {
+    const w = solicitarTurno(config, { fetchImpl });
     w.$refs = new Proxy({}, { get: () => ({ focus() {} }) });
     // Los tests unitarios de estado consultan explícitamente; el ciclo inicial completo se prueba aparte.
     w.$nextTick = () => {}; w.$watch = () => {};
@@ -33,14 +33,14 @@ function preparar(fetchImpl = () => assert.fail('Consulta no esperada')) {
     w.archivos = [{ id: 100, archivo: new File(['%PDF'], 'estudio.pdf', { type: 'application/pdf' }), descripcion: 'Descripción conservada', error: '' }];
     w.init(); w.$nextTick = (fn) => fn(); return w;
 }
-function conInicio(fetchImpl) {
-    const w = preparar(fetchImpl);
+function conInicio(fetchImpl, config) {
+    const w = preparar(fetchImpl, config);
     w.diasDisponibles = agregado([slot().inicio_at, '2026-10-17 10:30:00', '2026-10-18 10:00:00']).dias;
     w.ventanaConsultada = { ...ventanaInicial }; w.estadoDisponibilidad = 'success';
     w.seleccionarFecha('2026-10-17'); w.seleccionarInicio(slot().inicio_at); return w;
 }
-function seleccionCompleta(fetchImpl) {
-    const w = conInicio(fetchImpl);
+function seleccionCompleta(fetchImpl, config) {
+    const w = conInicio(fetchImpl, config);
     w.profesionales = profesionales().profesionales; w.inicioProfesionales = w.inicioSeleccionado; w.estadoProfesionales = 'success';
     w.seleccionarProfesional(1); return w;
 }
@@ -238,8 +238,8 @@ function entornoConfirmacion() {
     };
     return { avisos, feedback, destinos };
 }
-function enPaso4(fetchImpl) {
-    const w = seleccionCompleta(fetchImpl);
+function enPaso4(fetchImpl, config) {
+    const w = seleccionCompleta(fetchImpl, config);
     w.paso = 4;
     w.actualizarAvisoAbandono();
     return w;
@@ -280,7 +280,7 @@ test('POST multipart exacto: UUID, motivo, profesional, inicio y sólo File vige
     for (const campo of ['adjuntos[]', 'fin_at', 'fecha', 'duracion', 'paciente_id', 'user_id', 'tipo', 'estado', 'profesionales', 'es_replay', 'ruta_storage', 'mime_type']) assert.equal(datos.has(campo), false);
 });
 
-for (const replay of [false, true]) test(`éxito ${replay ? '200 replay' : '201 nuevo'}: sin adjuntos, un feedback normal, sin beforeunload y redirect backend`, async () => {
+for (const replay of [false, true]) test(`éxito ${replay ? '200 replay' : '201 nuevo'}: sin adjuntos, un feedback normal, sin beforeunload y redirect configurado`, async () => {
     const { avisos, feedback, destinos } = entornoConfirmacion();
     let posts = 0;
     const w = enPaso4(async (url, opciones) => { posts++; assert.equal([...opciones.body.keys()].some((clave) => clave.startsWith('adjuntos')), false); return exito(replay); });
@@ -289,11 +289,14 @@ for (const replay of [false, true]) test(`éxito ${replay ? '200 replay' : '201 
     await w.confirmarTurno(); await w.confirmarTurno();
     assert.equal(w.consolidado, true); assert.equal(w.puedeConfirmar, false); assert.equal(posts, 1);
     assert.equal(avisos.size, 0); w.actualizarAvisoAbandono(); assert.equal(avisos.size, 0);
-    assert.deepEqual(destinos, ['/destino-entregado?turno=42']);
+    assert.deepEqual(destinos, [configuracion.urlMisTurnos]);
     assert.equal(feedback.length, 1); assert.equal(feedback[0].icon, 'success');
     assert.equal(feedback[0].title, 'Turno registrado correctamente'); assert.equal(feedback[0].confirmButtonText, 'Entendido');
-    assert.match(feedback[0].text, /Primera consulta.*Profesional A.*Pendiente/);
-    assert.doesNotMatch(feedback[0].text, /duplicado|replay|email|SMS/);
+    assert.match(feedback[0].html, /Primera consulta.*Profesional A.*17.*octubre.*2026.*10:00 a 10:30.*Pendiente/);
+    assert.match(feedback[0].html, /El turno ya fue registrado y ocupa la agenda de la profesional\./);
+    assert.doesNotMatch(feedback[0].html, /Confirmado|duplicado|replay|email|SMS|WhatsApp|push/);
+    assert.equal(feedback[0].showCloseButton, true);
+    assert.equal(feedback[0].closeButtonAriaLabel, 'Entendido, ir a Mis turnos');
 });
 
 test('doble click un POST: todas las mutaciones/navegaciones bloqueadas; beforeunload permanece hasta respuesta válida', async () => {
@@ -322,10 +325,65 @@ test('fallback sin Swal o con feedback fallido conserva éxito y permite redirec
 
 test('D-01 bloqueante dirige a Mis turnos una vez sin doble abandono ni nueva UUID', async () => {
     const { feedback, destinos, avisos } = entornoConfirmacion();
-    const w = enPaso4(async () => json({ code: 'primera_consulta_activa', message: 'No comparar' }, 409));
+    let posts = 0;
+    const w = enPaso4(async (url, opciones) => {
+        assert.equal(opciones.method, 'POST'); posts++;
+        return json({ code: 'primera_consulta_activa', message: 'No comparar' }, 409);
+    });
+    const foco = observarFoco(w), local = capturaLocal(w);
     const antes = captura(w); await w.confirmarTurno(); await w.confirmarTurno();
-    assert.deepEqual(captura(w), antes); assert.equal(feedback.length, 1); assert.equal(feedback[0].icon, 'info');
+    foco.flush(); assert.deepEqual(foco.focos, ['bloqueoPrimeraConsulta']);
+    assert.deepEqual(captura(w), antes); assert.deepEqual(capturaLocal(w), local);
+    assert.equal(w.primeraConsultaActiva, true); assert.equal(w.bloqueado, true); assert.equal(w.puedeConfirmar, false);
+    assert.equal(w.resultadoIncierto, false); assert.equal(w.recuperacion, null); assert.equal(w.tipoRecuperacion, null);
+    assert.equal(w.paso, 4); assert.deepEqual(feedback, []); assert.deepEqual(destinos, []);
+    w.anterior(); await w.siguiente(); await w.consultarDisponibilidad(); await w.cargarProfesionalesDisponibles();
+    w.salirPorPrimeraConsultaActiva(); w.salirPorPrimeraConsultaActiva(); await w.confirmarTurno();
+    assert.equal(posts, 1);
     assert.deepEqual(destinos, [configuracion.urlMisTurnos]); assert.equal(avisos.size, 0); assert.equal(w.consolidado, false);
+});
+
+for (const replay of [false, true]) for (const cierre of ['Entendido', 'X']) {
+    test(`éxito ${replay ? 'replay' : 'nuevo'} espera ${cierre}, mantiene formulario terminal y navega una sola vez`, async () => {
+        const { feedback, destinos, avisos } = entornoConfirmacion(), modal = diferida(); let posts = 0;
+        window.Swal.fire = (opciones) => { feedback.push(opciones); return modal.promise; };
+        const destino = '/destino-configurado-745?origen=wizard';
+        const w = enPaso4(async () => { posts++; return exito(replay); }, { ...configuracion, urlMisTurnos: destino });
+        const antes = capturaLocal(w), envio = w.confirmarTurno();
+        await new Promise((resolve) => setImmediate(resolve));
+        assert.equal(w.consolidado, true); assert.equal(w.puedeConfirmar, false); assert.deepEqual(destinos, []);
+        assert.equal(avisos.size, 0); assert.equal(feedback.length, 1);
+        await w.confirmarTurno(); await w.finalizarConfirmacion(); await w.volverAMisTurnos();
+        w.anterior(); await w.siguiente(); w.quitarArchivo(100); w.seleccionarProfesional(2);
+        assert.equal(posts, 1); assert.equal(feedback.length, 1); assert.deepEqual(capturaLocal(w), antes);
+        modal.resolve(cierre === 'X' ? { isDismissed: true, dismiss: 'close' } : { isConfirmed: true });
+        await envio; await w.confirmarTurno(); await w.finalizarConfirmacion();
+        assert.deepEqual(destinos, [destino]); assert.equal(posts, 1); assert.equal(feedback.length, 1);
+        assert.equal(w.resultadoIncierto, false); assert.equal(w.recuperacion, null);
+    });
+}
+
+test('D-01 usa el destino configurado y no permite salida terminal sin respuesta D-01', async () => {
+    const { destinos } = entornoConfirmacion(), destino = '/mis-turnos-configurado?origen=d01';
+    const w = enPaso4(async () => json({ code: 'primera_consulta_activa' }, 409), { ...configuracion, urlMisTurnos: destino });
+    w.salirPorPrimeraConsultaActiva(); assert.deepEqual(destinos, []);
+    await w.confirmarTurno(); w.salirPorPrimeraConsultaActiva(); assert.deepEqual(destinos, [destino]);
+});
+
+test('éxito escapa el nombre público al componer el HTML de SweetAlert', async () => {
+    const { feedback } = entornoConfirmacion(), w = enPaso4(async () => exito());
+    w.profesionales[0].nombre = '<img src=x onerror="alert(1)"> & \'Profesional\'';
+    await w.confirmarTurno();
+    assert.match(feedback[0].html, /&lt;img src=x onerror=&quot;alert\(1\)&quot;&gt; &amp; &#39;Profesional&#39;/);
+    assert.doesNotMatch(feedback[0].html, /<img|<script/);
+});
+
+for (const [status, replay] of [[201, true], [200, false]]) test(`éxito inconsistente ${status}/${replay} conserva incertidumbre sin modal ni redirect`, async () => {
+    const { feedback, destinos } = entornoConfirmacion();
+    const w = enPaso4(async () => json({ turno_id: 42, es_replay: replay, redirect_url: '/ruta-response' }, status));
+    const antes = capturaLocal(w); await w.confirmarTurno();
+    assert.equal(w.consolidado, false); assert.equal(w.resultadoIncierto, true); assert.equal(w.puedeConfirmar, true);
+    assert.deepEqual(feedback, []); assert.deepEqual(destinos, []); assert.deepEqual(capturaLocal(w), antes);
 });
 
 test('409 profesional recupera R1 con lista fresca y exige selección explícita', async () => {

@@ -63,6 +63,10 @@ function leerProfesionales(payload, inicio) {
     });
 }
 
+function escaparHtml(texto) {
+    return texto.replace(/[&<>"']/g, (caracter) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[caracter]);
+}
+
 export default function solicitarTurno(config, { fetchImpl = (...args) => globalThis.fetch(...args) } = {}) {
     let siguienteArchivoId = 0;
     let avisoActivo = false;
@@ -121,6 +125,7 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
         consolidado: false,
         redireccionando: false,
         confirmacionBloqueada: false,
+        primeraConsultaActiva: false,
         resultadoIncierto: false,
         mensajeConfirmacion: '',
         erroresServidor: {},
@@ -140,7 +145,7 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
         },
 
         get bloqueado() {
-            return this.enviando || this.consolidado || this.redireccionando || this.recuperacion !== null;
+            return this.enviando || this.consolidado || this.redireccionando || this.primeraConsultaActiva || this.recuperacion !== null;
         },
 
         get puedeConfirmar() {
@@ -722,13 +727,12 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
                         || typeof payload.redirect_url !== 'string' || !payload.redirect_url.trim()) {
                         throw new Error('Resultado no confirmado.');
                     }
-                    await this.finalizarConfirmacion(payload.redirect_url);
+                    await this.finalizarConfirmacion();
                 } else if (response.status === 409 && payload?.code === 'primera_consulta_activa') {
-                    this.redireccionando = true;
-                    await this.mostrarFeedback({ icon: 'info', title: 'Ya tenés una Primera consulta activa',
-                        text: 'Podés consultar tus turnos en Mis turnos.', confirmButtonText: 'Ir a Mis turnos' });
+                    this.primeraConsultaActiva = true;
+                    this.confirmacionBloqueada = true;
                     this.desactivarAvisoAbandono();
-                    window.location.assign(config.urlMisTurnos);
+                    this.enfocarPaso('bloqueoPrimeraConsulta');
                 } else if (response.status === 409 && ['profesional_no_elegible', 'slot_no_disponible'].includes(payload?.code)) {
                     await this.iniciarRecuperacion(seleccionEnviada);
                 } else if (response.status === 409) {
@@ -809,13 +813,29 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
             }
         },
 
-        async finalizarConfirmacion(redirectUrl) {
+        async finalizarConfirmacion() {
+            if (destruido || this.consolidado) return;
             this.consolidado = true;
             this.desactivarAvisoAbandono();
             await this.mostrarFeedback({ icon: 'success', title: 'Turno registrado correctamente',
-                text: `Primera consulta con ${this.profesionalSeleccionada.nombre}. ${this.fechaLegible(this.inicioSeleccionado.slice(0, 10))}, ${this.horaLegible(this.inicioSeleccionado)} – ${this.horaLegible(this.profesionalSeleccionada.fin_at)}. Estado: Pendiente.`,
-                confirmButtonText: 'Entendido' });
-            window.location.assign(redirectUrl);
+                html: `<p>Tu <strong>Primera consulta</strong> con <strong>${escaparHtml(this.profesionalSeleccionada.nombre)}</strong> quedó registrada para el <strong>${escaparHtml(this.fechaLegible(this.inicioSeleccionado.slice(0, 10)))}, de ${this.horaLegible(this.inicioSeleccionado)} a ${this.horaLegible(this.profesionalSeleccionada.fin_at)}</strong>.</p>`
+                    + '<p class="mt-5">Estado: <span class="rounded-full bg-blue-100 px-3 py-1 font-semibold text-gray-700">Pendiente</span></p>'
+                    + '<p class="mt-3 text-sm">El turno ya fue registrado y ocupa la agenda de la profesional.</p>',
+                confirmButtonText: 'Entendido', showCloseButton: true, closeButtonAriaLabel: 'Entendido, ir a Mis turnos',
+                focusConfirm: true, width: '35rem', padding: '2rem', buttonsStyling: false,
+                customClass: {
+                    popup: '!rounded-2xl', title: '!text-2xl !text-gray-900', htmlContainer: '!mx-0 !text-base !text-gray-600',
+                    actions: '!flex !w-full',
+                    confirmButton: 'min-h-11 w-full rounded-lg bg-indigo-600 px-6 py-3 font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2',
+                } });
+            if (!destruido) window.location.assign(config.urlMisTurnos);
+        },
+
+        salirPorPrimeraConsultaActiva() {
+            if (destruido || !this.primeraConsultaActiva || this.redireccionando) return;
+            this.redireccionando = true;
+            this.desactivarAvisoAbandono();
+            window.location.assign(config.urlMisTurnos);
         },
 
         tamanioLegible(bytes) {
