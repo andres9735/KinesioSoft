@@ -5,10 +5,14 @@
     </x-slot>
 
     <style>.solicitud-turno [x-cloak] { display: none !important; }</style>
+    {{-- Tailwind escanea Blade, no JS: utilidades del SweetAlert de éxito definido en solicitar-turno.js.
+        !rounded-2xl !p-5 sm:!p-8 !max-h-[calc(100dvh-2rem)] !overflow-y-auto
+        !p-0 !pt-3 !text-xl sm:!text-2xl !text-gray-900 !mx-0 !text-base !text-gray-600 !flex !w-full
+    --}}
     <div class="solicitud-turno py-8 sm:py-10" @unless ($bloqueadoPorPrimeraConsulta ?? false) x-data="solicitarTurno(@js($configuracionWizard))" @endunless>
-        <div class="mx-auto max-w-4xl space-y-6 px-4 sm:px-6 lg:px-8">
-            <section id="bloqueo-primera-consulta" aria-labelledby="bloqueo-primera-consulta-titulo" role="alert" tabindex="-1" @unless ($bloqueadoPorPrimeraConsulta ?? false) x-show="primeraConsultaActiva" x-cloak x-ref="bloqueoPrimeraConsulta" @endunless class="space-y-6 rounded-2xl border-t-8 border-indigo-600 bg-white p-6 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:p-10">
-                <div class="flex min-w-0 items-start gap-4">
+        <div class="mx-auto max-w-6xl space-y-6 px-4 sm:px-6 lg:px-8 [overflow-wrap:anywhere]">
+            <section id="bloqueo-primera-consulta" aria-labelledby="bloqueo-primera-consulta-titulo" role="alert" tabindex="-1" @unless ($bloqueadoPorPrimeraConsulta ?? false) x-show="primeraConsultaActiva" x-cloak x-ref="bloqueoPrimeraConsulta" @endunless class="mx-auto max-w-4xl space-y-6 rounded-2xl border-t-8 border-indigo-600 bg-white p-6 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:p-10">
+                <div class="flex min-w-0 flex-col items-start gap-4 sm:flex-row">
                     <span aria-hidden="true" class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xl font-semibold text-indigo-600">i</span>
                     <div class="min-w-0 space-y-3">
                         <p class="inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-800">Primera consulta activa</p>
@@ -28,8 +32,12 @@
             <nav aria-label="Pasos de la solicitud" class="rounded-2xl bg-white p-5 shadow-sm sm:p-6">
                 <ol class="hidden grid-cols-4 gap-4 md:grid">
                     @foreach (['Fecha y horario', 'Elegir profesional', 'Motivo y documentación', 'Revisar y confirmar'] as $indice => $nombre)
-                        <li @if ($indice === 0) aria-current="step" @endif :aria-current="paso === {{ $indice + 1 }} ? 'step' : null" class="min-w-0 space-y-2 border-t-2 pt-3" :class="paso === {{ $indice + 1 }} ? 'border-indigo-600 text-indigo-700' : 'border-gray-200 text-gray-500'">
-                            <span class="block text-xs">Paso {{ $indice + 1 }}</span>
+                        <li @if ($indice === 0) aria-current="step" @endif :aria-current="paso === {{ $indice + 1 }} ? 'step' : null" class="relative min-w-0 space-y-2 text-center" :class="paso === {{ $indice + 1 }} ? 'text-indigo-700' : (paso > {{ $indice + 1 }} ? 'text-emerald-800' : 'text-gray-600')">
+                            @if ($indice < 3)
+                                <span aria-hidden="true" class="absolute left-1/2 top-5 h-0.5 w-full" :class="paso > {{ $indice + 1 }} ? 'bg-emerald-700' : 'bg-indigo-100'"></span>
+                            @endif
+                            <span aria-hidden="true" class="relative mx-auto flex h-10 w-10 items-center justify-center rounded-full font-semibold" :class="paso === {{ $indice + 1 }} ? 'bg-indigo-600 text-white ring-4 ring-indigo-100' : (paso > {{ $indice + 1 }} ? 'bg-emerald-700 text-white' : 'bg-indigo-50 text-gray-600')" x-text="paso > {{ $indice + 1 }} ? '✓' : '{{ $indice + 1 }}'">{{ $indice + 1 }}</span>
+                            <span class="block text-xs">Paso {{ $indice + 1 }} de 4</span>
                             <span class="block text-sm font-semibold">{{ $nombre }}</span>
                             <span class="block text-xs" x-text="paso === {{ $indice + 1 }} ? 'Paso actual' : (paso > {{ $indice + 1 }} ? 'Completado' : 'Pendiente')">{{ $indice === 0 ? 'Paso actual' : 'Pendiente' }}</span>
                         </li>
@@ -53,7 +61,7 @@
                 <p x-show="resultadoIncierto">Podés volver a pulsar Confirmar turno para reintentar.</p>
             </div>
 
-            <fieldset :disabled="bloqueado" class="min-w-0 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-100 sm:p-8">
+            <fieldset :disabled="bloqueado" class="min-w-0 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100 sm:p-8">
                 <legend class="sr-only">Datos de la Primera consulta</legend>
                 @include('turnos.solicitar._fecha-horario')
                 @include('turnos.solicitar._profesionales')

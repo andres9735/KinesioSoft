@@ -162,6 +162,68 @@ class TurnosAccessibilityViewTest extends TestCase
         $this->assertStringContainsString('focus:ring-', $retry->getAttribute('class'));
     }
 
+    public function test_primary_controls_are_native_keyboard_targets_with_visible_focus(): void
+    {
+        $xpath = $this->wizard();
+        $this->assertSame(0, $xpath->query('//main//*[self::div or self::span][@*[name()="x-on:click"]]')->length);
+        foreach ($xpath->query('//main//button | //main//input | //main//textarea') as $control) {
+            $this->assertStringContainsString('focus:', $control->getAttribute('class'));
+            if ($control->tagName === 'button') {
+                $this->assertSame('button', $control->getAttribute('type'));
+            }
+        }
+        $this->assertSame(1, $xpath->query('//button[@*[name()="x-on:click"]="cambiarVentana(-1)" and @aria-label="Semana anterior" and @*[name()=":disabled"]]')->length);
+        $this->assertSame(1, $xpath->query('//button[@*[name()="x-on:click"]="cambiarVentana(1)" and @aria-label="Semana siguiente"]')->length);
+    }
+
+    public function test_responsive_structure_preserves_a_single_column_and_long_content_wrapping(): void
+    {
+        $xpath = $this->wizard();
+        $contenedor = $xpath->query('//main//*[@class and contains(@class,"max-w-6xl")]')->item(0);
+        $this->assertNotNull($contenedor);
+        $this->assertStringContainsString('[overflow-wrap:anywhere]', $contenedor->getAttribute('class'));
+        $this->assertSame(1, $xpath->query('//section[@aria-labelledby="titulo-paso-1"]//div[contains(@class,"lg:grid-cols-")]')->length);
+        $card = $xpath->query('//section[@aria-labelledby="titulo-paso-2"]//template/button')->item(0);
+        foreach (['min-w-0', 'flex-col', 'sm:flex-row'] as $patron) {
+            $this->assertStringContainsString($patron, $card->getAttribute('class'));
+        }
+        $nombre = $xpath->query('.//*[@x-text="profesional.nombre"]', $card)->item(0);
+        $this->assertStringContainsString('[overflow-wrap:anywhere]', $nombre->getAttribute('class'));
+        $entrada = $xpath->query('//section[@aria-labelledby="titulo-paso-3"]//template[@x-for="entrada in archivos"]/li')->item(0);
+        $this->assertSame(3, $xpath->query('./div', $entrada)->length);
+        $this->assertStringContainsString('flex-col', $xpath->query('./div[1]', $entrada)->item(0)->getAttribute('class'));
+        foreach (['Fecha y hora elegidas', 'Turno elegido'] as $contexto) {
+            $this->assertStringContainsString('flex-col', $xpath->query('//div[@aria-label="'.$contexto.'"]')->item(0)->getAttribute('class'));
+        }
+        $this->assertSame(1, $xpath->query('.//p[@x-text="entrada.archivo.name" and contains(@class,"break-words")]', $entrada)->length);
+        $nombreArchivo = $xpath->query('.//p[@x-text="entrada.archivo.name"]', $entrada)->item(0);
+        $this->assertStringContainsString('[overflow-wrap:anywhere]', $nombreArchivo->getAttribute('class'));
+        $revision = $xpath->query('//section[@aria-labelledby="titulo-paso-4"]')->item(0);
+        foreach ($xpath->query('.//*[self::dl or self::ul][contains(@class,"grid")]', $revision) as $grupo) {
+            $this->assertStringContainsString('grid-cols-1', $grupo->getAttribute('class'));
+        }
+        foreach (['motivo', 'entrada.descripcion'] as $contenido) {
+            $nodo = $xpath->query('.//*[@x-text="'.$contenido.'"]', $revision)->item(0);
+            $this->assertStringContainsString('whitespace-pre-wrap', $nodo->getAttribute('class'));
+            $this->assertStringContainsString('break-words', $nodo->getAttribute('class'));
+            $this->assertStringContainsString('[overflow-wrap:anywhere]', $nodo->getAttribute('class'));
+        }
+    }
+
+    public function test_empty_and_technical_error_have_distinct_semantics_and_reachable_actions(): void
+    {
+        $xpath = $this->wizard();
+        $vacio = $xpath->query('//section[@aria-labelledby="titulo-paso-1"]//div[@x-show="estadoDisponibilidad === \'empty\'"]')->item(0);
+        $this->assertSame('status', $vacio->getAttribute('role'));
+        $this->assertSame(1, $xpath->query('.//button[@*[name()="x-on:click"]="cambiarVentana(1)"]', $vacio)->length);
+        $this->assertStringContainsString('No hay horarios disponibles', $vacio->textContent);
+        $error = $xpath->query('//*[@x-ref="errorDisponibilidad"]')->item(0);
+        $this->assertSame('alert', $error->getAttribute('role'));
+        $this->assertSame('-1', $error->getAttribute('tabindex'));
+        $this->assertSame(1, $xpath->query('.//button[@*[name()="x-on:click"]="consultarDisponibilidad()"]', $error)->length);
+        $this->assertStringContainsString('No pudimos consultar la disponibilidad', $error->textContent);
+    }
+
     public function test_d01_has_a_named_alert_and_real_navigation_without_an_operational_wizard_on_entry(): void
     {
         foreach ([false, true] as $bloqueado) {

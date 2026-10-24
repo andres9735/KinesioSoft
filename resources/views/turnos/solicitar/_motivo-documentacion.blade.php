@@ -3,7 +3,7 @@
         <h2 id="titulo-paso-3" x-ref="tituloPaso3" tabindex="-1" class="rounded-lg text-2xl font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">Motivo y documentación</h2>
         <p class="text-sm leading-6 text-gray-600">Ingresá el motivo de la consulta. También podés adjuntar documentación clínica si ayuda a contextualizar tu primera consulta.</p>
     </div>
-    <div class="flex min-w-0 flex-wrap items-center gap-4 rounded-xl bg-indigo-50 p-4 text-sm" aria-label="Turno elegido">
+    <div class="flex min-w-0 flex-col items-stretch gap-4 rounded-xl bg-indigo-50 p-4 text-sm sm:flex-row sm:flex-wrap sm:items-center" aria-label="Turno elegido">
         <div class="min-w-0 flex-1">
             <p class="text-xs font-medium uppercase text-gray-600">Fecha seleccionada</p>
             <p class="mt-1 font-semibold text-gray-900" x-text="fechaSeleccionada ? fechaLegible(fechaSeleccionada) : 'Sin seleccionar'"></p>
@@ -14,7 +14,7 @@
         </div>
         <div class="min-w-0 flex-1">
             <p class="text-xs font-medium uppercase text-gray-600">Profesional</p>
-            <p class="mt-1 break-words font-semibold text-gray-900" x-text="profesionalSeleccionada ? profesionalSeleccionada.nombre : 'Sin seleccionar'"></p>
+            <p class="mt-1 break-words font-semibold text-gray-900 [overflow-wrap:anywhere]" x-text="profesionalSeleccionada ? profesionalSeleccionada.nombre : 'Sin seleccionar'"></p>
         </div>
         <div>
             <p class="text-xs font-medium uppercase text-gray-600">Horario estimado</p>
@@ -54,9 +54,9 @@
         <ul aria-labelledby="documentacion-titulo" class="space-y-3">
             <template x-for="entrada in archivos" :key="entrada.id">
                 <li class="min-w-0 space-y-3 rounded-xl border bg-indigo-50 p-4" :class="(entrada.descripcionRevisada && errorDescripcion(entrada)) || entrada.errorDescripcionServidor || entrada.error || entrada.errorServidor ? 'border-red-300' : 'border-transparent'">
-                    <div class="flex min-w-0 flex-wrap items-start justify-between gap-3">
+                    <div class="flex min-w-0 flex-col items-start justify-between gap-3 sm:flex-row">
                         <div class="min-w-0 flex-1 space-y-1">
-                            <p :id="'archivo-nombre-' + entrada.id" class="break-words text-sm font-semibold text-gray-900" x-text="entrada.archivo.name"></p>
+                            <p :id="'archivo-nombre-' + entrada.id" class="break-words text-sm font-semibold text-gray-900 [overflow-wrap:anywhere]" x-text="entrada.archivo.name"></p>
                             <p class="text-xs text-gray-500" x-text="tamanioLegible(entrada.archivo.size)"></p>
                             <p class="text-xs" :class="entrada.error || entrada.errorServidor ? 'text-red-700' : 'text-gray-600'" :id="'archivo-estado-' + entrada.id" :role="entrada.error || entrada.errorServidor ? 'alert' : null" :aria-labelledby="'archivo-nombre-' + entrada.id" x-text="entrada.error || entrada.errorServidor || 'Seleccionado en esta página'"></p>
                         </div>
@@ -80,7 +80,7 @@
             <template x-for="rechazo in erroresSeleccionArchivos" :key="rechazo.id">
                 <li class="min-w-0 space-y-2 rounded-xl border border-red-300 bg-red-50 p-4">
                     <div class="flex flex-wrap items-start justify-between gap-3">
-                        <p class="min-w-0 flex-1 break-words text-sm font-semibold text-gray-900"><span x-text="rechazo.nombre"></span> <span class="rounded bg-red-100 px-2 py-1 text-xs font-medium text-red-700">No permitido</span></p>
+                        <p class="min-w-0 flex-1 break-words text-sm font-semibold text-gray-900 [overflow-wrap:anywhere]"><span x-text="rechazo.nombre"></span> <span class="rounded bg-red-100 px-2 py-1 text-xs font-medium text-red-700">No permitido</span></p>
                         <button type="button" @click="descartarErrorSeleccion(rechazo.id)" :aria-label="'Descartar rechazo de ' + rechazo.nombre" class="min-h-11 rounded-lg px-3 py-2 text-sm font-semibold text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">Descartar</button>
                     </div>
                     <p role="alert" class="rounded-lg bg-white p-2 text-sm text-red-700" x-text="rechazo.error"></p>
@@ -98,7 +98,7 @@
         <div class="flex min-w-0 flex-wrap gap-2">
             <p class="rounded-lg bg-white px-3 py-2 text-gray-600">Fecha: <strong class="text-gray-900" x-text="fechaSeleccionada ? fechaLegible(fechaSeleccionada) : 'Sin seleccionar'"></strong></p>
             <p class="rounded-lg bg-white px-3 py-2 text-gray-600">Inicio: <strong class="text-gray-900" x-text="inicioSeleccionado ? horaLegible(inicioSeleccionado) : 'Sin seleccionar'"></strong></p>
-            <p class="min-w-0 break-words rounded-lg bg-white px-3 py-2 text-gray-600">Profesional: <strong class="text-indigo-700" x-text="profesionalSeleccionada ? profesionalSeleccionada.nombre : 'Sin seleccionar'"></strong></p>
+            <p class="min-w-0 break-words rounded-lg bg-white px-3 py-2 text-gray-600 [overflow-wrap:anywhere]">Profesional: <strong class="text-indigo-700" x-text="profesionalSeleccionada ? profesionalSeleccionada.nombre : 'Sin seleccionar'"></strong></p>
             <p class="rounded-lg bg-white px-3 py-2 text-gray-600">Adjuntos: <strong class="text-gray-900" x-text="archivos.length"></strong></p>
         </div>
     </div>

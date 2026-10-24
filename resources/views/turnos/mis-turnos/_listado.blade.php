@@ -13,7 +13,7 @@
     ];
 @endphp
 
-<section class="min-w-0 space-y-4" aria-labelledby="{{ $seccion }}-titulo">
+<section class="min-w-0 space-y-4 [overflow-wrap:anywhere]" aria-labelledby="{{ $seccion }}-titulo">
     <h2 id="{{ $seccion }}-titulo" class="flex flex-wrap items-center gap-2 text-xl font-semibold text-gray-900">
         {{ $titulo }}
         <span class="rounded-full bg-indigo-100 px-2.5 py-1 text-sm text-indigo-900" aria-label="{{ $turnos->total() }} {{ $turnos->total() === 1 ? 'turno' : 'turnos' }}">{{ $turnos->total() }}</span>
@@ -47,7 +47,7 @@
                                         <span aria-hidden="true" class="h-1.5 w-1.5 rounded-full bg-current"></span>{{ $estados[$turno->estado->value]['texto'] }}
                                     </span>
                                 </div>
-                                <p @class(['break-words text-gray-900', 'text-lg font-semibold' => $seccion === 'proximos', 'text-sm' => $seccion === 'historicos'])>{{ $turno->kinesiologa->user->name }} {{ $turno->kinesiologa->user->apellido }}</p>
+                                <p @class(['break-words text-gray-900 [overflow-wrap:anywhere]', 'text-lg font-semibold' => $seccion === 'proximos', 'text-sm' => $seccion === 'historicos'])>{{ $turno->kinesiologa->user->name }} {{ $turno->kinesiologa->user->apellido }}</p>
                                 @if ($turno->id === $turnoDestacadoId)
                                     <p class="text-xs font-semibold text-indigo-700">Turno destacado</p>
                                 @endif

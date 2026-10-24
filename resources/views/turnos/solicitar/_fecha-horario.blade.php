@@ -64,8 +64,13 @@
                 <p class="text-lg font-semibold text-gray-900">No hay horarios disponibles en este período</p>
                 <p>No hay horarios disponibles entre el <span x-text="fechaLegible(ventana.desde)"></span> y el <span x-text="fechaLegible(ventana.hasta)"></span>.</p>
                 <p>Podés consultar otro período con Semana anterior o Semana siguiente.</p>
+                <div class="flex flex-col justify-center gap-3 pt-3 sm:flex-row">
+                    <button type="button" @click="cambiarVentana(1)" class="min-h-11 rounded-lg bg-indigo-100 px-4 py-3 font-semibold text-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Consultar período siguiente</button>
+                    <button type="button" @click="cambiarVentana(-1)" :disabled="ventana.desde === @js($configuracionWizard['fechaInicial'])" class="min-h-11 rounded-lg px-4 py-3 font-semibold text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50">Consultar período anterior</button>
+                </div>
             </div>
-            <div x-show="estadoDisponibilidad === 'error' && !recuperacion" x-cloak x-ref="errorDisponibilidad" tabindex="-1" role="alert" class="mt-6 space-y-3 rounded-xl bg-gray-50 px-5 py-10 text-center text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <div x-show="estadoDisponibilidad === 'error' && !recuperacion" x-cloak x-ref="errorDisponibilidad" tabindex="-1" role="alert" class="mt-6 space-y-3 rounded-xl border border-indigo-200 bg-indigo-50 px-5 py-10 text-center text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <span aria-hidden="true" class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 text-xl font-semibold text-indigo-700">!</span>
                 <p class="text-lg font-semibold text-gray-900">No pudimos consultar la disponibilidad</p>
                 <p x-text="errorDisponibilidad"></p>
                 <button type="button" @click="consultarDisponibilidad()" class="min-h-11 rounded-lg bg-indigo-600 px-5 py-2 font-semibold text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Reintentar</button>

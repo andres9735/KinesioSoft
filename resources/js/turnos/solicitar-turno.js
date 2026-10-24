@@ -345,7 +345,7 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
                     return;
                 }
                 if (this.erroresArchivos.length || this.erroresDescripciones.length || this.erroresGeneralesArchivos.length || this.erroresServidor.adjuntos) {
-                    this.$refs.documentacion.focus();
+                    this.enfocarPaso('documentacion');
                     return;
                 }
                 if (!this.puedeRevisar) return;
@@ -375,8 +375,10 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
                 const alRenderizar = globalThis.requestAnimationFrame ?? ((callback) => callback());
                 alRenderizar(() => {
                     if (this.paso !== paso) return;
-                    const referencias = [...destinos, `tituloPaso${paso}`];
-                    const visible = referencias.map((nombre) => this.$refs[nombre])
+                    const referencias = [...destinos, `tituloPaso${paso}`].flatMap((nombre) => nombre === 'documentacion'
+                        ? [this.$root?.querySelector('[id^="descripcion-adjunto-"][aria-invalid="true"]'), this.$refs[nombre]]
+                        : [this.$refs[nombre]]);
+                    const visible = referencias
                         .find((elemento) => elemento?.getClientRects?.().length);
                     visible?.focus();
                 });
@@ -824,8 +826,10 @@ export default function solicitarTurno(config, { fetchImpl = (...args) => global
                 confirmButtonText: 'Entendido', showCloseButton: true, closeButtonAriaLabel: 'Entendido, ir a Mis turnos',
                 focusConfirm: true, width: '35rem', padding: '2rem', buttonsStyling: false,
                 customClass: {
-                    popup: '!rounded-2xl', title: '!text-2xl !text-gray-900', htmlContainer: '!mx-0 !text-base !text-gray-600',
-                    actions: '!flex !w-full',
+                    popup: '!rounded-2xl !p-5 sm:!p-8 !max-h-[calc(100dvh-2rem)] !overflow-y-auto',
+                    title: '!p-0 !pt-3 !text-xl sm:!text-2xl !text-gray-900 [overflow-wrap:anywhere]',
+                    htmlContainer: '!mx-0 !text-base !text-gray-600 [overflow-wrap:anywhere]',
+                    actions: '!flex !w-full !mx-0',
                     confirmButton: 'min-h-11 w-full rounded-lg bg-indigo-600 px-6 py-3 font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2',
                 } });
             if (!destruido) window.location.assign(config.urlMisTurnos);

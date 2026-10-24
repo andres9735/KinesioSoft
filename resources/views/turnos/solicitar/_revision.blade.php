@@ -27,7 +27,7 @@
             <dd class="flex min-w-0 items-center gap-3">
                 <span aria-hidden="true" class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-indigo-600 font-semibold text-white" x-text="profesionalSeleccionada ? inicialesProfesional(profesionalSeleccionada.nombre) : ''"></span>
                 <span class="flex min-w-0 flex-wrap items-center gap-2">
-                    <span class="break-words font-semibold text-gray-900" x-text="profesionalSeleccionada ? profesionalSeleccionada.nombre : 'Sin seleccionar'"></span>
+                    <span class="min-w-0 max-w-full break-words font-semibold text-gray-900 [overflow-wrap:anywhere]" x-text="profesionalSeleccionada ? profesionalSeleccionada.nombre : 'Sin seleccionar'"></span>
                     <span x-show="profesionalSeleccionada" class="rounded-full bg-indigo-100 px-2 py-1 text-xs text-indigo-700">Seleccionada</span>
                 </span>
             </dd>
@@ -39,7 +39,7 @@
             <h3 id="revision-motivo-titulo" class="font-semibold text-gray-900">Motivo de consulta</h3>
             <button type="button" @click="editarDesdeRevision(3)" :disabled="bloqueado" class="min-h-11 rounded-lg px-3 py-2 text-sm font-semibold text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">Editar motivo y documentación</button>
         </div>
-        <dl><div><dt class="sr-only">Motivo</dt><dd class="whitespace-pre-wrap break-words rounded-lg bg-indigo-50 p-4 text-sm text-gray-900" x-text="motivo"></dd></div></dl>
+        <dl><div><dt class="sr-only">Motivo</dt><dd class="whitespace-pre-wrap break-words rounded-lg bg-indigo-50 p-4 text-sm text-gray-900 [overflow-wrap:anywhere]" x-text="motivo"></dd></div></dl>
     </section>
 
     <section aria-labelledby="revision-documentacion-titulo" class="min-w-0 space-y-4 rounded-xl border border-gray-100 p-4 sm:p-5">
@@ -53,12 +53,12 @@
                 <template x-for="entrada in archivos" :key="entrada.id">
                     <li class="min-w-0 space-y-3 rounded-xl bg-indigo-50 p-4">
                         <div class="min-w-0 space-y-1">
-                            <p class="break-words text-sm font-semibold text-gray-900" x-text="entrada.archivo.name"></p>
+                            <p class="break-words text-sm font-semibold text-gray-900 [overflow-wrap:anywhere]" x-text="entrada.archivo.name"></p>
                             <p class="text-xs text-gray-600" x-text="tamanioLegible(entrada.archivo.size)"></p>
                         </div>
                         <div class="min-w-0 rounded-lg bg-white p-3 text-sm">
                             <p class="text-xs text-gray-600">Descripción del adjunto:</p>
-                            <p class="whitespace-pre-wrap break-words text-gray-900" x-text="entrada.descripcion"></p>
+                            <p class="whitespace-pre-wrap break-words text-gray-900 [overflow-wrap:anywhere]" x-text="entrada.descripcion"></p>
                         </div>
                     </li>
                 </template>

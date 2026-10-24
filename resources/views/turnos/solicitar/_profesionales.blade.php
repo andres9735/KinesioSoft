@@ -4,7 +4,7 @@
         <p class="text-sm leading-6 text-gray-600">Te mostramos sólo las profesionales que tienen disponibilidad para el horario seleccionado. La hora de finalización puede variar según la duración configurada para cada agenda.</p>
     </div>
 
-    <div class="flex flex-wrap items-center gap-4 rounded-xl bg-indigo-50 p-4 text-sm" aria-label="Fecha y hora elegidas">
+    <div class="flex flex-col items-stretch gap-4 rounded-xl bg-indigo-50 p-4 text-sm sm:flex-row sm:flex-wrap sm:items-center" aria-label="Fecha y hora elegidas">
         <div class="min-w-0 flex-1">
             <p class="text-xs font-medium uppercase text-gray-600">Fecha seleccionada</p>
             <p class="mt-1 font-semibold text-gray-900" x-text="fechaSeleccionada ? fechaLegible(fechaSeleccionada) : 'Sin seleccionar'"></p>
@@ -37,7 +37,7 @@
                         <span aria-hidden="true" class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-indigo-100 font-semibold text-indigo-700" x-text="inicialesProfesional(profesional.nombre)"></span>
                         <span class="min-w-0 flex-1 space-y-1">
                             <span class="flex flex-wrap items-center gap-2">
-                                <span class="break-words text-lg font-semibold text-gray-900" x-text="profesional.nombre"></span>
+                                <span class="min-w-0 max-w-full break-words text-lg font-semibold text-gray-900 [overflow-wrap:anywhere]" x-text="profesional.nombre"></span>
                                 <span class="rounded-full bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-800">Disponible</span>
                             </span>
                             <span class="block text-xs leading-5 text-gray-600">Primera consulta disponible para este horario</span>
@@ -65,7 +65,7 @@
         <div class="flex min-w-0 flex-wrap gap-2">
             <p class="rounded-lg bg-white px-3 py-2 text-gray-600">Fecha: <strong class="text-gray-900" x-text="fechaSeleccionada ? fechaLegible(fechaSeleccionada) : 'Sin seleccionar'"></strong></p>
             <p class="rounded-lg bg-white px-3 py-2 text-gray-600">Inicio: <strong class="text-gray-900" x-text="inicioSeleccionado ? horaLegible(inicioSeleccionado) : 'Sin seleccionar'"></strong></p>
-            <p class="min-w-0 break-words rounded-lg bg-white px-3 py-2 text-gray-600">Profesional: <strong class="text-indigo-700" x-text="profesionalSeleccionada ? profesionalSeleccionada.nombre : 'Sin seleccionar'"></strong></p>
+            <p class="min-w-0 break-words rounded-lg bg-white px-3 py-2 text-gray-600 [overflow-wrap:anywhere]">Profesional: <strong class="text-indigo-700" x-text="profesionalSeleccionada ? profesionalSeleccionada.nombre : 'Sin seleccionar'"></strong></p>
             <p class="rounded-lg bg-white px-3 py-2 text-gray-600">Fin: <strong class="text-gray-900" x-text="profesionalSeleccionada ? horaLegible(profesionalSeleccionada.fin_at) : 'Sin seleccionar'"></strong></p>
         </div>
     </div>

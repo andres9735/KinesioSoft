@@ -752,6 +752,36 @@ test('foco omite destino oculto y descarta una petición perteneciente a otro pa
     w.enfocarPaso(); w.paso = 3; f.flush(); assert.equal(f.focos.length, 1);
 });
 
+test('error de descripción local lleva foco a su input tras renderizar, sin alterar la selección', async () => {
+    const w = seleccionCompleta(), f = observarFoco(w);
+    w.paso = 3; w.archivos[0].descripcion = '';
+    const antes = capturaLocal(w);
+    w.$root = { querySelector: (selector) => {
+        assert.equal(selector, '[id^="descripcion-adjunto-"][aria-invalid="true"]');
+        return { getClientRects: () => [{}], focus: () => f.focos.push('descripcion-adjunto-100') };
+    } };
+    await w.siguiente();
+    assert.deepEqual(f.focos, []);
+    f.flush();
+    assert.deepEqual(f.focos, ['descripcion-adjunto-100']);
+    assert.equal(w.paso, 3); assert.equal(w.claveIdempotencia, antes.uuid);
+    assert.equal(w.archivos[0].archivo, antes.archivos[0].archivo);
+    assert.equal(w.archivos[0].descripcionRevisada, true);
+});
+
+test('422 de descripción enfoca el campo conservado, con fallback al resumen si está oculto', async () => {
+    for (const visible of [true, false]) {
+        entornoConfirmacion();
+        const w = enPaso4(async () => json({ errors: { 'adjuntos.0.descripcion': ['Revisá la descripción'] } }, 422));
+        const f = observarFoco(w);
+        w.$root = { querySelector: () => ({ getClientRects: () => visible ? [{}] : [], focus: () => f.focos.push('descripcion') }) };
+        await w.confirmarTurno(); f.flush();
+        assert.equal(w.paso, 3);
+        assert.equal(f.focos.at(-1), visible ? 'descripcion' : 'documentacion');
+        assert.equal(w.resultadoIncierto, false);
+    }
+});
+
 for (const [errores, destino] of [[{ motivo_solicitud: ['Corregí el motivo'] }, 'motivo'], [{ 'adjuntos.0.archivo': ['Archivo inválido'] }, 'documentacion']]) {
     test(`422 solicita foco en ${destino} al recuperar Paso 3`, async () => {
         entornoConfirmacion();
