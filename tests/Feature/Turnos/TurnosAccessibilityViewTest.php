@@ -141,14 +141,19 @@ class TurnosAccessibilityViewTest extends TestCase
         $this->assertSame(1, $xpath->query('//div[@*[name()="x-on:drop.prevent"]="agregarArchivos({ target: { files: $event.dataTransfer.files, value: \'\' } })"]')->length);
     }
 
-    public function test_professional_heading_keeps_its_programmatic_focus_without_a_selection_ring(): void
+    public function test_step_headings_keep_their_programmatic_focus_without_an_accidental_ring_or_outline(): void
     {
-        $heading = $this->wizard()->query('//h2[@id="titulo-paso-2"]')->item(0);
-        $this->assertSame('tituloPaso2', $heading->getAttribute('x-ref'));
-        $this->assertSame('-1', $heading->getAttribute('tabindex'));
-        $classes = preg_split('/\s+/', $heading->getAttribute('class'));
-        $this->assertContains('focus:outline-none', $classes);
-        $this->assertDoesNotMatchRegularExpression('/\bfocus(?:-visible)?:ring(?:-|\b)/', $heading->getAttribute('class'));
+        $xpath = $this->wizard();
+        foreach ([1, 2, 3, 4] as $paso) {
+            $heading = $xpath->query('//h2[@id="titulo-paso-'.$paso.'"]')->item(0);
+            $this->assertNotNull($heading);
+            $this->assertSame('tituloPaso'.$paso, $heading->getAttribute('x-ref'));
+            $this->assertSame('-1', $heading->getAttribute('tabindex'));
+            $classes = preg_split('/\s+/', $heading->getAttribute('class'));
+            $this->assertContains('focus:outline-none', $classes);
+            $this->assertDoesNotMatchRegularExpression('/\bfocus(?:-visible)?:ring(?:-|\b)/', $heading->getAttribute('class'));
+            $this->assertDoesNotMatchRegularExpression('/\bfocus(?:-visible)?:outline-(?!none\b)\S+/', $heading->getAttribute('class'));
+        }
     }
 
     public function test_slots_loading_errors_and_review_have_native_semantics(): void

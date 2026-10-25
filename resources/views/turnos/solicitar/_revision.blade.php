@@ -1,6 +1,6 @@
 <section x-show="paso === 4" x-cloak aria-labelledby="titulo-paso-4" class="min-w-0 space-y-6">
     <div class="space-y-2">
-        <h2 id="titulo-paso-4" x-ref="tituloPaso4" tabindex="-1" class="rounded-lg text-2xl font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">Revisar y confirmar</h2>
+        <h2 id="titulo-paso-4" x-ref="tituloPaso4" tabindex="-1" class="rounded-lg text-2xl font-semibold text-gray-900 focus:outline-none">Revisar y confirmar</h2>
         <p class="text-sm leading-6 text-gray-600">Verificá la información de tu turno. Si necesitás corregir algún dato, podés volver al paso correspondiente antes de confirmar.</p>
         <dl class="text-sm"><div class="flex flex-wrap gap-2"><dt class="text-gray-600">Tipo</dt><dd class="font-semibold text-indigo-700">Primera consulta</dd></div></dl>
     </div>

@@ -1,6 +1,6 @@
 <section x-show="paso === 3" x-cloak aria-labelledby="titulo-paso-3" class="min-w-0 space-y-6">
     <div class="space-y-2">
-        <h2 id="titulo-paso-3" x-ref="tituloPaso3" tabindex="-1" class="rounded-lg text-2xl font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">Motivo y documentación</h2>
+        <h2 id="titulo-paso-3" x-ref="tituloPaso3" tabindex="-1" class="rounded-lg text-2xl font-semibold text-gray-900 focus:outline-none">Motivo y documentación</h2>
         <p class="text-sm leading-6 text-gray-600">Ingresá el motivo de la consulta. También podés adjuntar documentación clínica si ayuda a contextualizar tu primera consulta.</p>
     </div>
     <div class="flex min-w-0 flex-col items-stretch gap-4 rounded-xl bg-indigo-50 p-4 text-sm sm:flex-row sm:flex-wrap sm:items-center" aria-label="Turno elegido">

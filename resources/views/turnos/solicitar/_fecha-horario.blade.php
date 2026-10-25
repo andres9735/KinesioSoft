@@ -1,6 +1,6 @@
 <section x-show="paso === 1" aria-labelledby="titulo-paso-1" class="space-y-6">
     <div class="space-y-2">
-        <h2 id="titulo-paso-1" x-ref="tituloPaso1" tabindex="-1" class="rounded-lg text-2xl font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">Fecha y horario</h2>
+        <h2 id="titulo-paso-1" x-ref="tituloPaso1" tabindex="-1" class="rounded-lg text-2xl font-semibold text-gray-900 focus:outline-none">Fecha y horario</h2>
         <p class="text-sm leading-6 text-gray-600">Seleccioná una fecha disponible y luego un horario de inicio.</p>
     </div>
     <p x-show="erroresServidor.inicio_at" x-cloak x-ref="errorInicio" tabindex="-1" x-text="erroresServidor.inicio_at" role="alert" class="rounded-lg text-sm text-red-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"></p>
