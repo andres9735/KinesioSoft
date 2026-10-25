@@ -23,11 +23,11 @@ Stack actual:
 - PHPUnit para pruebas automatizadas.
 - Spatie Permission para roles/permisos.
 
-## Incremento activo
+## Estado del incremento UC–07
 
-Caso de uso actualmente en desarrollo:
+Último incremento implementado, certificado y cerrado:
 
-**UC–07 Solicitar turno V2**
+**UC–07 Solicitar turno V2 — CERRADO**
 
 Rama esperada:
 
@@ -53,8 +53,9 @@ Estado actual del incremento:
 - Stitch V2: **APROBADO Y CONGELADO**.
 - Gap analysis V2 contra implementación actual: **COMPLETO Y APROBADO**.
 - Planificación delta V2 7.29–7.52: **APROBADA, CONGELADA Y VERSIONADA** en `956e68e` (`docs: congelar plan delta V2 de UC-07`).
-- Implementación delta V2: **ACTIVA POR SUBPASOS**.
-- Recertificación y cierre definitivo V2: **PENDIENTES**.
+- Implementación delta V2 7.29–7.52: **COMPLETADA**.
+- Recertificación V2-P1–V2-P6: **PASS**.
+- Cierre definitivo V2: **COMPLETO**, documentado en 7.52.
 
 Documento autoritativo operativo:
 
@@ -62,17 +63,24 @@ Documento autoritativo operativo:
 
 Las fuentes específicas permanecen en `docs/_codex_sources/turnos/`.
 
-Planificación activa: **Parte II V2 7.29–7.52 APROBADA Y CONGELADA**. La Parte I 7.01–7.28 permanece exclusivamente como antecedente histórico de la implementación existente.
+Planificación ejecutada: **Parte II V2 7.29–7.52 COMPLETADA**, con V2-P1–V2-P6 PASS. La Parte I 7.01–7.28 permanece exclusivamente como antecedente histórico de la implementación existente.
 
-Último subpaso completado: **7.29 — Preparar instrucciones activas para el delta V2**.
+Último subpaso completado: **7.52 — Cierre documental definitivo de UC–07 V2**.
 
-Próximo subpaso pendiente: **7.30 — Persistir `documentos_clinicos.descripcion`**.
+No quedan subpasos V2 por ejecutar. No existe un nuevo incremento ni un siguiente caso de uso autorizado.
 
-Esto no autoriza ejecutar 7.30. Cada subpaso 7.30–7.52 requiere autorización y prompt blindado independiente.
+La ejecución se realizó mediante autorizaciones y prompts independientes. El cierre no autoriza reejecutar subpasos, limpiar fixtures ni iniciar otro trabajo. Toda intervención posterior requiere alcance y autorización explícitos del usuario.
 
-Cada subpaso pendiente 7.30–7.52 requiere autorización y prompt blindado independiente. La aprobación de la planificación no autoriza implementación ni avance automático al subpaso siguiente. Codex debe detenerse al finalizar cada subpaso.
+### Baseline definitivo UC–07 V2
 
-No iniciar implementación de UC–07 mientras el usuario no autorice explícitamente el paso o subpaso de implementación correspondiente.
+- HEAD técnico definitivo: `ba97c4b8e0a1df53c1c456da424b549db9798828` — `fix: unificar foco visual de pasos del wizard V2`.
+- MC-03 completó el patrón de MC-02 en los headings de los Pasos 1–4: foco programático y semántica preservados, sin ring accidental; foco visible interactivo y stepper intactos, sin cambios JavaScript productivos.
+- 7.51 reejecutado después de MC-03: **2231 tests / 14391 assertions PASS**, 158,06 s; cero failures, errors, skipped, risky y warnings informados; exit code 0.
+- Entorno global: `APP_ENV=testing`, SQLite `:memory:`, PDO sqlite, `config_cached=false`; sin utilizar la base de desarrollo.
+- JavaScript del wizard: **150 PASS / 0 FAIL / 0 SKIP**, 455,409 ms, exit code 0; ambos `node --check` PASS.
+- `npm run build`: **PASS**, 94 módulos, 3,55 s, exit code 0; aviso informativo de Browserslist, sin actualizar dependencias.
+- `git diff --check`: limpio al certificar 7.51. Pint de la microcorrección pasó antes del commit; sin cambios PHP durante la reejecución, no se repitió Pint ni `php -l`.
+- Documento de cierre: `docs/implementacion/turnos-solicitar-turno-cierre.md`; preparado en 7.52 como cierre definitivo documental del incremento UC–07 V2.
 
 ### Baseline previo a UC–07
 
@@ -91,9 +99,9 @@ Pint:
 - Para UC–07, exigir Pint PASS sobre los archivos modificados por el incremento cuando corresponda y mantener `git diff --check` limpio.
 - No mezclar reformateos globales de módulos ajenos con cambios funcionales de UC–07.
 
-El baseline previo a UC–07 y la certificación V1 (incluidas P1–P7) son históricos y no certifican V2. V2 queda pendiente de recertificación mediante 7.29–7.52 y sus puertas V2-P1–V2-P6, con regresión global en 7.51. El baseline anterior no implica un PASS actual de Pint global.
+El baseline previo a UC–07 y la certificación V1 (incluidas P1–P7) son históricos. El baseline vigente es el definitivo V2 indicado arriba, con V2-P1–V2-P6 PASS y regresión global reejecutada en 7.51. Ninguno de estos resultados implica un PASS de Pint global sobre deuda histórica ajena al incremento.
 
-El documento `docs/implementacion/turnos-solicitar-turno-cierre.md` existente es evidencia V1, permanece untracked y no constituye cierre definitivo V2. No modificarlo ni stagearlo antes del subpaso expresamente autorizado.
+El documento `docs/implementacion/turnos-solicitar-turno-cierre.md` contiene el cierre definitivo V2 y conserva la evidencia V1 como anexo histórico. Su preparación documental no autoriza staging, commit, push ni limpieza de datos; el usuario controla la revisión y el versionado final.
 
 Si la rama activa, el commit base o el estado Git no coinciden con lo esperado, detenerse e informarlo antes de modificar archivos.
 
@@ -119,7 +127,7 @@ Estado del entorno verificado antes de comenzar el incremento:
 - extensión `fileinfo`: disponible.
 - Apache/XAMPP apunta a `C:/xampp/php` mediante `PHPINIDir` y no se detectó un `LimitRequestBody` restrictivo en la configuración inspeccionada.
 
-Estos datos corresponden al preflight histórico previo a V1, no a una comprobación actual. La limitación inicial de verificación del SAPI web se resolvió en la certificación V1 mediante Apache/PHP real; V2 requiere su propia recertificación en 7.50.
+Estos datos corresponden al preflight histórico previo a V1, no a una comprobación actual. La limitación inicial de verificación del SAPI web se resolvió en V1 y se recertificó para V2 en 7.50 mediante Apache/PHP real. El cierre registra los resultados, sin repetir operaciones de entorno.
 
 ## Fuente de verdad para UC–07 Solicitar turno
 
@@ -177,7 +185,6 @@ Si dos fuentes de autoridad parecen contradecirse, detenerse e informar la discr
 
 - El paciente elegible puede iniciar UC–07 aunque todavía no se conozca disponibilidad.
 - Wizard canónico V2, exactamente cuatro pasos:
-
     1. **Fecha y horario**.
     2. **Elegir profesional**.
     3. **Motivo y documentación**.
@@ -350,7 +357,6 @@ UC–07 no incluye:
 
 - Mantener `turnos.tipo` como `string(30)`.
 - Conservar `TipoTurnoEnum` respaldado por string con:
-
     - `PRIMERA_CONSULTA`
     - `SEGUIMIENTO`
 
@@ -364,7 +370,6 @@ UC–07 no incluye:
 - No agregar `kinesiologas.habilitada` ni otra bandera duplicada.
 - La elegibilidad es derivada del estado canónico existente.
 - Requiere, en el `User` asociado:
-
     - rol `KINESIOLOGO`;
     - cuenta activa;
     - correo verificado;
@@ -380,7 +385,7 @@ UC–07 no incluye:
 ### DT-03 — Motor de disponibilidad
 
 - Conservar `DisponibilidadPrimeraConsultaService` como motor individual canónico.
-- La planificación V2 incorpora la capa fina `DisponibilidadAgregadaPrimeraConsultaService`: profesionales elegibles → slots individuales → fechas disponibles → horas de inicio deduplicadas → profesionales disponibles para `inicio_at`. No duplicar grilla, overlap, estados ocupantes ni reloj. Crear este servicio únicamente en 7.34, cuando ese subpaso sea autorizado.
+- La capa fina `DisponibilidadAgregadaPrimeraConsultaService`, implementada en 7.34, consume profesionales elegibles → slots individuales → fechas disponibles → horas de inicio deduplicadas → profesionales disponibles para `inicio_at`. No duplicar grilla, overlap, estados ocupantes ni reloj ni recrear el servicio existente.
 - Reutilizar `AgendaQueryService`, configuraciones, franjas, bloqueos, turnos ocupantes y `RelojAplicacion`.
 - Los slots son valores derivados; no persistir tabla de slots, holds ni reservas temporales.
 - Generar slots con la grilla determinista de D-05.
@@ -411,7 +416,7 @@ No implementar todavía:
 - `estado_validacion`;
 - `tipo_documento_clinico`;
 - `nombre_original`;
-- `descripcion` (incorporación V2 prevista en 7.30);
+- `descripcion` (incorporada en 7.30);
 - `ruta_storage`;
 - `mime_type`;
 - `tamanio_bytes`;
@@ -419,7 +424,7 @@ No implementar todavía:
 
 Reglas UC–07:
 
-- Incorporación V2 prevista en 7.30: `documentos_clinicos.descripcion VARCHAR(500) NULL`, mediante migration nueva aditiva, sin reescribir migrations históricas ni backfill artificial. Documentos históricos pueden conservar `NULL`; UC–07 exige descripción individual con trim y longitud de 1 a 500 caracteres significativos para nuevos adjuntos. Crear esta migration únicamente en 7.30, cuando ese subpaso sea autorizado.
+- Incorporación V2 implementada en 7.30: `documentos_clinicos.descripcion VARCHAR(500) NULL`, mediante migration nueva aditiva, sin reescribir migrations históricas ni backfill artificial. Documentos históricos pueden conservar `NULL`; UC–07 exige descripción individual con trim y longitud de 1 a 500 caracteres significativos para nuevos adjuntos. La migration ya existe y fue aplicada de forma autorizada antes de 7.50; no recrearla ni reaplicarla por el cierre.
 - `origen = SOLICITUD_TURNO`.
 - `estado_validacion = PENDIENTE`.
 - `tipo_documento_clinico = SIN_CLASIFICAR`.
@@ -430,7 +435,7 @@ Reglas UC–07:
 - Política central: 5 archivos, 10 MiB individual, 25 MiB total, PDF/JPEG/JPG/PNG.
 - Mantener nombre original y descripción como metadatos; nunca usarlos como ruta física confiable.
 - Encapsular storage/validación/cleanup en un servicio documental reutilizable.
-- Recertificar el contrato documental V2 y los límites efectivos mediante el flujo web Apache/PHP real en 7.50.
+- Contrato documental V2 y límites efectivos recertificados mediante el flujo web Apache/PHP real en 7.50; sus límites de evidencia se registran en el cierre.
 
 ### DT-05 / DT-06 — Concurrencia, idempotencia y atomicidad
 
@@ -830,9 +835,9 @@ Para UC–07, el diseño físico V1 ya implementado incluye:
 - creación de `documentos_clinicos`;
 - creación de `documentos_clinicos_origen_turno`.
 
-El único cambio físico pendiente del delta V2 es:
+El único cambio físico del delta V2 quedó implementado:
 
-- nueva migration aditiva para `documentos_clinicos.descripcion VARCHAR(500) NULL`, sin backfill artificial, prevista exclusivamente en 7.30.
+- migration aditiva `2026_10_22_000001_add_descripcion_to_documentos_clinicos_table.php` para `documentos_clinicos.descripcion VARCHAR(500) NULL`, sin backfill artificial, creada en 7.30 y aplicada de forma autorizada antes de 7.50; 47 Ran / 0 Pending en esa verificación.
 
 No crear por anticipado:
 
@@ -984,7 +989,7 @@ No eliminar archivos no trackeados cuya procedencia no haya sido autorizada.
 
 ## Alcance del incremento Turnos actual
 
-El alcance activo corresponde exclusivamente a:
+El incremento cerrado corresponde exclusivamente a:
 
 **UC–07 Solicitar turno V2**
 
@@ -1025,7 +1030,7 @@ UX-01…UX-03 y Consolidación UX V2.0 están aprobadas y congeladas. Stitch V2 
 
 Fidelidad exigida: funcional 100 %, estructural alta y estética alta, no pixel-perfect. Foto profesional opcional con avatar fallback; no usar `Asignada` como semántica administrativa. Si existe cierre X del éxito, equivale a `Entendido` y conduce a Mis turnos. Navegación desktop en una línea cuando exista ancho suficiente; profesional perdida visible sólo como contexto deshabilitado, no seleccionable.
 
-La ejecución activa corresponde exclusivamente a la Parte II delta V2 7.29–7.52 mediante prompts independientes. Los cambios de frontend quedan diferidos a los subpasos expresamente previstos en la Parte II V2; no adelantarlos desde subpasos anteriores.
+La Parte II delta V2 7.29–7.52 fue ejecutada y cerrada mediante prompts independientes. El frontend V2 quedó certificado; no existe autorización de nuevos cambios visuales o funcionales por iniciativa propia.
 
 Reglas:
 

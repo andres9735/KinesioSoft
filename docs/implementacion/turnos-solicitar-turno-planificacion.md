@@ -4,13 +4,17 @@
 
 **APROBADA Y CONGELADA**
 
+**EJECUCIÓN CERRADA — 7.29–7.52 COMPLETADOS — V2-P1–V2-P6 PASS**.
+
+Cierre documental: 24/10/2026, actualizado tras MC-03 el 25/10/2026. Baseline técnico definitivo: `ba97c4b8e0a1df53c1c456da424b549db9798828` (`fix: unificar foco visual de pasos del wizard V2`). Regresión final 7.51: **2231 tests / 14391 assertions PASS**, Node **150 PASS**, build **PASS**. El [cierre definitivo V2](turnos-solicitar-turno-cierre.md) reúne evidencias y límites. No quedan subpasos V2 por ejecutar ni se autoriza un nuevo incremento.
+
 ## Incremento
 
 - Caso de uso: UC–07 Solicitar turno.
 - Rama: `feature/turnos-solicitar-turno`.
 - Base documental previa al Paso 7: `808794f7fc0e69efba70c9c9fc3dc702b7c50a1a`.
 - Trazabilidad documental 7.00: completada, incluida la corrección de la referencia del límite de 31 días a DT-03.
-- Contenido: Parte I histórica V1 con los subpasos 7.01–7.28 ya ejecutados y Parte II delta V2 con los subpasos 7.29–7.52 aprobados y congelados.
+- Contenido: Parte I histórica V1 con los subpasos 7.01–7.28 ya ejecutados y Parte II delta V2 con los subpasos 7.29–7.52 aprobados, congelados y completados.
 - Gap analysis V2 contra la implementación real: completo y aprobado.
 - La implementación V1 se conserva como baseline y no debe reejecutarse automáticamente.
 
@@ -631,20 +635,51 @@ No hacer staging, commits ni push por iniciativa propia. No inspeccionar, modifi
 
 ## Estado de la Parte II
 
-**APROBADA Y CONGELADA**
+**APROBADA Y CONGELADA — EJECUTADA Y CERRADA**.
 
-Esta Parte II implementa exclusivamente el delta requerido para adaptar la implementación V1 ya certificada al contrato vigente de UC–07 V2.
+Esta Parte II conserva el plan ejecutado para adaptar la implementación V1 al contrato vigente de UC–07 V2. Los objetivos, dependencias y criterios siguientes se mantienen como trazabilidad del proceso; no son trabajo por ejecutar.
+
+| Subpaso | Resultado |
+|---|---|
+| 7.29 — Instrucciones activas V2 | COMPLETADO |
+| 7.30 — Persistencia de descripción | COMPLETADO |
+| 7.31 — Request de adjuntos estructurados | COMPLETADO |
+| 7.32 — Pipeline documental | COMPLETADO |
+| 7.33 — Action, atomicidad y replay | COMPLETADO |
+| 7.34 — Disponibilidad agregada | COMPLETADO |
+| 7.35 — Disponibilidad HTTP | COMPLETADO |
+| 7.36 — Profesionales por inicio | COMPLETADO |
+| 7.37 — Integración backend / V2-P2 | COMPLETADO |
+| 7.38 — Configuración inicial del wizard | COMPLETADO |
+| 7.39 — Estado Alpine V2 | COMPLETADO |
+| 7.40 — Paso 1 | COMPLETADO |
+| 7.41 — Paso 2 | COMPLETADO |
+| 7.42 — Paso 3 | COMPLETADO |
+| 7.43 — Paso 4 y multipart | COMPLETADO |
+| 7.44 — Recovery R1/R2/R3 | COMPLETADO |
+| 7.45 — D-01 y éxito | COMPLETADO |
+| 7.46 — Mis turnos | COMPLETADO |
+| 7.47 — Stitch, responsive y accesibilidad | COMPLETADO |
+| 7.48 — Regresión focal | COMPLETADO |
+| 7.49 — MariaDB/InnoDB | COMPLETADO |
+| 7.50 — Apache y aceptación integral | COMPLETADO |
+| 7.51 — Regresión global, reejecutada sobre `ba97c4b` después de MC-03 | COMPLETADO |
+| 7.52 — Cierre documental V2 | COMPLETADO; documentos sin stage, para revisión y versionado del usuario |
+
+V2-P1, V2-P2, V2-P3, V2-P4, V2-P5 y V2-P6: **PASS**. La evidencia global vigente después de MC-03 es **2231 tests / 14391 assertions**, 158,06 s, sin failures/errors/skipped/risky/warnings, exit code 0; Node **150 PASS / 0 FAIL / 0 SKIP**, 455,409 ms, ambos syntax PASS, y build **94 módulos / 3,55 s**, ambos con exit code 0. Pint de MC-03 pasó antes del commit; la reejecución sin cambios PHP no requirió repetirlo ni ejecutar `php -l`.
+
+MC-03 (`ba97c4b`) fue una microcorrección UX/accesibilidad posterior a la primera preparación documental de 7.52: extendió a los Pasos 1, 3 y 4 el patrón de heading sin ring ya aplicado al Paso 2, preservando foco programático, controles y stepper, sin JavaScript productivo. Tras versionarla se recertificó V2-P6 y se actualizó 7.52; no constituye un subpaso 7.53 ni un nuevo incremento.
 
 No autoriza reescribir infraestructura V1 que el gap analysis clasificó como reutilizable.
 
-Cada subpaso 7.29–7.52:
+Durante la ejecución, cada subpaso 7.29–7.52:
 
-- requiere autorización independiente;
-- posee alcance limitado;
-- debe ejecutar únicamente sus verificaciones previstas o justificadas;
-- debe informar archivos modificados, pruebas y estado Git;
-- debe detenerse al finalizar;
-- no autoriza avanzar automáticamente al siguiente.
+- requirió autorización independiente;
+- tuvo alcance limitado;
+- ejecutó únicamente sus verificaciones previstas o justificadas;
+- informó archivos modificados, pruebas y estado Git;
+- terminó con detención;
+- no autorizó avanzar automáticamente al siguiente.
 
 ## Objetivo del delta V2
 
@@ -680,7 +715,7 @@ Antes de cada subpaso, Codex debe consultar únicamente lo necesario de:
 
 La Parte I puede consultarse únicamente como antecedente de la implementación V1.
 
-## Baseline del delta
+## Baseline histórico de apertura del delta
 
 - Rama esperada: `feature/turnos-solicitar-turno`.
 - HEAD verificado durante el gap analysis: `3a95e84b26a43fa90f663372ba0ba6c3192ff685`.
@@ -694,7 +729,7 @@ La Parte I puede consultarse únicamente como antecedente de la implementación 
 
 `docs/archivo/` permanece fuera de alcance y no debe inspeccionarse, modificarse, agregarse, stagearse ni limpiarse.
 
-El documento de cierre existente es evidencia histórica V1 y no constituye cierre definitivo V2 mientras este delta permanezca pendiente.
+Al abrir el delta, el documento de cierre contenía evidencia histórica V1. En 7.52 se convirtió en el cierre definitivo V2 y conservó esa evidencia como anexo histórico, sin stage ni commit automático.
 
 ## Infraestructura V1 protegida
 
@@ -832,7 +867,7 @@ Reglas:
 
 ### V2-P1 — Documentación clínica backend
 
-Debe quedar verde después de 7.33:
+Resultado: **V2-P1 — PASS**, después de 7.33. Alcance certificado:
 
 - migration;
 - Model/factory;
@@ -845,7 +880,7 @@ Debe quedar verde después de 7.33:
 
 ### V2-P2 — Disponibilidad backend
 
-Debe quedar verde después de 7.37:
+Resultado: **V2-P2 — PASS**, después de 7.37. Alcance certificado:
 
 - agregador;
 - disponibilidad agregada HTTP;
@@ -856,7 +891,7 @@ Debe quedar verde después de 7.37:
 
 ### V2-P3 — Flujo frontend funcional
 
-Debe quedar verde después de 7.44:
+Resultado: **V2-P3 — PASS**, después de 7.44. Alcance certificado:
 
 - nuevo estado Alpine;
 - Pasos 1–4;
@@ -867,7 +902,7 @@ Debe quedar verde después de 7.44:
 
 ### V2-P4 — UX / Stitch / responsive
 
-Debe quedar verde después de 7.47:
+Resultado: **V2-P4 — PASS**, después de 7.47. Alcance certificado:
 
 - fidelidad estructural;
 - D-01 visual;
@@ -878,7 +913,7 @@ Debe quedar verde después de 7.47:
 
 ### V2-P5 — Certificación técnica real
 
-Debe quedar verde después de 7.50:
+Resultado: **V2-P5 — PASS**, después de 7.50. Alcance certificado:
 
 - regresión focal;
 - MariaDB/InnoDB;
@@ -888,7 +923,7 @@ Debe quedar verde después de 7.50:
 
 ### V2-P6 — Cierre integral
 
-Debe quedar verde en 7.51 antes de 7.52:
+Resultado: **V2-P6 — PASS**, reejecutado en 7.51 después de MC-03 sobre el baseline definitivo `ba97c4b`, antes de actualizar el cierre de 7.52. Alcance certificado:
 
 - regresión global;
 - Node;
@@ -1311,7 +1346,7 @@ No stagear:
 
 ## Criterio de éxito del delta V2
 
-UC–07 V2 estará cerrado únicamente cuando se certifique que:
+UC–07 V2 quedó cerrado al certificar los siguientes criterios, preservados del plan congelado:
 
 - comienza por disponibilidad real;
 - sólo permite fechas con disponibilidad;
@@ -1335,17 +1370,17 @@ UC–07 V2 estará cerrado únicamente cuando se certifique que:
 - regresión global queda verde;
 - documentación final refleja V2.
 
-## Regla de ejecución activa V2
+## Regla de ejecución V2 aplicada — proceso concluido
 
-La fase activa después de congelar esta Parte II es la ejecución mediante prompts blindados independientes de los subpasos 7.29–7.52.
+Después de congelar esta Parte II se ejecutaron los subpasos 7.29–7.52 mediante prompts blindados independientes.
 
-El primer subpaso autorizado después del commit documental de esta planificación es:
+El primer subpaso autorizado después del commit documental de esta planificación fue:
 
 **7.29 — Preparar instrucciones activas para el delta V2**
 
 No existe autorización de avance automático.
 
-Cada prompt debe terminar y esperar aprobación antes de continuar.
+Cada prompt terminó y requirió aprobación antes de continuar. Los subpasos 7.29–7.52 están completados; no existe autorización para un nuevo incremento ni para reejecutar sus gates por iniciativa propia.
 
 La aprobación de esta planificación no autoriza migrations reales sobre la base de desarrollo; las operaciones sobre entornos reales mantienen sus puertas específicas.
 
