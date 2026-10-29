@@ -23,17 +23,81 @@ Stack actual:
 - PHPUnit para pruebas automatizadas.
 - Spatie Permission para roles/permisos.
 
-## Estado del incremento UC–07
+## Incremento activo — UC–06 Gestionar Mis turnos
+
+Rama esperada:
+
+`feature/turnos-gestionar-mis-turnos`
+
+Commit base del incremento:
+
+`6c9dcd63160ca60603547feab7eb6afe525ee653` — `docs: cerrar UC-07 Solicitar turno V2`.
+
+UC–07 Solicitar turno V2 está **CERRADO** y constituye infraestructura previa que debe preservarse junto con Agenda. Su detalle posterior se conserva como antecedente, sin subpasos pendientes ni autorización para reejecutarlo.
+
+### Fuentes autoritativas de UC–06 V1.0
+
+Las seis fuentes están **APROBADAS Y CONGELADAS** y disponibles localmente en:
+
+- `docs/_codex_sources/turnos/uc06/UC06_DECISIONES_FUNCIONALES_D01_D18_V1.0.md`.
+- `docs/_codex_sources/turnos/uc06/UC06_ESPECIFICACION_FUNCIONAL_V1.0.md`.
+- `docs/_codex_sources/turnos/uc06/UC06_MATRIZ_ARMONIZACION_DEPENDENCIAS_V1.0.md`.
+- `docs/_codex_sources/turnos/uc06/UC06_DISENO_TECNICO_CONSOLIDADO_V1.0.md`.
+- `docs/_codex_sources/turnos/uc06/UC06_DISENO_UX_CONSOLIDADO_V1.0.md`.
+- `docs/_codex_sources/turnos/uc06/UC06_PLANIFICACION_INCREMENTAL_V1.0.md`.
+
+Estas fuentes permanecen excluidas de Git mediante la regla existente de `.git/info/exclude` y deben conservarse disponibles para Codex, sin modificar sus contenidos ni las exclusiones.
+
+Las decisiones D-01–D-18 gobiernan el comportamiento funcional, desarrollado por la especificación; la matriz delimita armonización y dependencias, y los diseños DT/UX y la planificación se subordinan a esas reglas. La documentación histórica de UC–06 y los README previos no sustituyen estas fuentes ni determinan el incremento activo.
+
+Los bloques de UC–07 de este archivo describen el cierre y las garantías a preservar. Las armonizaciones expresamente aprobadas por UC–06, como la ocupación por En atención y la autorización individual de Turno, sólo podrán ejecutarse en sus subpasos autorizados; no implican reabrir decisiones ni alterar reglas ajenas al delta aprobado.
+
+### Planificación y estado de UC–06
+
+La planificación incremental V1.0 contiene 18 subpasos en cinco fases:
+
+| Fase | Subpasos | Alcance |
+| --- | --- | --- |
+| A | 6.01–6.03 | Preparación documental, rama y baseline. |
+| B | 6.04–6.08 | Consultas y detalle. |
+| C | 6.09–6.13 | Confirmación, cancelación e integridad. |
+| D | 6.14–6.15 | Interfaz y experiencia de usuario. |
+| E | 6.16–6.18 | Integraciones, regresión y cierre. |
+
+- **6.01: COMPLETADO Y CERTIFICADO**; fuentes incorporadas localmente, con integridad y exclusión de Git verificadas.
+- **6.02: COMPLETADO, sujeto al commit documental de este cierre**; preparación de rama y actualización de este archivo.
+- **6.03: siguiente subpaso, PENDIENTE de autorización y ejecución**.
+- **6.04–6.18: PENDIENTES**, sin ejecución anticipada.
+
+El alcance de 6.02 se limita a la rama local y `AGENTS.md`; no autoriza implementación, staging, commits, pruebas, builds ni migraciones.
+
+### Baseline de UC–06
+
+**El baseline actual de UC–06 todavía NO ESTÁ CERTIFICADO.** Su certificación corresponde exclusivamente a 6.03. Los resultados de UC–07 conservados abajo son evidencia histórica de partida, no un PASS nuevo de UC–06.
+
+### Obligaciones del incremento UC–06
+
+1. Mantener congeladas D-01–D-18, DT-01–DT-12 y UX-01–UX-05; ante una incompatibilidad no prevista, detenerse e informar antes de cambiar decisiones.
+2. Preservar la infraestructura de UC–07 y Agenda, aplicando únicamente las armonizaciones planificadas y autorizadas.
+3. Respetar los seis estados canónicos: Pendiente, Confirmado, En atención, Atendido, Ausente y Cancelado; su ocupación de agenda se rige por D-02 y DT-01 de UC–06, con armonización prevista en 6.04.
+4. Mantener las restricciones temporales de confirmación y cancelación establecidas en D-03, D-04 y D-06, con revalidación autoritativa y `RelojAplicacion`.
+5. Respetar autorización, privacidad documental, transacciones, concurrencia, idempotencia y auditoría conforme a D/DT y los patrones existentes.
+6. No implementar módulos externos completos; respetar los contratos C-01–C-14 y las decisiones externas DX-01–DX-07 de la matriz, sin inventar datos clínicos ausentes.
+7. Trabajar únicamente en el subpaso expresamente autorizado y detenerse al finalizarlo, sin adelantar los siguientes.
+8. Mantener `docs/archivo/` sin inspección ni modificación, y proteger las fuentes congeladas.
+9. Conservar las reglas transversales de arquitectura, Laravel, seguridad, auditoría, pruebas, archivos protegidos y Git de este repositorio.
+
+## Antecedente cerrado — UC–07 Solicitar turno V2
 
 Último incremento implementado, certificado y cerrado:
 
 **UC–07 Solicitar turno V2 — CERRADO**
 
-Rama esperada:
+Rama histórica de UC–07:
 
 `feature/turnos-solicitar-turno`
 
-Commit base oficial del incremento:
+Commit base oficial histórico de UC–07:
 
 `9d9b1510402e64c310f02ec1014b24333c13ed0c`
 
@@ -43,7 +107,7 @@ Base documental previa al Paso 7:
 
 `808794f7fc0e69efba70c9c9fc3dc702b7c50a1a`
 
-Estado actual del incremento:
+Estado de cierre de UC–07:
 
 - Implementación V1, subpasos 7.01–7.28: **EJECUTADOS Y CERTIFICADOS COMO BASELINE V1**. No son trabajo pendiente ni deben reejecutarse automáticamente.
 - UC–07 funcional V2: **APROBADO Y CONGELADO**.
@@ -57,7 +121,7 @@ Estado actual del incremento:
 - Recertificación V2-P1–V2-P6: **PASS**.
 - Cierre definitivo V2: **COMPLETO**, documentado en 7.52.
 
-Documento autoritativo operativo:
+Planificación ejecutada de UC–07, conservada como antecedente:
 
 `docs/implementacion/turnos-solicitar-turno-planificacion.md`
 
@@ -65,9 +129,9 @@ Las fuentes específicas permanecen en `docs/_codex_sources/turnos/`.
 
 Planificación ejecutada: **Parte II V2 7.29–7.52 COMPLETADA**, con V2-P1–V2-P6 PASS. La Parte I 7.01–7.28 permanece exclusivamente como antecedente histórico de la implementación existente.
 
-Último subpaso completado: **7.52 — Cierre documental definitivo de UC–07 V2**.
+Último subpaso de UC–07 completado: **7.52 — Cierre documental definitivo de UC–07 V2**.
 
-No quedan subpasos V2 por ejecutar. No existe un nuevo incremento ni un siguiente caso de uso autorizado.
+No quedan subpasos V2 por ejecutar. El nuevo incremento activo es UC–06, con el estado y las autorizaciones delimitados en el bloque inicial de este archivo.
 
 La ejecución se realizó mediante autorizaciones y prompts independientes. El cierre no autoriza reejecutar subpasos, limpiar fixtures ni iniciar otro trabajo. Toda intervención posterior requiere alcance y autorización explícitos del usuario.
 
@@ -79,6 +143,7 @@ La ejecución se realizó mediante autorizaciones y prompts independientes. El c
 - Entorno global: `APP_ENV=testing`, SQLite `:memory:`, PDO sqlite, `config_cached=false`; sin utilizar la base de desarrollo.
 - JavaScript del wizard: **150 PASS / 0 FAIL / 0 SKIP**, 455,409 ms, exit code 0; ambos `node --check` PASS.
 - `npm run build`: **PASS**, 94 módulos, 3,55 s, exit code 0; aviso informativo de Browserslist, sin actualizar dependencias.
+- MariaDB/InnoDB histórica, 7.49: **30 tests / 1219 assertions PASS**, respaldados por la sección 8.1 de `docs/implementacion/turnos-solicitar-turno-cierre.md`; no constituyen una nueva certificación de UC–06.
 - `git diff --check`: limpio al certificar 7.51. Pint de la microcorrección pasó antes del commit; sin cambios PHP durante la reejecución, no se repitió Pint ni `php -l`.
 - Documento de cierre: `docs/implementacion/turnos-solicitar-turno-cierre.md`; preparado en 7.52 como cierre definitivo documental del incremento UC–07 V2.
 
@@ -99,7 +164,7 @@ Pint:
 - Para UC–07, exigir Pint PASS sobre los archivos modificados por el incremento cuando corresponda y mantener `git diff --check` limpio.
 - No mezclar reformateos globales de módulos ajenos con cambios funcionales de UC–07.
 
-El baseline previo a UC–07 y la certificación V1 (incluidas P1–P7) son históricos. El baseline vigente es el definitivo V2 indicado arriba, con V2-P1–V2-P6 PASS y regresión global reejecutada en 7.51. Ninguno de estos resultados implica un PASS de Pint global sobre deuda histórica ajena al incremento.
+El baseline previo a UC–07 y la certificación V1 (incluidas P1–P7) son históricos. El baseline de cierre de UC–07 es el definitivo V2 indicado arriba, con V2-P1–V2-P6 PASS y regresión global reejecutada en 7.51. El baseline de UC–06 permanece pendiente de 6.03. Ninguno de estos resultados implica un PASS de Pint global sobre deuda histórica ajena al incremento.
 
 El documento `docs/implementacion/turnos-solicitar-turno-cierre.md` contiene el cierre definitivo V2 y conserva la evidencia V1 como anexo histórico. Su preparación documental no autoriza staging, commit, push ni limpieza de datos; el usuario controla la revisión y el versionado final.
 
@@ -109,7 +174,7 @@ No modificar, agregar, eliminar, inspeccionar ni limpiar `docs/archivo/` salvo i
 
 ## Preflight técnico certificado para UC–07
 
-Estado del entorno verificado antes de comenzar el incremento:
+Estado histórico del entorno verificado antes de comenzar UC–07:
 
 - MariaDB: `10.4.32-MariaDB`.
 - Driver Laravel: `mysql`.
@@ -135,13 +200,13 @@ Las fuentes locales de apoyo para Turnos están en:
 
 `docs/_codex_sources/turnos/`
 
-Antes de trabajar en el incremento, leer primero:
+Para consultar el antecedente documental de UC–07, leer primero:
 
 `docs/_codex_sources/turnos/README_Codex_sources.md`
 
 No inventar nombres de archivos dentro de esa carpeta. Utilizar el README y el contenido real disponible para localizar las fuentes pertinentes a UC–07.
 
-Jerarquía de decisión para este incremento:
+Jerarquía de decisión de UC–07, conservada como antecedente del incremento cerrado:
 
 1. Diccionario de Datos vigente: persistencia estructural congelada.
 2. Fuente funcional UC–07 V2: `docs/_codex_sources/turnos/UC-07_Solicitar_turno.txt`.
@@ -473,7 +538,7 @@ Atomicidad:
 
 ### DT-07 — Orquestación, seguridad, Mis turnos y auditoría
 
-Rutas objetivo V2 (su adaptación requiere el subpaso autorizado):
+Rutas implementadas en UC–07 V2 (antecedente cerrado):
 
 - `GET /turnos/mis-turnos` → `turnos.mis-turnos.index`.
 - `GET /turnos/solicitar` → `turnos.solicitar.create`.
@@ -491,7 +556,7 @@ Middleware para UC–07 del paciente:
 
 La descarga documental debe usar autenticación, perfil completo y una Policy específica del documento, no una URL pública.
 
-`Mis turnos` mínimo:
+`Mis turnos` mínimo certificado al cierre de UC–07, a evolucionar únicamente mediante los subpasos autorizados de UC–06:
 
 - obtener siempre al paciente desde el usuario autenticado;
 - no aceptar `paciente_id` arbitrario;
@@ -500,7 +565,7 @@ La descarga documental debe usar autenticación, perfil completo y una Policy es
 - usar paginación cuando corresponda;
 - no implementar en este incremento cancelación, reprogramación, confirmación de asistencia ni otras acciones de UC–06.
 
-Requests previstos:
+Requests implementados en UC–07:
 
 - `ConsultarDisponibilidadPrimeraConsultaRequest`.
 - `ConsultarProfesionalesDisponiblesPrimeraConsultaRequest`.
@@ -583,7 +648,7 @@ Antes de modificar:
 6. Informar cualquier discrepancia relevante antes de inventar una solución no prevista.
 7. Verificar `git branch --show-current`, `git rev-parse HEAD` y `git status --short` cuando se vaya a modificar el repositorio.
 
-La Parte II delta V2 7.29–7.52 está congelada en `docs/implementacion/turnos-solicitar-turno-planificacion.md`. Antes de modificar, leer el subpaso correspondiente y su prompt blindado independiente. No ejecutar un subpaso sin autorización específica ni avanzar automáticamente al siguiente. La Parte I V1 es histórica.
+Para UC–06, antes de modificar, leer las fuentes congeladas pertinentes, el subpaso de `docs/_codex_sources/turnos/uc06/UC06_PLANIFICACION_INCREMENTAL_V1.0.md` y su prompt blindado independiente. No ejecutar un subpaso sin autorización específica ni avanzar automáticamente al siguiente. La planificación de UC–07, incluidas la Parte I V1 y la Parte II V2 7.29–7.52, está ejecutada y cerrada; sólo aporta trazabilidad histórica.
 
 Después de modificar:
 
@@ -640,9 +705,9 @@ No crear:
 - Una segunda lógica de disponibilidad distinta entre “mostrar” y “confirmar”.
 - Abstracciones que mezclen reglas diferentes sólo porque las pantallas se parecen.
 
-## Contratos existentes de Agenda que UC–07 debe consumir
+## Contratos existentes de Agenda consumidos por UC–07 y preservados en UC–06
 
-Las reglas de Agenda ya implementadas son dependencia de UC–07 y no deben reescribirse desde cero.
+Las reglas de Agenda ya implementadas son infraestructura compartida y no deben reescribirse desde cero. Las armonizaciones de UC–06 se limitan a su planificación y subpasos autorizados.
 
 ### Configuraciones de agenda
 
@@ -883,16 +948,16 @@ Estrategia:
 2. Corregir únicamente fallos causados por el subpaso actual.
 3. Ejecutar la regresión indicada por planificación/prompt.
 4. No avanzar con tests rojos causados por el cambio actual.
-5. Ejecutar `php artisan test` completo en las puertas de regresión definidas para UC–07.
+5. Ejecutar `php artisan test` completo en las puertas de regresión definidas por la planificación y el prompt autorizado de UC–06; las puertas de UC–07 ya ejecutadas son antecedentes.
 6. Ejecutar Pint sobre los archivos modificados o el alcance explícitamente indicado; no reformatear masivamente archivos ajenos para intentar producir un Pint global verde.
 7. Ejecutar `git diff --check` antes de cierres/checkpoints relevantes.
 8. Ejecutar `npm run build` cuando el cambio afecte frontend o en puertas de regresión definidas.
 
-Baseline de partida de UC–07:
+Baseline histórico de partida de UC–07, anterior a su cierre V2:
 
 `1376 passed (8842 assertions)`
 
-Build de partida:
+Build histórico de partida de UC–07:
 
 `npm run build`: PASS.
 
@@ -900,7 +965,7 @@ Limitación de las pruebas SQLite:
 
 - PHPUnit usa SQLite `:memory:`.
 - Eso no certifica locking real de MariaDB.
-- Las carreras de DT-05/DT-06 fueron certificadas para V1 y deben recertificarse contra MariaDB/InnoDB en 7.49 para V2, con autorización específica de las operaciones reales requeridas.
+- Las carreras de DT-05/DT-06 de UC–07 fueron certificadas para V1 y recertificadas contra MariaDB/InnoDB en 7.49 para V2. Para UC–06, el baseline y las nuevas verificaciones corresponden a 6.03 y a los subpasos autorizados de su planificación; no se hereda un PASS de concurrencia nuevo.
 
 No modificar tests para “hacerlos pasar” si eso debilita o cambia una regla congelada.
 
@@ -912,7 +977,7 @@ Cuando un test deba actualizarse por un cambio funcional planificado, mantener o
 - SweetAlert2 ya está disponible globalmente.
 - No agregar imports/CDN duplicados.
 - Mantener desktop y mobile conforme a las decisiones UX aprobadas y patrones visuales reales de KinesioSoft.
-- Los prototipos visuales nunca prevalecen sobre D-01…D-16, DT-01…DT-07, Diccionario, UC o Modelo Relacional.
+- Los prototipos visuales nunca prevalecen sobre las fuentes funcionales y técnicas congeladas del caso de uso correspondiente, el Diccionario o el Modelo Relacional; para UC–06 rigen D-01–D-18 y DT-01–DT-12.
 - Las vistas no deben contener reglas críticas que sólo existan en frontend.
 - Toda regla crítica debe validarse también en backend.
 - Evitar JavaScript inline cuando el proyecto ya usa módulos reutilizables y el cambio justifique extraerlos.
@@ -987,7 +1052,7 @@ No ejecutar comandos destructivos o de limpieza para resolver un estado Git ines
 
 No eliminar archivos no trackeados cuya procedencia no haya sido autorizada.
 
-## Alcance del incremento Turnos actual
+## Alcance histórico del incremento cerrado UC–07
 
 El incremento cerrado corresponde exclusivamente a:
 
@@ -1024,7 +1089,7 @@ No implementar por anticipado:
 
 Puede diseñarse una responsabilidad reutilizable cuando sea estrictamente necesaria para UC–07 y esté respaldada por el diseño congelado, pero no implementar flujos futuros por anticipado.
 
-## Prototipos y diseño UX
+## Prototipos y diseño UX de UC–07 — Antecedente cerrado
 
 UX-01…UX-03 y Consolidación UX V2.0 están aprobadas y congeladas. Stitch V2 está aprobado y congelado: 6 capturas desktop + 8 excepciones = 14, sin carpeta mobile canónica; responsive sigue siendo obligatorio. Contrato visual activo: `docs/_codex_sources/turnos/prototipo_stitch_uc07/README.md`.
 
