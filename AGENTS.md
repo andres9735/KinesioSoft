@@ -65,15 +65,28 @@ La planificación incremental V1.0 contiene 18 subpasos en cinco fases:
 | E | 6.16–6.18 | Integraciones, regresión y cierre. |
 
 - **6.01: COMPLETADO Y CERTIFICADO**; fuentes incorporadas localmente, con integridad y exclusión de Git verificadas.
-- **6.02: COMPLETADO, sujeto al commit documental de este cierre**; preparación de rama y actualización de este archivo.
-- **6.03: siguiente subpaso, PENDIENTE de autorización y ejecución**.
-- **6.04–6.18: PENDIENTES**, sin ejecución anticipada.
+- **6.02: COMPLETADO**; preparación de rama y actualización de este archivo, versionadas en `f59ca2b`.
+- **6.03: COMPLETADO Y CERTIFICADO**; baseline técnico inicial de UC–06 satisfactorio.
+- **6.04: siguiente subpaso, PENDIENTE DE IMPLEMENTACIÓN**; requiere prompt y autorización específicos antes de iniciar.
+- **6.05–6.18: PENDIENTES**, sin ejecución anticipada.
 
-El alcance de 6.02 se limita a la rama local y `AGENTS.md`; no autoriza implementación, staging, commits, pruebas, builds ni migraciones.
+El cierre de 6.03 es exclusivamente documental: actualización de `AGENTS.md` y commit expresamente solicitado. No autoriza repetir pruebas, builds o migraciones ni iniciar 6.04.
 
-### Baseline de UC–06
+### UC–06 — Baseline inicial certificado (6.03)
 
-**El baseline actual de UC–06 todavía NO ESTÁ CERTIFICADO.** Su certificación corresponde exclusivamente a 6.03. Los resultados de UC–07 conservados abajo son evidencia histórica de partida, no un PASS nuevo de UC–06.
+**Estado: CERTIFICADO.** Referencia técnica previa al cierre documental: `f59ca2b4f8f081576032d646ef7f7a73f830fbbd`, sin modificaciones funcionales.
+
+- PHPUnit, `php artisan test`: **2231 tests / 14391 assertions PASS**.
+- JavaScript: **155 tests PASS**, correspondientes a **150 del wizard** y **5 de bloqueo-form**.
+- Verificaciones de sintaxis JavaScript del wizard y su archivo de pruebas: **PASS**.
+- `npm run build`: **PASS, 94 módulos**.
+- MariaDB, `php vendor/bin/phpunit -c phpunit.mysql.xml`: **30 tests / 1219 assertions PASS**.
+- MariaDB: base aislada **`kinesiosoft_uc07_test`**, preflight satisfactorio y autorización explícita del usuario para su reinicialización.
+- **No se detectaron regresiones en las suites ejecutadas**; Git sin modificaciones funcionales. Este cierre modifica únicamente `AGENTS.md`.
+
+La certificación MariaDB, incluido el preflight y la autorización para reinicialización, se registra conforme al resultado satisfactorio informado por el usuario al autorizar este cierre. En este cierre documental no se reejecutan pruebas, builds ni migraciones.
+
+Este es el baseline inicial certificado de UC–06. Los resultados de UC–07 conservados abajo permanecen como antecedentes históricos independientes.
 
 ### Obligaciones del incremento UC–06
 
@@ -164,7 +177,7 @@ Pint:
 - Para UC–07, exigir Pint PASS sobre los archivos modificados por el incremento cuando corresponda y mantener `git diff --check` limpio.
 - No mezclar reformateos globales de módulos ajenos con cambios funcionales de UC–07.
 
-El baseline previo a UC–07 y la certificación V1 (incluidas P1–P7) son históricos. El baseline de cierre de UC–07 es el definitivo V2 indicado arriba, con V2-P1–V2-P6 PASS y regresión global reejecutada en 7.51. El baseline de UC–06 permanece pendiente de 6.03. Ninguno de estos resultados implica un PASS de Pint global sobre deuda histórica ajena al incremento.
+El baseline previo a UC–07 y la certificación V1 (incluidas P1–P7) son históricos. El baseline de cierre de UC–07 es el definitivo V2 indicado arriba, con V2-P1–V2-P6 PASS y regresión global reejecutada en 7.51. El baseline inicial de UC–06 quedó certificado en 6.03 y se registra en el bloque inicial de este archivo. Ninguno de estos resultados implica un PASS de Pint global sobre deuda histórica ajena al incremento.
 
 El documento `docs/implementacion/turnos-solicitar-turno-cierre.md` contiene el cierre definitivo V2 y conserva la evidencia V1 como anexo histórico. Su preparación documental no autoriza staging, commit, push ni limpieza de datos; el usuario controla la revisión y el versionado final.
 
