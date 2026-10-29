@@ -64,7 +64,9 @@ class MisTurnosTest extends TestCase
         $response->assertOk()->assertSee('Todavía no tenés turnos registrados')
             ->assertSee('Solicitar nuevo turno')
             ->assertSee('Consultá tus próximos turnos y el historial de atenciones.');
-        $this->assertSame(2, substr_count($response->getContent(), 'href="'.$this->url().'"'));
+        $dom = new \DOMDocument;
+        @$dom->loadHTML('<?xml encoding="UTF-8">'.$response->getContent());
+        $this->assertSame(2, (new \DOMXPath($dom))->query('//nav//a[@href="'.$this->url().'"]')->length);
         $this->assertTrue(Route::has('turnos.solicitar.create'));
         $response->assertSee('href="'.route('turnos.solicitar.create').'"', false);
         $this->assertTrue(Route::has('turnos.solicitar.store'));
@@ -103,14 +105,14 @@ class MisTurnosTest extends TestCase
         return [[RoleEnum::KINESIOLOGO], [RoleEnum::ADMINISTRADOR], [RoleEnum::SUPERADMIN]];
     }
 
-    public function test_patient_scope_ignores_client_patient_and_professional_filters(): void
+    public function test_patient_scope_ignores_client_patient_and_professional_ids(): void
     {
         $propio = $this->turno();
         $otroPaciente = $this->pacienteCompleto();
         $otraProfesional = $this->profesional();
         $ajeno = $this->turno(['paciente_id' => $otroPaciente->id, 'kinesiologa_id' => $otraProfesional->id, 'inicio_at' => $this->ahora->addYears(2)]);
         $response = $this->actingAs($this->paciente->user)->get($this->url([
-            'paciente_id' => $otroPaciente->id, 'kinesiologa_id' => $otraProfesional->id, 'tipo' => 'otro',
+            'paciente_id' => $otroPaciente->id, 'kinesiologa_id' => $otraProfesional->id, 'tipo' => TipoTurnoEnum::SEGUIMIENTO->value,
         ]));
         $response->assertOk()->assertViewHas('proximos', fn ($p) => $p->total() === 1 && $p->first()->id === $propio->id)
             ->assertViewHas('historicos', fn ($p) => $p->total() === 0)
@@ -484,6 +486,282 @@ class MisTurnosTest extends TestCase
         $muchos = $contar();
         $this->assertSame(4, $pocos);
         $this->assertSame($pocos, $muchos);
+    }
+
+    #[DataProvider('busquedasProfesional')]
+    public function test_professional_search_is_partial_case_insensitive_and_scoped_to_own_appointments(string $termino): void
+    {
+        $this->kinesiologa->user->update(['name' => 'Ángela María', 'apellido' => 'ÑÚÑEZ Παπαδοπούλου']);
+        $proximo = $this->turno();
+        $historico = $this->turno(['estado' => EstadoTurnoEnum::CANCELADO]);
+        $this->turno(['kinesiologa_id' => $this->profesional()->id]);
+        $this->turno(['paciente_id' => $this->pacienteCompleto()->id]);
+        $this->actingAs($this->paciente->user)->get($this->url(['profesional' => $termino]))->assertOk()
+            ->assertViewHas('proximos', fn ($p) => $p->total() === 1 && $p->pluck('id')->all() === [$proximo->id])
+            ->assertViewHas('historicos', fn ($p) => $p->total() === 1 && $p->pluck('id')->all() === [$historico->id]);
+    }
+
+    public static function busquedasProfesional(): array
+    {
+        return [['áng'], ['MARÍA'], ['ñúñ'], ['ÑÚÑEZ'], ['  mArÍa  '], ['ΠΑΠΑΔΟ']];
+    }
+
+    #[DataProvider('caracteresBusqueda')]
+    public function test_search_treats_wildcards_escape_characters_and_sql_text_as_literals(string $termino): void
+    {
+        $this->kinesiologa->user->update(['name' => 'Literal'.$termino.'Nombre', 'apellido' => 'Coincidencia']);
+        $propio = $this->turno();
+        $this->turno(['kinesiologa_id' => $this->profesional()->id]);
+        $this->actingAs($this->paciente->user)->get($this->url(['profesional' => $termino]))->assertOk()
+            ->assertViewHas('proximos', fn ($p) => $p->total() === 1 && $p->first()->id === $propio->id);
+    }
+
+    public static function caracteresBusqueda(): array
+    {
+        return [['%'], ['_'], ['!'], ['\\'], ["'"], ["' OR 1=1 --"]];
+    }
+
+    #[DataProvider('tiposFiltro')]
+    public function test_type_filter_applies_to_both_sections(TipoTurnoEnum $tipo): void
+    {
+        $esperados = [];
+        foreach (TipoTurnoEnum::cases() as $caso) {
+            $futuro = $this->turno(['tipo' => $caso]);
+            $pasado = $this->turno(['tipo' => $caso, 'inicio_at' => $this->ahora->subDay()]);
+            if ($caso === $tipo) {
+                $esperados = [$futuro->id, $pasado->id];
+            }
+        }
+        $this->actingAs($this->paciente->user)->get($this->url(['tipo' => $tipo->value]))->assertOk()
+            ->assertViewHas('proximos', fn ($p) => $p->pluck('id')->all() === [$esperados[0]])
+            ->assertViewHas('historicos', fn ($p) => $p->pluck('id')->all() === [$esperados[1]]);
+    }
+
+    public static function tiposFiltro(): array
+    {
+        return [[TipoTurnoEnum::PRIMERA_CONSULTA], [TipoTurnoEnum::SEGUIMIENTO]];
+    }
+
+    #[DataProvider('estadosCanonicos')]
+    public function test_each_state_filter_preserves_the_canonical_partition(EstadoTurnoEnum $estado): void
+    {
+        $futuro = $pasado = null;
+        foreach (EstadoTurnoEnum::cases() as $caso) {
+            $uno = $this->turno(['estado' => $caso]);
+            $dos = $this->turno(['estado' => $caso, 'inicio_at' => $this->ahora->subDay()]);
+            if ($caso === $estado) {
+                [$futuro, $pasado] = [$uno, $dos];
+            }
+        }
+        $response = $this->actingAs($this->paciente->user)->get($this->url(['estado' => $estado->value]))->assertOk();
+        if (in_array($estado, [EstadoTurnoEnum::PENDIENTE, EstadoTurnoEnum::CONFIRMADO], true)) {
+            $this->assertSame([$futuro->id], $response->viewData('proximos')->pluck('id')->all());
+            $this->assertSame([$pasado->id], $response->viewData('historicos')->pluck('id')->all());
+        } else {
+            $this->assertSame(0, $response->viewData('proximos')->total());
+            $this->assertSame([$futuro->id, $pasado->id], $response->viewData('historicos')->pluck('id')->all());
+            $response->assertSee('No hay próximos turnos que coincidan con los criterios seleccionados.');
+        }
+    }
+
+    #[DataProvider('rangosFechas')]
+    public function test_date_filters_are_inclusive_open_and_based_on_local_scheduled_start(array $filtros, array $indices): void
+    {
+        $medianoche = $this->ahora->addDay()->startOfDay();
+        $ids = [];
+        foreach ([$medianoche->subSecond(), $medianoche, $medianoche->endOfDay()->setMicrosecond(0), $medianoche->addDay()] as $inicio) {
+            $ids[] = $this->turno(['inicio_at' => $inicio, 'estado' => EstadoTurnoEnum::CANCELADO])->id;
+        }
+        $esperados = array_map(fn ($i) => $ids[$i], $indices);
+        $this->actingAs($this->paciente->user)->get($this->url($filtros))->assertOk()
+            ->assertViewHas('historicos', fn ($p) => $p->pluck('id')->all() === $esperados)
+            ->assertViewHas('proximos', fn ($p) => $p->total() === 0);
+    }
+
+    public static function rangosFechas(): array
+    {
+        return [
+            'desde inclusivo y abierto' => [['fecha_desde' => '2026-10-18'], [3, 2, 1]],
+            'hasta inclusivo y abierto' => [['fecha_hasta' => '2026-10-18'], [2, 1, 0]],
+            'mismo día completo' => [['fecha_desde' => '2026-10-18', 'fecha_hasta' => '2026-10-18'], [2, 1]],
+        ];
+    }
+
+    #[DataProvider('filtrosInvalidos')]
+    public function test_invalid_filters_are_rejected_without_querying_unvalidated_criteria(array $filtros, string $campo): void
+    {
+        $this->actingAs($this->paciente->user)->getJson($this->url($filtros))->assertUnprocessable()->assertJsonValidationErrors($campo);
+        $this->assertDatabaseCount('turnos', 0);
+        $this->assertDatabaseCount('auditorias', 0);
+    }
+
+    public static function filtrosInvalidos(): array
+    {
+        return [
+            [['tipo' => 'otro'], 'tipo'], [['estado' => 'VENCIDO'], 'estado'],
+            [['profesional' => ['x']], 'profesional'], [['profesional' => str_repeat('a', 256)], 'profesional'],
+            [['tipo' => ['PENDIENTE']], 'tipo'], [['estado' => ['PENDIENTE']], 'estado'],
+            [['fecha_desde' => '2026-02-30'], 'fecha_desde'], [['fecha_hasta' => '18/10/2026'], 'fecha_hasta'],
+            [['fecha_desde' => ['2026-10-18'], 'fecha_hasta' => '2026-10-19'], 'fecha_desde'],
+            [['fecha_desde' => '2026-10-19', 'fecha_hasta' => '2026-10-18'], 'fecha_hasta'],
+        ];
+    }
+
+    public function test_invalid_range_returns_to_the_filter_form_with_accessible_errors_and_preserved_input(): void
+    {
+        $this->actingAs($this->paciente->user)->get($this->url(['fecha_desde' => '2026-10-19', 'fecha_hasta' => '2026-10-18']))
+            ->assertRedirect($this->url())->assertSessionHasErrors('fecha_hasta');
+        $this->get($this->url())->assertOk()->assertSee('La fecha desde no puede ser posterior a la fecha hasta.')
+            ->assertSee('role="alert"', false)->assertSee('value="2026-10-19"', false)
+            ->assertSee('id="fecha_hasta-error"', false);
+    }
+
+    #[DataProvider('paginas')]
+    public function test_combined_filters_and_independent_pagination_preserve_only_validated_criteria(int $proximosPage, int $historicosPage): void
+    {
+        $this->kinesiologa->user->update(['name' => 'Clara', 'apellido' => 'Pérez']);
+        $ids = ['proximos' => [], 'historicos' => []];
+        for ($i = 1; $i <= 12; $i++) {
+            $ids['proximos'][] = $this->turno(['inicio_at' => $this->ahora->addDays($i)])->id;
+            $ids['historicos'][] = $this->turno(['inicio_at' => $this->ahora->subDays($i)])->id;
+        }
+        $this->turno(['tipo' => TipoTurnoEnum::PRIMERA_CONSULTA]);
+        $this->turno(['estado' => EstadoTurnoEnum::CONFIRMADO]);
+        $this->turno(['kinesiologa_id' => $this->profesional()->id]);
+        $this->turno(['inicio_at' => $this->ahora->addYears(2)]);
+        $this->turno(['paciente_id' => $this->pacienteCompleto()->id]);
+        $filtros = ['profesional' => '  pÉr  ', 'tipo' => 'SEGUIMIENTO', 'estado' => 'PENDIENTE', 'fecha_desde' => '2026-01-01', 'fecha_hasta' => '2026-12-31'];
+        $response = $this->actingAs($this->paciente->user)->get($this->url($filtros + [
+            'proximos_page' => $proximosPage, 'historicos_page' => $historicosPage, 'paciente_id' => 999, 'desconocido' => 'no',
+        ]))->assertOk();
+        $filtros['profesional'] = 'pÉr';
+        foreach (['proximos' => $proximosPage, 'historicos' => $historicosPage] as $seccion => $pagina) {
+            $p = $response->viewData($seccion);
+            $this->assertSame(12, $p->total());
+            $this->assertSame($pagina, $p->currentPage());
+            $this->assertSame(array_slice($ids[$seccion], ($pagina - 1) * 10, 10), $p->pluck('id')->all());
+            parse_str(parse_url($p->url(1), PHP_URL_QUERY), $parametros);
+            foreach ($filtros as $campo => $valor) {
+                $this->assertSame($valor, $parametros[$campo]);
+            }
+            $this->assertArrayNotHasKey('paciente_id', $parametros);
+            $this->assertArrayNotHasKey('desconocido', $parametros);
+            $otra = $seccion === 'proximos' ? 'historicos_page' : 'proximos_page';
+            $this->assertSame((string) ($seccion === 'proximos' ? $historicosPage : $proximosPage), $parametros[$otra]);
+            $this->get($p->url(1))->assertOk()->assertViewHas($seccion, fn ($p) => $p->currentPage() === 1);
+        }
+    }
+
+    public function test_apply_and_clear_reset_both_pages_and_discard_the_highlight_hint(): void
+    {
+        for ($i = 0; $i < 12; $i++) {
+            $ultimo = $this->turno();
+            $this->turno(['inicio_at' => $this->ahora->subDay()]);
+        }
+        $response = $this->actingAs($this->paciente->user)->get($this->url([
+            'tipo' => 'SEGUIMIENTO', 'aplicar' => '1', 'proximos_page' => 2, 'historicos_page' => 2, 'turno' => $ultimo->id,
+        ]))->assertOk()->assertViewHas('turnoDestacadoId', null);
+        foreach (['proximos', 'historicos'] as $seccion) {
+            $this->assertSame(1, $response->viewData($seccion)->currentPage());
+            $this->assertStringNotContainsString('aplicar=', $response->viewData($seccion)->url(2));
+        }
+        $this->get($this->url())->assertOk()->assertViewHas('filtros', [])
+            ->assertViewHas('proximos', fn ($p) => $p->currentPage() === 1)
+            ->assertViewHas('historicos', fn ($p) => $p->currentPage() === 1);
+    }
+
+    public function test_out_of_range_pages_are_adjusted_independently_in_filtered_results(): void
+    {
+        for ($i = 0; $i < 12; $i++) {
+            $this->turno();
+            $this->turno(['inicio_at' => $this->ahora->subDay()]);
+        }
+        $this->actingAs($this->paciente->user)->get($this->url(['tipo' => 'SEGUIMIENTO', 'proximos_page' => 999, 'historicos_page' => 1]))->assertOk()
+            ->assertViewHas('proximos', fn ($p) => $p->currentPage() === 2 && $p->count() === 2)
+            ->assertViewHas('historicos', fn ($p) => $p->currentPage() === 1 && $p->count() === 10)
+            ->assertDontSee('No hay turnos en esta página.');
+    }
+
+    public function test_filtered_out_highlight_does_not_change_pages_or_disclose_a_record(): void
+    {
+        $excluido = $this->turno(['estado' => EstadoTurnoEnum::CANCELADO]);
+        $this->turno();
+        $this->actingAs($this->paciente->user)->get($this->url(['estado' => 'PENDIENTE', 'turno' => $excluido->id]))->assertOk()
+            ->assertViewHas('turnoDestacadoId', null)->assertDontSee('Turno destacado')
+            ->assertViewHas('proximos', fn ($p) => $p->currentPage() === 1 && $p->total() === 1)
+            ->assertViewHas('historicos', fn ($p) => $p->total() === 0);
+    }
+
+    public function test_empty_filtered_results_are_not_presented_as_an_unregistered_patient(): void
+    {
+        $this->turno();
+        $this->actingAs($this->paciente->user)->get($this->url(['profesional' => 'SIN_COINCIDENCIAS']))->assertOk()
+            ->assertSee('No hay turnos que coincidan con los criterios seleccionados.')->assertSee('Limpiar filtros')
+            ->assertDontSee('Todavía no tenés turnos registrados');
+        $this->get($this->url(['profesional' => '   ', 'tipo' => '', 'estado' => '']))->assertOk()->assertViewHas('filtros', [])
+            ->assertSee('Todavía no tenés turnos en el historial.');
+    }
+
+    public function test_professional_search_never_searches_clinical_or_patient_fields(): void
+    {
+        $turno = $this->turno(['tipo' => TipoTurnoEnum::PRIMERA_CONSULTA, 'motivo_solicitud' => 'CLINICO_UNICO']);
+        $documento = DocumentoClinico::factory()->create([
+            'paciente_id' => $this->paciente->id, 'cargado_por_user_id' => $this->paciente->user_id,
+            'descripcion' => 'DOCUMENTO_UNICO', 'nombre_original' => 'DOCUMENTO_UNICO.pdf',
+        ]);
+        DocumentoClinicoOrigenTurno::create(['documento_clinico_id' => $documento->id, 'turno_id' => $turno->id]);
+        foreach (['CLINICO_UNICO', 'DOCUMENTO_UNICO', $this->paciente->user->email, $this->kinesiologa->user->dni] as $texto) {
+            DB::flushQueryLog();
+            DB::enableQueryLog();
+            $this->actingAs($this->paciente->user)->get($this->url(['profesional' => $texto]))->assertOk()
+                ->assertViewHas('proximos', fn ($p) => $p->total() === 0)
+                ->assertViewHas('historicos', fn ($p) => $p->total() === 0);
+            $sql = implode(' ', array_column(DB::getQueryLog(), 'query'));
+            DB::disableQueryLog();
+            $this->assertStringNotContainsString('motivo_solicitud', $sql);
+            $this->assertStringNotContainsString('documentos_clinicos', $sql);
+        }
+        $this->assertDatabaseCount('auditorias', 0);
+    }
+
+    public function test_filter_form_has_labels_selection_error_references_and_navigation_without_stale_pages(): void
+    {
+        $this->kinesiologa->user->update(['name' => 'Ángela']);
+        $this->turno();
+        $filtros = ['profesional' => 'Áng', 'tipo' => 'SEGUIMIENTO', 'estado' => 'PENDIENTE', 'fecha_desde' => '2026-01-01', 'fecha_hasta' => '2026-12-31'];
+        $response = $this->actingAs($this->paciente->user)->get($this->url($filtros))->assertOk();
+        $dom = new \DOMDocument;
+        @$dom->loadHTML('<?xml encoding="UTF-8">'.$response->getContent());
+        $xpath = new \DOMXPath($dom);
+        $form = $xpath->query('//form[@aria-labelledby="filtros-titulo"]')->item(0);
+        $this->assertNotNull($form);
+        $this->assertSame('GET', $form->getAttribute('method'));
+        $this->assertSame($this->url(), $form->getAttribute('action'));
+        foreach ($filtros as $campo => $valor) {
+            $control = $xpath->query('.//*[@name="'.$campo.'"]', $form)->item(0);
+            $this->assertNotNull($control);
+            $this->assertSame(1, $xpath->query('.//label[@for="'.$control->getAttribute('id').'"]', $form)->length);
+            foreach (explode(' ', $control->getAttribute('aria-describedby')) as $id) {
+                $this->assertSame(1, $xpath->query('//*[@id="'.$id.'"]')->length);
+            }
+            $actual = $control->nodeName === 'select' ? $xpath->query('.//option[@selected]', $control)->item(0)->getAttribute('value') : $control->getAttribute('value');
+            $this->assertSame($valor, $actual);
+        }
+        $this->assertSame(3, $xpath->query('.//select[@name="tipo"]/option', $form)->length);
+        $this->assertSame(7, $xpath->query('.//select[@name="estado"]/option', $form)->length);
+        $this->assertSame(0, $xpath->query('.//input[@name="proximos_page" or @name="historicos_page" or @name="turno"]', $form)->length);
+        $this->assertSame(1, $xpath->query('.//button[@type="submit" and @name="aplicar" and @value="1"]', $form)->length);
+        $this->assertSame(1, $xpath->query('.//a[@href="'.$this->url().'" and normalize-space(.)="Limpiar filtros"]', $form)->length);
+        $this->assertSame(0, $xpath->query('//*[@tabindex > 0]')->length);
+        $this->assertStringContainsString('grid-cols-1', $form->getAttribute('class'));
+        $this->assertStringContainsString('sm:grid-cols-2', $form->getAttribute('class'));
+    }
+
+    public function test_search_input_is_html_escaped(): void
+    {
+        $texto = '<script>alert("x")</script>';
+        $this->actingAs($this->paciente->user)->get($this->url(['profesional' => $texto]))->assertOk()
+            ->assertSee(e($texto), false)->assertDontSee($texto, false);
     }
 
     private function url(array $query = []): string

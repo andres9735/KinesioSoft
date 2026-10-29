@@ -14,14 +14,24 @@
 
     <div class="py-8 sm:py-10">
         <div class="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
+            @php
+                $filtros = $filtros ?? [];
+                $hayFiltros = $filtros !== [];
+            @endphp
+            @include('turnos.mis-turnos._filtros')
             @if ($proximos->total() === 0 && $historicos->total() === 0)
                 <div class="rounded-2xl bg-white px-6 py-12 text-center shadow-sm">
-                    <h2 class="text-lg font-semibold text-gray-900">Todavía no tenés turnos registrados</h2>
-                    <p class="mt-2 text-sm text-gray-500">Tus próximos turnos y tu historial aparecerán aquí.</p>
+                    @if ($hayFiltros)
+                        <h2 class="text-lg font-semibold text-gray-900">No hay turnos que coincidan con los criterios seleccionados.</h2>
+                        <p class="mt-2 text-sm text-gray-500">Modificá la búsqueda o usá Limpiar filtros para volver a ver tus turnos.</p>
+                    @else
+                        <h2 class="text-lg font-semibold text-gray-900">Todavía no tenés turnos registrados</h2>
+                        <p class="mt-2 text-sm text-gray-500">Tus próximos turnos y tu historial aparecerán aquí.</p>
+                    @endif
                 </div>
             @else
-                @include('turnos.mis-turnos._listado', ['turnos' => $proximos, 'seccion' => 'proximos', 'titulo' => 'Próximos turnos', 'vacio' => 'No tenés próximos turnos.'])
-                @include('turnos.mis-turnos._listado', ['turnos' => $historicos, 'seccion' => 'historicos', 'titulo' => 'Historial de atenciones', 'vacio' => 'Todavía no tenés turnos en el historial.'])
+                @include('turnos.mis-turnos._listado', ['turnos' => $proximos, 'seccion' => 'proximos', 'titulo' => 'Próximos turnos', 'vacio' => $hayFiltros ? 'No hay próximos turnos que coincidan con los criterios seleccionados.' : 'No tenés próximos turnos.'])
+                @include('turnos.mis-turnos._listado', ['turnos' => $historicos, 'seccion' => 'historicos', 'titulo' => 'Historial de atenciones', 'vacio' => $hayFiltros ? 'No hay turnos en el historial que coincidan con los criterios seleccionados.' : 'Todavía no tenés turnos en el historial.'])
             @endif
         </div>
     </div>
