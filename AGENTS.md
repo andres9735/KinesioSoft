@@ -69,11 +69,12 @@ La planificación incremental V1.0 contiene 18 subpasos en cinco fases:
 - **6.03: COMPLETADO Y CERTIFICADO**; baseline técnico inicial de UC–06 satisfactorio.
 - **6.04: IMPLEMENTADO, VERIFICADO Y CERRADO** en `97b9ac3`; estados y ocupación de agenda conforme a DT-01.
 - **6.05: IMPLEMENTADO, VERIFICADO Y CERRADO** en `f1c103a`; clasificación de Próximos e Historial conforme a D-14 y DT-02.
-- **6.06: IMPLEMENTADO, VERIFICADO Y CERRADO mediante este commit**; filtros y búsqueda conforme a DT-11 y UX-02.
-- **6.07: siguiente subpaso, PENDIENTE**; requiere prompt y autorización específicos antes de iniciar.
-- **6.08–6.18: PENDIENTES**, sin ejecución anticipada.
+- **6.06: IMPLEMENTADO, VERIFICADO Y CERRADO** en `458a308`; filtros y búsqueda conforme a DT-11 y UX-02.
+- **6.07: IMPLEMENTADO, VERIFICADO Y CERRADO mediante este commit**; autorización por turno conforme a D-09 y DT-04.
+- **6.08: siguiente subpaso, PENDIENTE**; requiere prompt y autorización específicos antes de iniciar.
+- **6.09–6.18: PENDIENTES**, sin ejecución anticipada.
 
-El cierre de 6.06 comprende la revisión de los seis archivos certificados, la actualización de seguimiento en `AGENTS.md` y el único commit expresamente solicitado. No autoriza repetir pruebas, builds o migraciones ni iniciar 6.07.
+El cierre de 6.07 comprende la revisión de los dos archivos certificados, la actualización de seguimiento en `AGENTS.md` y el único commit expresamente solicitado. No autoriza repetir pruebas, builds o migraciones ni iniciar 6.08.
 
 ### UC–06 — Baseline inicial certificado (6.03)
 
@@ -117,6 +118,15 @@ Este es el baseline inicial certificado de UC–06. Los resultados de UC–07 co
 - `npm run build`: **PASS, 94 módulos**.
 - Los seis archivos revisados coinciden con el código certificado; no se modificaron después de las pruebas ni se repitieron pruebas o build durante este cierre.
 - JavaScript, sintaxis JavaScript y MariaDB conservan la certificación histórica de 6.03 indicada arriba; **no se repitieron durante 6.06**.
+
+### UC–06 — Verificación y cierre de 6.07
+
+- `TurnoPolicyTest`: **60 tests / 276 assertions PASS**.
+- Focalizadas ampliadas: **544 tests / 3467 assertions PASS**.
+- Regresión completa, `php artisan test`: **2384 tests / 15295 assertions PASS**, con SQLite `:memory:`.
+- Sintaxis PHP, Pint acotado en modo `--test` y `git diff --check`: **PASS**.
+- Los dos archivos revisados coinciden con el código certificado, sin modificaciones posteriores a las pruebas; no se repitieron pruebas durante este cierre.
+- JavaScript y MariaDB conservan sus resultados históricos de 6.03; build conserva su resultado de 6.06 (**PASS, 94 módulos**). **No se repitieron durante 6.07**.
 
 ### Obligaciones del incremento UC–06
 

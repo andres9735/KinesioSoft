@@ -1,0 +1,40 @@
+<?php
+
+namespace App\Policies;
+
+use App\Models\Turno;
+use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
+
+class TurnoPolicy
+{
+    public function view(User $user, Turno $turno): bool
+    {
+        return $this->esPropietario($user, $turno);
+    }
+
+    // Estos contratos autorizan al actor sobre el recurso. Las Actions posteriores
+    // deberán revalidar estado, tiempo y transición; la pertenencia no los sustituye.
+    public function confirmar(User $user, Turno $turno): bool
+    {
+        return $this->esPropietario($user, $turno);
+    }
+
+    public function cancelar(User $user, Turno $turno): bool
+    {
+        return $this->esPropietario($user, $turno);
+    }
+
+    private function esPropietario(User $user, Turno $turno): bool
+    {
+        // Las precondiciones de cuenta, verificación y perfil completo siguen en
+        // los middleware existentes. Aquí se exige rol y propiedad persistida.
+        if (! $user->exists || ! $turno->exists || ! $user->esPaciente()) {
+            return false;
+        }
+
+        return Turno::query()->whereKey($turno->getKey())
+            ->whereHas('paciente', fn (Builder $paciente) => $paciente->where('user_id', $user->getKey()))
+            ->exists();
+    }
+}
