@@ -29,13 +29,14 @@ class EstadoTurnoEnumTest extends TestCase
         $this->assertFalse(defined(EstadoTurnoEnum::class.'::REALIZADO'));
     }
 
-    public function test_only_pending_and_confirmed_reserve_agenda_without_duplicates(): void
+    public function test_only_pending_confirmed_and_in_attention_reserve_agenda_without_duplicates(): void
     {
         $estados = EstadoTurnoEnum::estadosQueReservanAgenda();
 
         $this->assertSame([
             EstadoTurnoEnum::PENDIENTE,
             EstadoTurnoEnum::CONFIRMADO,
+            EstadoTurnoEnum::EN_ATENCION,
         ], $estados);
 
         $valores = array_map(
@@ -45,7 +46,6 @@ class EstadoTurnoEnumTest extends TestCase
         $this->assertCount(count($estados), array_unique($valores));
 
         foreach ([
-            EstadoTurnoEnum::EN_ATENCION,
             EstadoTurnoEnum::ATENDIDO,
             EstadoTurnoEnum::AUSENTE,
             EstadoTurnoEnum::CANCELADO,

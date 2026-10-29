@@ -16,6 +16,6 @@ enum EstadoTurnoEnum: string
      */
     public static function estadosQueReservanAgenda(): array
     {
-        return [self::PENDIENTE, self::CONFIRMADO];
+        return [self::PENDIENTE, self::CONFIRMADO, self::EN_ATENCION];
     }
 }

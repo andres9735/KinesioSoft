@@ -285,7 +285,36 @@ class ConfirmarPrimeraConsultaActionTest extends TestCase
 
     public static function estadosOcupantes(): array
     {
-        return array_map(fn ($estado) => [$estado, in_array($estado, EstadoTurnoEnum::estadosQueReservanAgenda(), true)], EstadoTurnoEnum::cases());
+        return [
+            'Pendiente' => [EstadoTurnoEnum::PENDIENTE, true],
+            'Confirmado' => [EstadoTurnoEnum::CONFIRMADO, true],
+            'En atención' => [EstadoTurnoEnum::EN_ATENCION, true],
+            'Atendido' => [EstadoTurnoEnum::ATENDIDO, false],
+            'Ausente' => [EstadoTurnoEnum::AUSENTE, false],
+            'Cancelado' => [EstadoTurnoEnum::CANCELADO, false],
+        ];
+    }
+
+    public function test_in_attention_first_consultation_preserves_d01_and_blocks_only_its_interval(): void
+    {
+        $existente = $this->turno($this->paciente, tipo: TipoTurnoEnum::PRIMERA_CONSULTA, estado: EstadoTurnoEnum::EN_ATENCION);
+
+        try {
+            $this->confirmar();
+            $this->fail('El intervalo de la atención en curso debe seguir ocupado.');
+        } catch (SlotNoDisponibleException) {
+            $this->assertDatabaseCount('turnos', 1);
+            $this->assertDatabaseCount('auditorias', 0);
+        }
+
+        $resultado = $this->confirmar(inicio: $this->fecha('2026-10-05 10:30:00'));
+
+        $this->assertFalse($resultado->esReplay);
+        $this->assertSame(EstadoTurnoEnum::PENDIENTE, $resultado->turno->estado);
+        $this->assertSame('2026-10-05 10:30:00', $resultado->turno->inicio_at->toDateTimeString());
+        $this->assertSame(EstadoTurnoEnum::EN_ATENCION, $existente->fresh()->estado);
+        $this->assertDatabaseCount('turnos', 2);
+        $this->assertDatabaseCount('auditorias', 1);
     }
 
     public function test_effective_block_prevents_confirmation(): void

@@ -255,6 +255,7 @@ class DisponibilidadAgregadaPrimeraConsultaTest extends TestCase
         return [
             'Pendiente' => [EstadoTurnoEnum::PENDIENTE->value],
             'Confirmado' => [EstadoTurnoEnum::CONFIRMADO->value],
+            'En atención' => [EstadoTurnoEnum::EN_ATENCION->value],
             'bloqueo' => ['bloqueo'],
         ];
     }

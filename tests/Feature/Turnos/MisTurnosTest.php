@@ -248,7 +248,7 @@ class MisTurnosTest extends TestCase
     public function test_cta_always_reaches_create_where_canonical_d01_is_authoritative(EstadoTurnoEnum $estado): void
     {
         $this->turno(['tipo' => TipoTurnoEnum::PRIMERA_CONSULTA, 'estado' => $estado]);
-        $ocupa = in_array($estado, EstadoTurnoEnum::estadosQueReservanAgenda(), true);
+        $ocupa = in_array($estado, [EstadoTurnoEnum::PENDIENTE, EstadoTurnoEnum::CONFIRMADO], true);
         $response = $this->actingAs($this->paciente->user)->get($this->url())->assertOk()
             ->assertViewHas('primeraConsultaActiva', $ocupa)
             ->assertSee('href="'.route('turnos.solicitar.create').'"', false)

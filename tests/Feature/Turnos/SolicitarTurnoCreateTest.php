@@ -142,10 +142,10 @@ class SolicitarTurnoCreateTest extends TestCase
     }
 
     #[DataProvider('estadosCanonicos')]
-    public function test_d01_entry_follows_canonical_occupying_states_without_generating_a_uuid_when_blocked(EstadoTurnoEnum $estado): void
+    public function test_d01_entry_preserves_eligibility_without_generating_a_uuid_when_blocked(EstadoTurnoEnum $estado): void
     {
         $turno = $this->turno(['tipo' => TipoTurnoEnum::PRIMERA_CONSULTA, 'estado' => $estado]);
-        $ocupa = in_array($estado, EstadoTurnoEnum::estadosQueReservanAgenda(), true);
+        $ocupa = in_array($estado, [EstadoTurnoEnum::PENDIENTE, EstadoTurnoEnum::CONFIRMADO], true);
         if ($ocupa) {
             Str::createUuidsUsing(static function (): never {
                 throw new RuntimeException('No debe generarse UUID en una entrada bloqueada.');

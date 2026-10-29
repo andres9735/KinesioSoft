@@ -312,7 +312,7 @@ class AgendaQueryServiceTest extends TestCase
         ];
         $esperados = [];
 
-        foreach ([EstadoTurnoEnum::PENDIENTE, EstadoTurnoEnum::CONFIRMADO] as $estado) {
+        foreach ([EstadoTurnoEnum::PENDIENTE, EstadoTurnoEnum::CONFIRMADO, EstadoTurnoEnum::EN_ATENCION] as $estado) {
             foreach ($casos as [$inicio, $fin, $afectado]) {
                 $turno = $this->turno(
                     $kinesiologa,
@@ -356,9 +356,14 @@ class AgendaQueryServiceTest extends TestCase
             '2026-10-10 12:00:00',
             EstadoTurnoEnum::CONFIRMADO
         );
+        $enAtencion = $this->turno(
+            $kinesiologa,
+            '2026-10-10 10:30:00',
+            '2026-10-10 11:30:00',
+            EstadoTurnoEnum::EN_ATENCION
+        );
 
         foreach ([
-            EstadoTurnoEnum::EN_ATENCION,
             EstadoTurnoEnum::ATENDIDO,
             EstadoTurnoEnum::AUSENTE,
             EstadoTurnoEnum::CANCELADO,
@@ -373,7 +378,7 @@ class AgendaQueryServiceTest extends TestCase
             CarbonImmutable::parse('2026-10-10 12:00:00')
         )->get();
 
-        $this->assertSame([$pendiente->id, $confirmado->id], $resultado->modelKeys());
+        $this->assertSame([$pendiente->id, $enAtencion->id, $confirmado->id], $resultado->modelKeys());
     }
 
     private function aplicable(Kinesiologa $kinesiologa, string $fecha): ?ConfiguracionAgenda

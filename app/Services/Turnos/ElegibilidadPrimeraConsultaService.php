@@ -18,10 +18,11 @@ final class ElegibilidadPrimeraConsultaService
      */
     public function primerasConsultasFuturasActivasDe(Paciente $paciente): Builder
     {
+        // D-01 de UC-07 conserva sus estados activos, independientemente de la ocupación de Agenda.
         return Turno::query()
             ->where('paciente_id', $paciente->getKey())
             ->where('tipo', TipoTurnoEnum::PRIMERA_CONSULTA)
-            ->whereIn('estado', EstadoTurnoEnum::estadosQueReservanAgenda())
+            ->whereIn('estado', [EstadoTurnoEnum::PENDIENTE, EstadoTurnoEnum::CONFIRMADO])
             ->where('inicio_at', '>', $this->reloj->ahora());
     }
 

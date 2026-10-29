@@ -96,19 +96,21 @@ class DisponibilidadPrimeraConsultaTest extends TestCase
 
     public static function estadosCanonicos(): array
     {
-        $casos = [];
-        foreach (EstadoTurnoEnum::cases() as $estado) {
-            $casos[$estado->name] = [$estado, in_array($estado, EstadoTurnoEnum::estadosQueReservanAgenda(), true)];
-        }
-
-        return $casos;
+        return [
+            'Pendiente' => [EstadoTurnoEnum::PENDIENTE, true],
+            'Confirmado' => [EstadoTurnoEnum::CONFIRMADO, true],
+            'En atención' => [EstadoTurnoEnum::EN_ATENCION, true],
+            'Atendido' => [EstadoTurnoEnum::ATENDIDO, false],
+            'Ausente' => [EstadoTurnoEnum::AUSENTE, false],
+            'Cancelado' => [EstadoTurnoEnum::CANCELADO, false],
+        ];
     }
 
     #[DataProvider('intersecciones')]
     public function test_turns_and_blocks_use_semiclosed_intersections(string $fuente, string $inicio, string $fin, bool $libre): void
     {
-        if ($fuente === 'turno') {
-            $this->turno($inicio, $fin);
+        if ($fuente !== 'bloqueo') {
+            $this->turno($inicio, $fin, $fuente === 'turno_en_atencion' ? EstadoTurnoEnum::EN_ATENCION : EstadoTurnoEnum::PENDIENTE);
         } else {
             $this->bloqueo($inicio, $fin);
         }
@@ -120,7 +122,7 @@ class DisponibilidadPrimeraConsultaTest extends TestCase
     public static function intersecciones(): array
     {
         $casos = [];
-        foreach (['turno', 'bloqueo'] as $fuente) {
+        foreach (['turno', 'turno_en_atencion', 'bloqueo'] as $fuente) {
             foreach ([
                 'contiguo anterior' => ['09:30:00', '10:00:00', true],
                 'contiguo posterior' => ['10:30:00', '11:00:00', true],

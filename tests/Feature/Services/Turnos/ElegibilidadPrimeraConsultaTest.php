@@ -63,12 +63,12 @@ class ElegibilidadPrimeraConsultaTest extends TestCase
     }
 
     #[DataProvider('estadosCanonicos')]
-    public function test_each_current_state_follows_the_canonical_reserving_states(EstadoTurnoEnum $estado, bool $reserva): void
+    public function test_each_current_state_preserves_the_d01_eligibility_rule(EstadoTurnoEnum $estado, bool $bloqueaD01): void
     {
         $paciente = $this->paciente();
         $this->turno($paciente, $estado);
 
-        $this->assertSame($reserva, $this->service->tienePrimeraConsultaFuturaActiva($paciente));
+        $this->assertSame($bloqueaD01, $this->service->tienePrimeraConsultaFuturaActiva($paciente));
     }
 
     /**
@@ -76,15 +76,14 @@ class ElegibilidadPrimeraConsultaTest extends TestCase
      */
     public static function estadosCanonicos(): array
     {
-        $casos = [];
-        foreach (EstadoTurnoEnum::cases() as $estado) {
-            $casos[$estado->value] = [
-                $estado,
-                in_array($estado, EstadoTurnoEnum::estadosQueReservanAgenda(), true),
-            ];
-        }
-
-        return $casos;
+        return [
+            'Pendiente' => [EstadoTurnoEnum::PENDIENTE, true],
+            'Confirmado' => [EstadoTurnoEnum::CONFIRMADO, true],
+            'En atención' => [EstadoTurnoEnum::EN_ATENCION, false],
+            'Atendido' => [EstadoTurnoEnum::ATENDIDO, false],
+            'Ausente' => [EstadoTurnoEnum::AUSENTE, false],
+            'Cancelado' => [EstadoTurnoEnum::CANCELADO, false],
+        ];
     }
 
     #[DataProvider('limitesTemporales')]
@@ -106,7 +105,7 @@ class ElegibilidadPrimeraConsultaTest extends TestCase
     public static function limitesTemporales(): array
     {
         $casos = [];
-        foreach (EstadoTurnoEnum::estadosQueReservanAgenda() as $estado) {
+        foreach ([EstadoTurnoEnum::PENDIENTE, EstadoTurnoEnum::CONFIRMADO] as $estado) {
             foreach ([-1, 0, 1] as $segundos) {
                 $casos[$estado->value.' / '.$segundos.' segundos'] = [$estado, $segundos, $segundos > 0];
             }
@@ -115,7 +114,7 @@ class ElegibilidadPrimeraConsultaTest extends TestCase
         return $casos;
     }
 
-    #[DataProvider('estadosOcupantes')]
+    #[DataProvider('estadosActivosD01')]
     public function test_historical_first_consultations_do_not_block(EstadoTurnoEnum $estado): void
     {
         $paciente = $this->paciente();
@@ -124,7 +123,7 @@ class ElegibilidadPrimeraConsultaTest extends TestCase
         $this->assertFalse($this->service->tienePrimeraConsultaFuturaActiva($paciente));
     }
 
-    #[DataProvider('estadosOcupantes')]
+    #[DataProvider('estadosActivosD01')]
     public function test_another_patients_first_consultation_does_not_block(EstadoTurnoEnum $estado): void
     {
         $paciente = $this->paciente();
@@ -135,7 +134,7 @@ class ElegibilidadPrimeraConsultaTest extends TestCase
         $this->assertTrue($this->service->tienePrimeraConsultaFuturaActiva($otro));
     }
 
-    #[DataProvider('estadosOcupantes')]
+    #[DataProvider('estadosActivosD01')]
     public function test_future_follow_up_appointments_do_not_block(EstadoTurnoEnum $estado): void
     {
         $paciente = $this->paciente();
@@ -144,7 +143,7 @@ class ElegibilidadPrimeraConsultaTest extends TestCase
         $this->assertFalse($this->service->tienePrimeraConsultaFuturaActiva($paciente));
     }
 
-    #[DataProvider('estadosOcupantes')]
+    #[DataProvider('estadosActivosD01')]
     public function test_the_rule_applies_to_the_patient_independently_of_the_professional(EstadoTurnoEnum $estado): void
     {
         $paciente = $this->paciente();
@@ -165,10 +164,10 @@ class ElegibilidadPrimeraConsultaTest extends TestCase
     /**
      * @return array<string, array{EstadoTurnoEnum}>
      */
-    public static function estadosOcupantes(): array
+    public static function estadosActivosD01(): array
     {
         $casos = [];
-        foreach (EstadoTurnoEnum::estadosQueReservanAgenda() as $estado) {
+        foreach ([EstadoTurnoEnum::PENDIENTE, EstadoTurnoEnum::CONFIRMADO] as $estado) {
             $casos[$estado->value] = [$estado];
         }
 
