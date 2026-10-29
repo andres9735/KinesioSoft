@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\EstadoTurnoEnum;
 use App\Models\Paciente;
 use App\Services\Agenda\RelojAplicacion;
 use App\Services\Turnos\ElegibilidadPrimeraConsultaService;
@@ -20,13 +21,17 @@ final class MisTurnosController extends Controller
 
         $ahora = $reloj->ahora();
         $base = $paciente->turnos()->getQuery();
-        $proximosQuery = (clone $base)->where('inicio_at', '>', $ahora);
-        $historicosQuery = (clone $base)->where('inicio_at', '<=', $ahora);
+        $estadosProximos = [EstadoTurnoEnum::PENDIENTE, EstadoTurnoEnum::CONFIRMADO];
+        $proximosQuery = (clone $base)->whereIn('estado', $estadosProximos)->where('inicio_at', '>', $ahora);
+        $historicosQuery = (clone $base)->where(fn (Builder $query) => $query
+            ->whereNotIn('estado', $estadosProximos)
+            ->orWhere('inicio_at', '<=', $ahora));
         $proximosPage = $this->enteroPositivo($request->query('proximos_page')) ?? 1;
         $historicosPage = $this->enteroPositivo($request->query('historicos_page')) ?? 1;
         $turnoId = $this->enteroPositivo($request->query('turno'));
-        $destacado = $turnoId === null ? null : (clone $base)->find($turnoId, ['id', 'inicio_at']);
-        $destacadoProximo = $destacado?->inicio_at->greaterThan($ahora);
+        $destacado = $turnoId === null ? null : (clone $base)->find($turnoId, ['id', 'estado', 'inicio_at']);
+        $destacadoProximo = $destacado === null ? null : in_array($destacado->estado, $estadosProximos, true)
+            && $destacado->inicio_at->greaterThan($ahora);
 
         if ($destacado !== null) {
             $query = $destacadoProximo ? clone $proximosQuery : clone $historicosQuery;

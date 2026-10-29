@@ -117,17 +117,104 @@ class MisTurnosTest extends TestCase
             ->assertDontSee($otraProfesional->user->name)->assertDontSee($ajeno->inicio_at->format('d/m/Y'));
     }
 
-    public function test_temporal_partition_orders_by_start_and_id_regardless_of_state(): void
+    public function test_sections_order_by_scheduled_start_and_id_including_future_cancellations_in_history(): void
     {
         $futuroTarde = $this->turno(['inicio_at' => $this->ahora->addDays(3)]);
-        $futuroUno = $this->turno(['inicio_at' => $this->ahora->addSecond(), 'estado' => EstadoTurnoEnum::CANCELADO]);
+        $futuroUno = $this->turno(['inicio_at' => $this->ahora->addSecond(), 'estado' => EstadoTurnoEnum::CONFIRMADO]);
         $futuroDos = $this->turno(['inicio_at' => $futuroUno->inicio_at]);
         $pasado = $this->turno(['inicio_at' => $this->ahora->subSecond(), 'estado' => EstadoTurnoEnum::PENDIENTE]);
         $exactoUno = $this->turno(['inicio_at' => $this->ahora]);
         $exactoDos = $this->turno(['inicio_at' => $this->ahora]);
+        $canceladoUno = $this->turno(['inicio_at' => $this->ahora->addDays(4), 'estado' => EstadoTurnoEnum::CANCELADO]);
+        $canceladoDos = $this->turno(['inicio_at' => $canceladoUno->inicio_at, 'estado' => EstadoTurnoEnum::CANCELADO]);
         $this->actingAs($this->paciente->user)->get($this->url())->assertOk()
             ->assertViewHas('proximos', fn ($p) => $p->pluck('id')->all() === [$futuroUno->id, $futuroDos->id, $futuroTarde->id])
-            ->assertViewHas('historicos', fn ($p) => $p->pluck('id')->all() === [$exactoDos->id, $exactoUno->id, $pasado->id]);
+            ->assertViewHas('historicos', fn ($p) => $p->pluck('id')->all() === [$canceladoDos->id, $canceladoUno->id, $exactoDos->id, $exactoUno->id, $pasado->id]);
+    }
+
+    #[DataProvider('clasificacionDeTurnos')]
+    public function test_sections_partition_both_types_by_state_and_full_start_instant_without_mutation(
+        EstadoTurnoEnum $estado,
+        TipoTurnoEnum $tipo,
+        int $segundos,
+        string $seccion
+    ): void {
+        // El inicio pasado aún tiene fin futuro: la clasificación no depende de fin_at.
+        $turno = $this->turno(['estado' => $estado, 'tipo' => $tipo, 'inicio_at' => $this->ahora->addSeconds($segundos)]);
+        $response = $this->actingAs($this->paciente->user)->get($this->url())->assertOk();
+        $otra = $seccion === 'proximos' ? 'historicos' : 'proximos';
+        $this->assertSame([$turno->id], $response->viewData($seccion)->pluck('id')->all());
+        $this->assertSame(1, $response->viewData($seccion)->total());
+        $this->assertSame(0, $response->viewData($otra)->total());
+        $this->assertSame($estado, $turno->fresh()->estado);
+        $this->assertDatabaseCount('turnos', 1);
+        $this->assertDatabaseCount('auditorias', 0);
+    }
+
+    public static function clasificacionDeTurnos(): array
+    {
+        $casos = [];
+        foreach ([
+            [EstadoTurnoEnum::PENDIENTE, 'proximos'],
+            [EstadoTurnoEnum::CONFIRMADO, 'proximos'],
+            [EstadoTurnoEnum::EN_ATENCION, 'historicos'],
+            [EstadoTurnoEnum::ATENDIDO, 'historicos'],
+            [EstadoTurnoEnum::AUSENTE, 'historicos'],
+            [EstadoTurnoEnum::CANCELADO, 'historicos'],
+        ] as [$estado, $seccionFutura]) {
+            foreach (TipoTurnoEnum::cases() as $tipo) {
+                foreach ([-1 => 'historicos', 0 => 'historicos', 1 => $seccionFutura] as $segundos => $seccion) {
+                    $casos[$estado->name.'_'.$tipo->name.'_'.$segundos] = [$estado, $tipo, $segundos, $seccion];
+                }
+            }
+        }
+
+        return $casos;
+    }
+
+    public function test_history_does_not_leak_foreign_past_or_future_terminal_appointments(): void
+    {
+        $propio = $this->turno(['estado' => EstadoTurnoEnum::CANCELADO]);
+        $otroPaciente = $this->pacienteCompleto();
+        $otraProfesional = $this->profesional();
+        foreach (EstadoTurnoEnum::cases() as $estado) {
+            foreach ([-1, 1] as $dias) {
+                $this->turno([
+                    'paciente_id' => $otroPaciente->id, 'kinesiologa_id' => $otraProfesional->id,
+                    'estado' => $estado, 'inicio_at' => $this->ahora->addDays($dias),
+                ]);
+            }
+        }
+        $this->actingAs($this->paciente->user)->get($this->url(['paciente_id' => $otroPaciente->id]))->assertOk()
+            ->assertViewHas('proximos', fn ($p) => $p->total() === 0)
+            ->assertViewHas('historicos', fn ($p) => $p->total() === 1 && $p->pluck('id')->all() === [$propio->id])
+            ->assertDontSee($otraProfesional->user->name);
+    }
+
+    public function test_classification_uses_application_timezone_when_clock_is_frozen_in_utc(): void
+    {
+        $this->ahora = $this->ahora->startOfDay();
+        CarbonImmutable::setTestNow($this->ahora->setTimezone('UTC'));
+        $pasado = $this->turno(['inicio_at' => $this->ahora->subSecond()]);
+        $exacto = $this->turno(['inicio_at' => $this->ahora]);
+        $futuro = $this->turno(['inicio_at' => $this->ahora->addSecond(), 'estado' => EstadoTurnoEnum::CONFIRMADO]);
+        $this->actingAs($this->paciente->user)->get($this->url())->assertOk()
+            ->assertViewHas('proximos', fn ($p) => $p->pluck('id')->all() === [$futuro->id])
+            ->assertViewHas('historicos', fn ($p) => $p->pluck('id')->all() === [$exacto->id, $pasado->id]);
+    }
+
+    public function test_appointment_moves_to_history_at_its_start_without_changing_state(): void
+    {
+        $turno = $this->turno(['inicio_at' => $this->ahora->addSecond(), 'estado' => EstadoTurnoEnum::CONFIRMADO]);
+        $this->actingAs($this->paciente->user)->get($this->url())->assertOk()
+            ->assertViewHas('proximos', fn ($p) => $p->pluck('id')->all() === [$turno->id])
+            ->assertViewHas('historicos', fn ($p) => $p->total() === 0);
+        CarbonImmutable::setTestNow($turno->inicio_at);
+        $this->get($this->url())->assertOk()
+            ->assertViewHas('proximos', fn ($p) => $p->total() === 0)
+            ->assertViewHas('historicos', fn ($p) => $p->pluck('id')->all() === [$turno->id]);
+        $this->assertSame(EstadoTurnoEnum::CONFIRMADO, $turno->fresh()->estado);
+        $this->assertDatabaseCount('auditorias', 0);
     }
 
     #[DataProvider('paginas')]
@@ -309,6 +396,30 @@ class MisTurnosTest extends TestCase
         $this->actingAs($this->paciente->user)->get($this->url(['turno' => $nuevo->id]))->assertOk()
             ->assertViewHas('proximos', fn ($p) => $p->currentPage() === 2 && $p->first()->id === $nuevo->id)
             ->assertViewHas('turnoDestacadoId', $nuevo->id)->assertSee('Turno destacado');
+    }
+
+    public function test_localization_of_future_cancelled_appointment_uses_history_order_and_pagination(): void
+    {
+        $turnos = [];
+        for ($i = 0; $i < 22; $i++) {
+            $turnos[] = $this->turno(['inicio_at' => $this->ahora->addDay(), 'estado' => EstadoTurnoEnum::CANCELADO]);
+            $this->turno(['inicio_at' => $this->ahora->addDay(), 'estado' => EstadoTurnoEnum::CONFIRMADO]);
+        }
+        $ordenados = array_reverse($turnos);
+        $destacado = $ordenados[10];
+        $response = $this->actingAs($this->paciente->user)->get($this->url([
+            'turno' => $destacado->id, 'historicos_page' => 3, 'proximos_page' => 2,
+        ]))->assertOk()->assertViewHas('turnoDestacadoId', $destacado->id)->assertSee('Turno destacado');
+        $this->assertSame(22, $response->viewData('historicos')->total());
+        $this->assertSame(22, $response->viewData('proximos')->total());
+        $this->assertSame(2, $response->viewData('historicos')->currentPage());
+        $this->assertSame(2, $response->viewData('proximos')->currentPage());
+        $this->assertSame(array_map(fn ($t) => $t->id, array_slice($ordenados, 10, 10)), $response->viewData('historicos')->pluck('id')->all());
+        $this->assertStringNotContainsString('turno=', $response->viewData('historicos')->url(1));
+        $this->assertStringContainsString('turno='.$destacado->id, $response->viewData('proximos')->url(1));
+        $this->get($response->viewData('historicos')->url(1))->assertOk()
+            ->assertViewHas('historicos', fn ($p) => $p->currentPage() === 1
+                && $p->pluck('id')->all() === array_map(fn ($t) => $t->id, array_slice($ordenados, 0, 10)));
     }
 
     public function test_foreign_and_missing_localization_are_indistinguishable_and_do_not_affect_counts_or_pages(): void

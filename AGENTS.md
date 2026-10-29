@@ -67,11 +67,12 @@ La planificación incremental V1.0 contiene 18 subpasos en cinco fases:
 - **6.01: COMPLETADO Y CERTIFICADO**; fuentes incorporadas localmente, con integridad y exclusión de Git verificadas.
 - **6.02: COMPLETADO**; preparación de rama y actualización de este archivo, versionadas en `f59ca2b`.
 - **6.03: COMPLETADO Y CERTIFICADO**; baseline técnico inicial de UC–06 satisfactorio.
-- **6.04: IMPLEMENTADO, VERIFICADO Y CERRADO mediante el commit de este cierre**; estados y ocupación de agenda conforme a DT-01.
-- **6.05: siguiente subpaso, PENDIENTE**; requiere prompt y autorización específicos antes de iniciar.
-- **6.06–6.18: PENDIENTES**, sin ejecución anticipada.
+- **6.04: IMPLEMENTADO, VERIFICADO Y CERRADO** en `97b9ac3`; estados y ocupación de agenda conforme a DT-01.
+- **6.05: IMPLEMENTADO, VERIFICADO Y CERRADO mediante este commit**; clasificación de Próximos e Historial conforme a D-14 y DT-02.
+- **6.06: siguiente subpaso, PENDIENTE**; requiere prompt y autorización específicos antes de iniciar.
+- **6.07–6.18: PENDIENTES**, sin ejecución anticipada.
 
-El cierre de 6.04 comprende la revisión de los diez archivos certificados, la actualización de estado en `AGENTS.md` y el único commit expresamente solicitado. No autoriza repetir suites, builds o migraciones ni iniciar 6.05.
+El cierre de 6.05 comprende la revisión de los dos archivos certificados, la actualización de seguimiento en `AGENTS.md` y el único commit expresamente solicitado. No autoriza repetir pruebas, builds o migraciones ni iniciar 6.06.
 
 ### UC–06 — Baseline inicial certificado (6.03)
 
@@ -97,6 +98,14 @@ Este es el baseline inicial certificado de UC–06. Los resultados de UC–07 co
 - `git diff --check`: **PASS**.
 - La revisión de cierre conserva el mismo código certificado, sin modificaciones posteriores a las pruebas; durante este cierre sólo se actualiza `AGENTS.md` antes del commit.
 - JavaScript (**155 PASS**), sintaxis JavaScript, build (**PASS, 94 módulos**) y MariaDB (**30 tests / 1219 assertions PASS**) conservan sus resultados históricos de 6.03; **no se repitieron durante 6.04** y no constituyen una recertificación de esos alcances para el cambio actual.
+
+### UC–06 — Verificación y cierre de 6.05
+
+- Pruebas focalizadas: **348 tests / 2497 assertions PASS**.
+- Regresión completa, `php artisan test`: **2279 tests / 14693 assertions PASS**, con SQLite `:memory:`.
+- Sintaxis PHP, Pint acotado en modo `--test` y `git diff --check`: **PASS**.
+- El código revisado coincide con el certificado; no se modificó después de las pruebas ni se repitieron durante este cierre.
+- JavaScript, sintaxis JavaScript, build y MariaDB conservan la certificación histórica de 6.03 indicada arriba; **no se repitieron durante 6.05**.
 
 ### Obligaciones del incremento UC–06
 
