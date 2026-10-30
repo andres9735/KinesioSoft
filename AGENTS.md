@@ -74,11 +74,12 @@ La planificación incremental V1.0 contiene 18 subpasos en cinco fases:
 - **6.08: IMPLEMENTADO, CORREGIDO, CERTIFICADO Y CERRADO** en `10a2b55`; detalle autorizado y seguridad documental D-09/R4 dentro del alcance disponible, con C-02 / DT-03 pendiente según el bloque de cierre.
 - **6.09: IMPLEMENTADO, VERIFICADO Y CERRADO** en `a1c662d`; infraestructura transaccional compartida conforme a DT-05 y DT-06, con concurrencia real MariaDB pendiente de 6.13.
 - **6.10: IMPLEMENTADO, VERIFICADO Y CERRADO** en `cb607b2`; Confirmar asistencia conforme a D-06, D-09–D-12 y DT-05–DT-08.
-- **6.11: IMPLEMENTADO, VERIFICADO Y CERRADO mediante este commit**; infraestructura de intención durable, única e idempotente de evaluación del cupo conforme a DT-09.
-- **6.12: siguiente subpaso, PENDIENTE**; integración funcional con cancelación, que requiere prompt y autorización específicos antes de iniciar.
-- **6.13–6.18: PENDIENTES**, sin ejecución anticipada.
+- **6.11: IMPLEMENTADO, VERIFICADO Y CERRADO** en `eea2d15`; infraestructura de intención durable, única e idempotente de evaluación del cupo conforme a DT-09.
+- **6.12: IMPLEMENTADO, VERIFICADO Y CERRADO mediante este commit**; cancelación transaccional e idempotente, con auditoría e intención durable atómicas conforme a D-04 y DT-05–DT-09.
+- **6.13: siguiente subpaso, PENDIENTE**; certificación de idempotencia y concurrencia real MariaDB/InnoDB, que requiere prompt y autorización específicos antes de iniciar.
+- **6.14–6.18: PENDIENTES**, sin ejecución anticipada.
 
-El cierre de 6.11 comprende la revisión de los cuatro archivos certificados, la actualización de seguimiento en `AGENTS.md` y el único commit expresamente solicitado. No autoriza repetir pruebas, builds o migraciones ni iniciar 6.12.
+El cierre de 6.12 comprende la revisión de los cuatro archivos certificados, la actualización de seguimiento en `AGENTS.md` y el único commit expresamente solicitado. No autoriza repetir pruebas, builds o migraciones ni iniciar 6.13.
 
 ### UC–06 — Baseline inicial certificado (6.03)
 
@@ -184,6 +185,21 @@ Este es el baseline inicial certificado de UC–06. Los resultados de UC–07 co
 - **Integración funcional con cancelación PENDIENTE de 6.12:** esta infraestructura no cancela turnos ni modifica su ocupación. Procesos externos de evaluación, candidatos, ofertas y comunicaciones permanecen pendientes y no fueron implementados.
 - **Dependencia C-02 / DT-03 PENDIENTE:** la integración clínica externa de planes y sesiones reales de Seguimiento continúa sin infraestructura disponible ni certificación.
 - JavaScript y sintaxis JavaScript conservan los resultados históricos de 6.03; build conserva su último **PASS, 94 módulos** de 6.08; MariaDB conserva su certificación histórica de 6.03. **No se repitieron durante 6.11**.
+
+### UC–06 — Verificación y cierre de 6.12
+
+- Pruebas específicas de cancelación: **72 tests / 799 assertions PASS**.
+- Focalizadas de UC–06, UC–07, Agenda y auditoría: **775 tests / 5641 assertions PASS**.
+- Regresión completa, `php artisan test`: **2652 tests / 17760 assertions PASS**, con SQLite `:memory:`, PDO SQLite y configuración sin caché.
+- Sintaxis PHP, Pint acotado en modo `--test`, diff y whitespace de los archivos nuevos: **PASS**. `git diff --check` y `git diff --cached --check` se verifican en este cierre.
+- Cancelación transaccional e idempotente implementada para Primera consulta y Seguimiento: Pendiente/Confirmado → Cancelado, con límite inclusivo de **12 horas corridas** revalidado después de los locks kinesióloga → paciente → turno y autorización sobre el turno persistido.
+- Estado, auditoría obligatoria e intención durable vinculada a la auditoría se registran atómicamente en la misma conexión y transacción. Los fallos revierten los tres efectos y preservan la ocupación previa; no se ejecutan procesos externos.
+- Replay autorizado sin nuevas escrituras, auditorías, liberaciones ni intenciones, incluso después del inicio; no reactiva otros estados. Se preservan programación, motivo original y documentos; el motivo administrativo es opcional y se conserva únicamente en la auditoría de la cancelación efectiva.
+- Los cuatro archivos coinciden por hashes con el código certificado, sin modificaciones posteriores a las pruebas; durante este cierre sólo se actualiza `AGENTS.md`, sin repetir pruebas.
+- **Certificación de concurrencia real MariaDB PENDIENTE de 6.13:** SQLite verifica contratos de locks, relectura y rollback, pero no certifica carreras, esperas por bloqueos ni ausencia de deadlocks en MariaDB.
+- **Dependencia C-02 / DT-03 PENDIENTE:** no se inventan planes ni sesiones reales de Seguimiento, no se consumen prestaciones ni se modifican otros turnos; la integración clínica externa continúa sin infraestructura disponible ni certificación.
+- **Integraciones externas, enlaces seguros y comunicaciones PENDIENTES:** la intención durable no implementa evaluación efectiva, candidatos, ofertas ni notificaciones; el contexto de canal requiere validación específica previa y no implementa enlaces. La interfaz de autogestión permanece pendiente de sus subpasos posteriores.
+- JavaScript y sintaxis JavaScript conservan los resultados históricos de 6.03; build conserva su último **PASS, 94 módulos** de 6.08; MariaDB conserva su certificación histórica de 6.03. **No se repitieron durante 6.12**.
 
 ### Obligaciones del incremento UC–06
 
