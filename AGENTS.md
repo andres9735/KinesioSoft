@@ -71,11 +71,12 @@ La planificación incremental V1.0 contiene 18 subpasos en cinco fases:
 - **6.05: IMPLEMENTADO, VERIFICADO Y CERRADO** en `f1c103a`; clasificación de Próximos e Historial conforme a D-14 y DT-02.
 - **6.06: IMPLEMENTADO, VERIFICADO Y CERRADO** en `458a308`; filtros y búsqueda conforme a DT-11 y UX-02.
 - **6.07: IMPLEMENTADO, VERIFICADO Y CERRADO** en `ecef8f9`; autorización por turno conforme a D-09 y DT-04.
-- **6.08: IMPLEMENTADO, CORREGIDO, CERTIFICADO Y CERRADO mediante este commit**; detalle autorizado y seguridad documental D-09/R4 dentro del alcance disponible, con C-02 / DT-03 pendiente según el bloque de cierre.
-- **6.09: siguiente subpaso, PENDIENTE**; requiere prompt y autorización específicos antes de iniciar.
-- **6.10–6.18: PENDIENTES**, sin ejecución anticipada.
+- **6.08: IMPLEMENTADO, CORREGIDO, CERTIFICADO Y CERRADO** en `10a2b55`; detalle autorizado y seguridad documental D-09/R4 dentro del alcance disponible, con C-02 / DT-03 pendiente según el bloque de cierre.
+- **6.09: IMPLEMENTADO, VERIFICADO Y CERRADO mediante este commit**; infraestructura transaccional compartida conforme a DT-05 y DT-06, con concurrencia real MariaDB pendiente de 6.13.
+- **6.10: siguiente subpaso, PENDIENTE**; requiere prompt y autorización específicos antes de iniciar.
+- **6.11–6.18: PENDIENTES**, sin ejecución anticipada.
 
-El cierre de 6.08 comprende la revisión de los trece archivos certificados, la actualización de seguimiento en `AGENTS.md` y el único commit expresamente solicitado. No autoriza repetir pruebas, builds o migraciones ni iniciar 6.09.
+El cierre de 6.09 comprende la revisión de los tres archivos certificados, la actualización de seguimiento en `AGENTS.md` y el único commit expresamente solicitado. No autoriza repetir pruebas, builds o migraciones ni iniciar 6.10.
 
 ### UC–06 — Baseline inicial certificado (6.03)
 
@@ -140,6 +141,18 @@ Este es el baseline inicial certificado de UC–06. Los resultados de UC–07 co
 - Los trece archivos revisados coinciden por hashes con el código certificado, sin modificaciones posteriores a las pruebas; durante este cierre sólo se actualiza `AGENTS.md`, sin repetir pruebas.
 - JavaScript, sintaxis JavaScript y MariaDB conservan sus resultados históricos de 6.03; **no se repitieron durante 6.08**.
 - **Dependencia C-02 / DT-03 PENDIENTE:** integración clínica de datos reales de planes y sesiones de Seguimiento todavía sin infraestructura externa disponible ni certificación. El detalle muestra únicamente los datos administrativos reales y el estado vacío correspondiente; no declara completada esa integración.
+
+### UC–06 — Verificación y cierre de 6.09
+
+- Pruebas específicas de infraestructura: **23 tests / 230 assertions PASS**.
+- Focalizadas de UC–06, UC–07 y Agenda: **616 tests / 4313 assertions PASS**.
+- Regresión completa, `php artisan test`: **2476 tests / 16137 assertions PASS**, con SQLite `:memory:`, PDO SQLite y configuración sin caché.
+- Sintaxis PHP, Pint acotado en modo `--test` y `git diff --check`: **PASS**, con código de salida 0.
+- Infraestructura sin transiciones ni efectos funcionales propios: mutex y relectura en orden kinesióloga → paciente → turno, rechazo de recursos reasignados y callback transaccional sin reintentos automáticos. El consumidor debe autorizar y revalidar sus reglas dentro del callback.
+- Los tres archivos coinciden por hashes con el código certificado, sin modificaciones posteriores a las pruebas; durante este cierre sólo se actualiza `AGENTS.md`, sin repetir pruebas.
+- JavaScript y sintaxis JavaScript conservan los resultados históricos de 6.03; build conserva su último **PASS, 94 módulos** de 6.08; MariaDB conserva su certificación histórica de 6.03. **No se repitieron durante 6.09**.
+- **Concurrencia real MariaDB PENDIENTE de 6.13:** SQLite verifica el contrato de solicitudes de locks, relectura y rollback; no certifica concurrencia real, esperas por bloqueos ni ausencia de deadlocks en MariaDB.
+- **Dependencia C-02 / DT-03 PENDIENTE:** la integración clínica externa de planes y sesiones reales de Seguimiento continúa sin infraestructura disponible ni certificación.
 
 ### Obligaciones del incremento UC–06
 
