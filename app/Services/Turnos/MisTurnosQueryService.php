@@ -3,14 +3,22 @@
 namespace App\Services\Turnos;
 
 use App\Enums\EstadoTurnoEnum;
+use App\Enums\TipoTurnoEnum;
+use App\Models\DocumentoClinico;
 use App\Models\Paciente;
+use App\Models\Turno;
+use App\Models\User;
 use App\Services\Agenda\RelojAplicacion;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Gate;
 
 final class MisTurnosQueryService
 {
     private const POR_PAGINA = 10;
+
+    private const ESTADOS_PROXIMOS = [EstadoTurnoEnum::PENDIENTE, EstadoTurnoEnum::CONFIRMADO];
 
     public function __construct(private readonly RelojAplicacion $reloj) {}
 
@@ -22,7 +30,7 @@ final class MisTurnosQueryService
     {
         $ahora = $this->reloj->ahora();
         $base = $this->consultaFiltrada($paciente, $filtros);
-        $estadosProximos = [EstadoTurnoEnum::PENDIENTE, EstadoTurnoEnum::CONFIRMADO];
+        $estadosProximos = self::ESTADOS_PROXIMOS;
         $proximosQuery = (clone $base)->whereIn('estado', $estadosProximos)->where('inicio_at', '>', $ahora);
         $historicosQuery = (clone $base)->where(fn (Builder $query) => $query
             ->whereNotIn('estado', $estadosProximos)
@@ -31,8 +39,7 @@ final class MisTurnosQueryService
         $historicosPage = $this->enteroPositivo($navegacion['historicos_page'] ?? null) ?? 1;
         $turnoId = $this->enteroPositivo($navegacion['turno'] ?? null);
         $destacado = $turnoId === null ? null : (clone $base)->find($turnoId, ['id', 'estado', 'inicio_at']);
-        $destacadoProximo = $destacado === null ? null : in_array($destacado->estado, $estadosProximos, true)
-            && $destacado->inicio_at->greaterThan($ahora);
+        $destacadoProximo = $destacado === null ? null : $this->esProximo($destacado, $ahora);
 
         if ($destacado !== null) {
             $query = $destacadoProximo ? clone $proximosQuery : clone $historicosQuery;
@@ -65,6 +72,55 @@ final class MisTurnosQueryService
         ]));
 
         return ['proximos' => $proximos, 'historicos' => $historicos, 'turnoDestacadoId' => $destacado?->id];
+    }
+
+    /**
+     * Lectura posterior a TurnoPolicy::view. Sólo se entregan datos autorizados a Blade.
+     */
+    public function detalle(Turno $turno, User $actor): array
+    {
+        $turno->load('kinesiologa.user:id,name,apellido');
+        $profesional = $turno->kinesiologa?->user;
+        $primeraConsulta = $turno->tipo === TipoTurnoEnum::PRIMERA_CONSULTA;
+        $documentos = collect();
+        if ($primeraConsulta) {
+            $documentos = DocumentoClinico::query()
+                ->where('paciente_id', $turno->paciente_id)
+                ->where('origen', DocumentoClinico::ORIGEN_SOLICITUD_TURNO)
+                ->whereHas('origenTurno', fn (Builder $origen) => $origen->where('turno_id', $turno->getKey()))
+                ->orderBy('id')
+                ->get(['id', 'paciente_id', 'nombre_original', 'descripcion'])
+                ->filter(fn (DocumentoClinico $documento) => Gate::forUser($actor)->allows('download', $documento))
+                ->map(fn (DocumentoClinico $documento) => [
+                    'nombre' => $documento->nombre_original,
+                    'descripcion' => $documento->descripcion,
+                    'url' => route('documentos-clinicos.download', $documento),
+                ])->values();
+        }
+
+        return [
+            'tipo' => $turno->tipo,
+            'estado' => $turno->estado,
+            'inicio_at' => $turno->inicio_at,
+            'fin_at' => $turno->fin_at,
+            'profesional' => $profesional === null ? null : trim($profesional->name.' '.$profesional->apellido),
+            'seccion' => $this->esProximo($turno, $this->reloj->ahora()) ? 'proximos' : 'historicos',
+            'motivo' => $primeraConsulta ? $turno->motivo_solicitud : null,
+            'documentos' => $documentos,
+        ];
+    }
+
+    public function contextoListado(array $filtros, array $navegacion): array
+    {
+        return $filtros + [
+            'proximos_page' => $this->enteroPositivo($navegacion['proximos_page'] ?? null) ?? 1,
+            'historicos_page' => $this->enteroPositivo($navegacion['historicos_page'] ?? null) ?? 1,
+        ];
+    }
+
+    private function esProximo(Turno $turno, CarbonImmutable $ahora): bool
+    {
+        return in_array($turno->estado, self::ESTADOS_PROXIMOS, true) && $turno->inicio_at->greaterThan($ahora);
     }
 
     private function consultaFiltrada(Paciente $paciente, array $filtros): Builder

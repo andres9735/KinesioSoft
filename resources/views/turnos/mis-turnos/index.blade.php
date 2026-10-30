@@ -17,6 +17,7 @@
             @php
                 $filtros = $filtros ?? [];
                 $hayFiltros = $filtros !== [];
+                $contextoDetalle = $filtros + ['proximos_page' => $proximos->currentPage(), 'historicos_page' => $historicos->currentPage()];
             @endphp
             @include('turnos.mis-turnos._filtros')
             @if ($proximos->total() === 0 && $historicos->total() === 0)

@@ -47,6 +47,11 @@ Route::get('/turnos/mis-turnos', [MisTurnosController::class, 'index'])
     ->middleware(['auth', 'verified', 'perfil.completo', 'perfil.paciente'])
     ->name('turnos.mis-turnos.index');
 
+Route::get('/turnos/mis-turnos/{turno}', [MisTurnosController::class, 'show'])
+    ->whereNumber('turno')
+    ->middleware(['auth', 'verified', 'perfil.completo', 'perfil.paciente'])
+    ->name('turnos.mis-turnos.show');
+
 Route::middleware(['auth', 'verified', 'perfil.completo', 'perfil.paciente'])->group(function () {
     Route::get('/turnos/solicitar', [SolicitarTurnoController::class, 'create'])
         ->name('turnos.solicitar.create');

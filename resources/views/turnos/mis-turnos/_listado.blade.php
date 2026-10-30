@@ -69,6 +69,7 @@
                                 </dd>
                             </div>
                         </dl>
+                        <a href="{{ route('turnos.mis-turnos.show', ['turno' => $turno, 'seccion' => $seccion] + ($contextoDetalle ?? [])) }}" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2" aria-label="Ver detalle del turno del {{ $turno->inicio_at->format('d/m/Y') }} a las {{ $turno->inicio_at->format('H:i') }}">Ver detalle</a>
                     </article>
                 </li>
             @endforeach

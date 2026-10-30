@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\RoleEnum;
+use App\Enums\TipoTurnoEnum;
 use App\Models\Auditoria;
 use App\Models\ColegioEmisor;
 use App\Models\DeclaracionSaludPaciente;
@@ -57,7 +58,7 @@ class DescargarDocumentoClinicoTest extends TestCase
         $this->disco = Storage::fake('documentos_clinicos');
         $this->paciente = $this->pacienteCompleto();
         $this->kinesiologa = $this->profesionalCompleta();
-        $this->turno = Turno::factory()->for($this->paciente)->for($this->kinesiologa)->create(['motivo_solicitud' => 'Motivo original privado']);
+        $this->turno = Turno::factory()->for($this->paciente)->for($this->kinesiologa)->create(['tipo' => TipoTurnoEnum::PRIMERA_CONSULTA, 'motivo_solicitud' => 'Motivo original privado']);
         $this->documento = $this->documento();
     }
 
@@ -305,12 +306,55 @@ class DescargarDocumentoClinicoTest extends TestCase
         $this->assertSame(2, Auditoria::where('evento', 'documento_clinico_descargado')->count());
     }
 
-    public function test_document_without_origin_allows_owner_but_not_professional(): void
+    #[DataProvider('documentosNoAutorizados')]
+    public function test_direct_url_rejects_documents_outside_patient_contract_before_opening_private_storage(string $caso): void
     {
-        $documento = $this->documento([], true, false);
-        $this->actingAs($this->paciente->user)->get($this->url($documento))->assertOk()->assertStreamedContent(self::CONTENIDO);
-        $this->actingAs($this->kinesiologa->user)->get($this->url($documento))->assertForbidden();
-        $this->assertDatabaseCount('auditorias', 1);
+        $otroPaciente = $this->pacienteCompleto();
+        $documento = $this->documento([
+            'paciente_id' => $caso === 'documento_ajeno' ? $otroPaciente->id : $this->paciente->id,
+            'origen' => match ($caso) {
+                'interno' => 'CONSULTA_CLINICA',
+                'desconocido' => 'DESCONOCIDO',
+                default => DocumentoClinico::ORIGEN_SOLICITUD_TURNO,
+            },
+            'descripcion' => 'DESCRIPCION NO AUTORIZADA',
+        ], true, false);
+        if ($caso !== 'sin_asociacion') {
+            $pacienteTurno = in_array($caso, ['turno_ajeno', 'documento_ajeno'], true) ? $otroPaciente : $this->paciente;
+            $turno = Turno::factory()->for($pacienteTurno)->for($this->kinesiologa)->create([
+                'tipo' => $caso === 'seguimiento' ? TipoTurnoEnum::SEGUIMIENTO : TipoTurnoEnum::PRIMERA_CONSULTA,
+            ]);
+            $documento->origenTurno()->create(['turno_id' => $turno->id]);
+        }
+        $antes = $documento->fresh()->getAttributes();
+        $this->disco->assertExists($documento->ruta_storage);
+        Storage::shouldReceive('disk')->never();
+        $url = $this->url($documento).'?'.http_build_query([
+            'paciente_id' => $this->paciente->id, 'turno_id' => $this->turno->id,
+            'documento' => $this->documento->id, 'origen' => DocumentoClinico::ORIGEN_SOLICITUD_TURNO,
+        ]);
+        $this->actingAs($this->paciente->user)->withHeader('Referer', route('turnos.mis-turnos.show', $this->turno))->get($url)
+            ->assertForbidden()->assertHeaderMissing('Content-Disposition')->assertHeaderMissing('Location')
+            ->assertDontSee($documento->nombre_original)->assertDontSee($documento->descripcion)
+            ->assertDontSee($documento->ruta_storage, false)->assertDontSee(self::CONTENIDO, false);
+        if ($caso === 'sin_asociacion') {
+            $this->actingAs($this->kinesiologa->user)->get($this->url($documento))->assertForbidden();
+        }
+        $this->assertSame($antes, $documento->fresh()->getAttributes());
+        $this->assertDatabaseCount('auditorias', 0);
+    }
+
+    public static function documentosNoAutorizados(): array
+    {
+        return [['documento_ajeno'], ['interno'], ['desconocido'], ['sin_asociacion'], ['turno_ajeno'], ['seguimiento']];
+    }
+
+    public function test_inactive_patient_cannot_download_even_an_authorized_original(): void
+    {
+        $this->paciente->user->forceFill(['activo' => false])->save();
+        Storage::shouldReceive('disk')->never();
+        $this->actingAs($this->paciente->user)->get($this->url())->assertRedirect(route('login'));
+        $this->assertDatabaseCount('auditorias', 0);
     }
 
     public function test_implicit_head_does_not_open_or_audit_download(): void

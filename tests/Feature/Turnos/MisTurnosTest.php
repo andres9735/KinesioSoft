@@ -19,10 +19,13 @@ use App\Models\Provincia;
 use App\Models\TituloProfesional;
 use App\Models\Turno;
 use App\Models\User;
+use App\Policies\DocumentoClinicoPolicy;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Spatie\Permission\Models\Role;
@@ -494,7 +497,9 @@ class MisTurnosTest extends TestCase
         $this->kinesiologa->user->update(['name' => 'Ángela María', 'apellido' => 'ÑÚÑEZ Παπαδοπούλου']);
         $proximo = $this->turno();
         $historico = $this->turno(['estado' => EstadoTurnoEnum::CANCELADO]);
-        $this->turno(['kinesiologa_id' => $this->profesional()->id]);
+        $otraProfesional = $this->profesional();
+        $otraProfesional->user->update(['name' => 'Profesional distinta', 'apellido' => 'Sin coincidencia']);
+        $this->turno(['kinesiologa_id' => $otraProfesional->id]);
         $this->turno(['paciente_id' => $this->pacienteCompleto()->id]);
         $this->actingAs($this->paciente->user)->get($this->url(['profesional' => $termino]))->assertOk()
             ->assertViewHas('proximos', fn ($p) => $p->total() === 1 && $p->pluck('id')->all() === [$proximo->id])
@@ -762,6 +767,215 @@ class MisTurnosTest extends TestCase
         $texto = '<script>alert("x")</script>';
         $this->actingAs($this->paciente->user)->get($this->url(['profesional' => $texto]))->assertOk()
             ->assertSee(e($texto), false)->assertDontSee($texto, false);
+    }
+
+    #[DataProvider('clasificacionDeTurnos')]
+    public function test_owner_reads_detail_of_both_types_in_every_state_and_temporal_section(EstadoTurnoEnum $estado, TipoTurnoEnum $tipo, int $segundos, string $seccion): void
+    {
+        $inicio = $this->ahora->addSeconds($segundos);
+        $turno = $this->turno(['tipo' => $tipo, 'estado' => $estado, 'inicio_at' => $inicio]);
+        $antes = $turno->fresh()->getAttributes();
+        $response = $this->actingAs($this->paciente->user)->get(route('turnos.mis-turnos.show', $turno))->assertOk()
+            ->assertViewIs('turnos.mis-turnos.show')->assertSee('Detalle del turno')
+            ->assertSee($inicio->format('d/m/Y'))->assertSee($inicio->format('H:i').' – '.$inicio->addMinutes(45)->format('H:i').' hs')
+            ->assertSee(trim($this->kinesiologa->user->name.' '.$this->kinesiologa->user->apellido));
+        $detalle = $response->viewData('detalle');
+        $this->assertSame($estado, $detalle['estado']);
+        $this->assertSame($tipo, $detalle['tipo']);
+        $this->assertSame($seccion, $detalle['seccion']);
+        $this->assertSame($antes, $turno->fresh()->getAttributes());
+        $this->assertDatabaseCount('auditorias', 0);
+    }
+
+    public function test_detail_uses_real_gate_before_rendering_sensitive_fields_and_ignores_client_owner_ids(): void
+    {
+        $turno = $this->turno(['tipo' => TipoTurnoEnum::PRIMERA_CONSULTA, 'motivo_solicitud' => 'MOTIVO_AJENO', 'clave_idempotencia' => (string) Str::uuid()]);
+        $otro = $this->pacienteCompleto();
+        $vistas = [];
+        Gate::after(function ($user, $capacidad, $resultado, $argumentos) use (&$vistas): void {
+            if ($capacidad === 'view' && ($argumentos[0] ?? null) instanceof Turno) {
+                $vistas[] = [$user->id, $resultado];
+            }
+        });
+        $this->actingAs($this->paciente->user)->get(route('turnos.mis-turnos.show', ['turno' => $turno, 'paciente_id' => $otro->id, 'estado' => 'ATENDIDO']))->assertOk();
+        $this->actingAs($otro->user)->get(route('turnos.mis-turnos.show', ['turno' => $turno, 'paciente_id' => $this->paciente->id]))
+            ->assertForbidden()->assertDontSee('MOTIVO_AJENO')->assertDontSee($turno->clave_idempotencia);
+        $this->assertSame([[$this->paciente->user_id, true], [$otro->user_id, false]], $vistas);
+        $this->assertDatabaseCount('auditorias', 0);
+    }
+
+    public function test_detail_reuses_guest_verification_profile_and_active_account_middleware(): void
+    {
+        $turno = $this->turno();
+        $url = route('turnos.mis-turnos.show', $turno);
+        $this->get($url)->assertRedirect(route('login'));
+        $this->paciente->user->forceFill(['email_verified_at' => null])->save();
+        $this->actingAs($this->paciente->user)->get($url)->assertRedirect(route('verification.notice'));
+        $this->actingAs($this->usuario(RoleEnum::PACIENTE))->get($url)->assertRedirect(route('perfil.completar'));
+        $this->paciente->user->forceFill(['email_verified_at' => now(), 'activo' => false])->save();
+        $this->actingAs($this->paciente->user)->get($url)->assertRedirect(route('login'));
+    }
+
+    #[DataProvider('rolesNoPacientes')]
+    public function test_detail_does_not_extend_access_to_other_roles(RoleEnum $rol): void
+    {
+        $turno = $this->turno(['motivo_solicitud' => 'CONTENIDO_PRIVADO']);
+        $actor = $rol === RoleEnum::KINESIOLOGO ? $this->kinesiologa->user : $this->usuario($rol);
+        $this->actingAs($actor)->get(route('turnos.mis-turnos.show', $turno))->assertForbidden()->assertDontSee('CONTENIDO_PRIVADO');
+    }
+
+    public function test_missing_and_invalid_detail_ids_do_not_disclose_data_or_accept_mutations(): void
+    {
+        $this->actingAs($this->paciente->user);
+        foreach (['999999', 'abc', '-1'] as $id) {
+            $this->get('/turnos/mis-turnos/'.$id)->assertNotFound();
+        }
+        $turno = $this->turno();
+        foreach (['POST', 'PUT', 'PATCH', 'DELETE'] as $metodo) {
+            $this->call($metodo, route('turnos.mis-turnos.show', $turno))->assertStatus(405);
+        }
+        $this->assertSame(EstadoTurnoEnum::PENDIENTE, $turno->fresh()->estado);
+    }
+
+    public function test_first_consultation_detail_shows_only_original_documents_associated_with_that_turno(): void
+    {
+        $disco = Storage::fake(config('documentos_clinicos.disk'));
+        $turno = $this->turno(['tipo' => TipoTurnoEnum::PRIMERA_CONSULTA, 'motivo_solicitud' => "MOTIVO ORIGINAL\nSegundo renglón", 'clave_idempotencia' => (string) Str::uuid()]);
+        $documento = $this->documentoDetalle($turno, ['nombre_original' => 'SOLICITUD_ORIGINAL.pdf', 'descripcion' => 'DESCRIPCIÓN ORIGINAL']);
+        $antes = $documento->fresh()->getAttributes();
+        $disco->put($documento->ruta_storage, '%PDF-1.4 prueba privada');
+        $otraSolicitud = $this->turno(['tipo' => TipoTurnoEnum::PRIMERA_CONSULTA]);
+        $otroDocumento = $this->documentoDetalle($otraSolicitud, ['nombre_original' => 'OTRO_TURNO.pdf']);
+        $ajeno = $this->documentoDetalle($turno, ['paciente_id' => $this->pacienteCompleto()->id, 'nombre_original' => 'OTRO_PACIENTE.pdf']);
+        $interno = $this->documentoDetalle($turno, ['origen' => 'CONSULTA_CLINICA', 'nombre_original' => 'INTERNO.pdf', 'descripcion' => 'NOTA CLÍNICA INTERNA']);
+        DocumentoClinico::factory()->create(['paciente_id' => $this->paciente->id, 'cargado_por_user_id' => $this->paciente->user_id, 'nombre_original' => 'SIN_ASOCIACION.pdf']);
+        $response = $this->actingAs($this->paciente->user)->get(route('turnos.mis-turnos.show', $turno))->assertOk()
+            ->assertSee('MOTIVO ORIGINAL')->assertSee('Segundo renglón')->assertSee('SOLICITUD_ORIGINAL.pdf')->assertSee('DESCRIPCIÓN ORIGINAL')
+            ->assertSee(route('documentos-clinicos.download', $documento), false)->assertDontSee($turno->clave_idempotencia)
+            ->assertDontSee($documento->ruta_storage)->assertDontSee($otroDocumento->nombre_original)->assertDontSee($ajeno->nombre_original)
+            ->assertDontSee($interno->nombre_original)->assertDontSee($interno->descripcion)->assertDontSee('SIN_ASOCIACION.pdf');
+        $this->assertCount(1, $response->viewData('detalle')['documentos']);
+        $this->assertSame(['nombre', 'descripcion', 'url'], array_keys($response->viewData('detalle')['documentos']->first()));
+        $this->assertSame($antes, $documento->fresh()->getAttributes());
+        $this->assertDatabaseCount('auditorias', 0);
+        $descarga = $this->get(route('documentos-clinicos.download', $documento))->assertOk();
+        $this->assertSame('%PDF-1.4 prueba privada', $descarga->streamedContent());
+        $this->assertDatabaseCount('auditorias', 1);
+        $this->get(route('documentos-clinicos.download', $ajeno))->assertForbidden();
+    }
+
+    public function test_document_policy_remains_a_separate_requirement_for_detail_metadata(): void
+    {
+        $turno = $this->turno(['tipo' => TipoTurnoEnum::PRIMERA_CONSULTA]);
+        $documento = $this->documentoDetalle($turno, ['nombre_original' => 'DENEGADO.pdf', 'descripcion' => 'DESCRIPCIÓN DENEGADA']);
+        $this->mock(DocumentoClinicoPolicy::class, function ($mock): void {
+            $mock->shouldReceive('download')->once()->andReturnFalse();
+        });
+        $this->actingAs($this->paciente->user)->get(route('turnos.mis-turnos.show', $turno))->assertOk()
+            ->assertDontSee($documento->nombre_original)->assertDontSee($documento->descripcion)
+            ->assertDontSee(route('documentos-clinicos.download', $documento), false);
+    }
+
+    public function test_first_consultation_without_optional_original_data_has_honest_empty_states(): void
+    {
+        $turno = $this->turno(['tipo' => TipoTurnoEnum::PRIMERA_CONSULTA, 'motivo_solicitud' => null]);
+        $this->actingAs($this->paciente->user)->get(route('turnos.mis-turnos.show', $turno))->assertOk()
+            ->assertSee('Este turno no tiene un motivo de solicitud registrado.')
+            ->assertSee('Este turno no tiene documentos de solicitud disponibles.')
+            ->assertDontSee('Solicitado por el paciente');
+        $documento = $this->documentoDetalle($turno, ['descripcion' => null]);
+        $this->get(route('turnos.mis-turnos.show', $turno))->assertOk()->assertSee('Sin descripción registrada.')->assertSee($documento->nombre_original);
+    }
+
+    public function test_followup_does_not_inherit_request_data_or_fabricate_plan_or_session_information(): void
+    {
+        $primera = $this->turno(['tipo' => TipoTurnoEnum::PRIMERA_CONSULTA, 'motivo_solicitud' => 'MOTIVO DE PRIMERA']);
+        $this->documentoDetalle($primera, ['nombre_original' => 'PRIMERA.pdf']);
+        $seguimiento = $this->turno(['motivo_solicitud' => 'NO MOSTRAR EN SEGUIMIENTO']);
+        $this->documentoDetalle($seguimiento, ['nombre_original' => 'NO_HEREDAR.pdf']);
+        $this->actingAs($this->paciente->user)->get(route('turnos.mis-turnos.show', $seguimiento))->assertOk()
+            ->assertSee('Seguimiento')->assertSee('No hay información de plan o sesión registrada para este turno.')
+            ->assertDontSee('MOTIVO DE PRIMERA')->assertDontSee('PRIMERA.pdf')->assertDontSee('NO MOSTRAR EN SEGUIMIENTO')->assertDontSee('NO_HEREDAR.pdf')
+            ->assertDontSee('Motivo original')->assertDontSee('Sesión 1')->assertDontSee('/documentos-clinicos/');
+    }
+
+    #[DataProvider('seccionesVacias')]
+    public function test_detail_navigation_round_trip_preserves_filters_both_pages_and_origin_section(bool $futuro): void
+    {
+        $this->kinesiologa->user->update(['name' => 'Clara']);
+        for ($i = 1; $i <= 12; $i++) {
+            $this->turno(['inicio_at' => $this->ahora->addDays($i)]);
+            $this->turno(['inicio_at' => $this->ahora->subDays($i)]);
+        }
+        $filtros = ['profesional' => 'clar', 'tipo' => 'SEGUIMIENTO', 'estado' => 'PENDIENTE', 'fecha_desde' => '2026-01-01', 'fecha_hasta' => '2026-12-31'];
+        $response = $this->actingAs($this->paciente->user)->get($this->url($filtros + ['proximos_page' => 2, 'historicos_page' => 2]))->assertOk();
+        $dom = new \DOMDocument;
+        @$dom->loadHTML('<?xml encoding="UTF-8">'.$response->getContent());
+        $seccion = $futuro ? 'proximos' : 'historicos';
+        $enlace = (new \DOMXPath($dom))->query('//section[@aria-labelledby="'.$seccion.'-titulo"]//article/a[normalize-space(.)="Ver detalle"]')->item(0);
+        $this->assertNotNull($enlace);
+        $detalle = $this->get($enlace->getAttribute('href'))->assertOk();
+        $volver = $detalle->viewData('urlVolver');
+        parse_str(parse_url($volver, PHP_URL_QUERY), $parametros);
+        $this->assertSame($filtros + ['proximos_page' => '2', 'historicos_page' => '2'], $parametros);
+        $this->assertSame($seccion.'-titulo', parse_url($volver, PHP_URL_FRAGMENT));
+        $this->get(explode('#', $volver)[0])->assertOk()
+            ->assertViewHas('proximos', fn ($p) => $p->currentPage() === 2)
+            ->assertViewHas('historicos', fn ($p) => $p->currentPage() === 2);
+    }
+
+    public function test_detail_back_navigation_uses_only_validated_local_context(): void
+    {
+        $turno = $this->turno();
+        $response = $this->actingAs($this->paciente->user)->get(route('turnos.mis-turnos.show', [
+            'turno' => $turno, 'paciente_id' => 9999, 'return_to' => 'https://example.com', 'aplicar' => '1',
+            'proximos_page' => ['2'], 'historicos_page' => '-1',
+        ]))->assertOk();
+        $this->assertSame($this->url(['proximos_page' => 1, 'historicos_page' => 1]).'#proximos-titulo', $response->viewData('urlVolver'));
+    }
+
+    public function test_detail_preserves_historical_professional_without_exposing_personal_fields_or_actions(): void
+    {
+        $this->kinesiologa->user->update(['activo' => false]);
+        $this->kinesiologa->user->removeRole(RoleEnum::KINESIOLOGO->value);
+        $turno = $this->turno(['inicio_at' => $this->ahora->subDay()]);
+        $response = $this->actingAs($this->paciente->user)->get(route('turnos.mis-turnos.show', $turno))->assertOk()
+            ->assertSee($this->kinesiologa->user->name)->assertSee('Historial');
+        foreach ([$this->kinesiologa->user->dni, $this->kinesiologa->user->email, $this->kinesiologa->user->telefono, 'Confirmar asistencia', 'Cancelar turno', 'Reprogramar', 'Cambiar estado', 'clave_idempotencia', 'ruta_storage'] as $privado) {
+            $response->assertDontSee($privado);
+        }
+    }
+
+    public function test_detail_markup_is_accessible_and_original_text_is_escaped(): void
+    {
+        $texto = '<script>alert("privado")</script>';
+        $turno = $this->turno(['tipo' => TipoTurnoEnum::PRIMERA_CONSULTA, 'motivo_solicitud' => $texto]);
+        $this->documentoDetalle($turno, ['nombre_original' => $texto.'.pdf', 'descripcion' => $texto]);
+        $response = $this->actingAs($this->paciente->user)->get(route('turnos.mis-turnos.show', $turno))->assertOk()->assertDontSee($texto, false)->assertSee(e($texto), false);
+        $dom = new \DOMDocument;
+        @$dom->loadHTML('<?xml encoding="UTF-8">'.$response->getContent());
+        $xpath = new \DOMXPath($dom);
+        $this->assertSame(1, $xpath->query('//h1[normalize-space(.)="Detalle del turno"]')->length);
+        $this->assertSame(0, $xpath->query('//*[@tabindex > 0]')->length);
+        foreach ($xpath->query('//main//section[@aria-labelledby]') as $seccion) {
+            $this->assertSame(1, $xpath->query('.//h2[@id="'.$seccion->getAttribute('aria-labelledby').'"]', $seccion)->length);
+        }
+        $volver = $xpath->query('//header//a[normalize-space(.)="Volver a Mis turnos"]')->item(0);
+        $this->assertNotNull($volver);
+        $this->assertStringContainsString('focus:ring-', $volver->getAttribute('class'));
+        $this->assertSame(1, $xpath->query('//main//a[normalize-space(.)="Descargar documento" and @aria-label]')->length);
+        $this->assertSame(0, $xpath->query('//main//form')->length);
+    }
+
+    private function documentoDetalle(Turno $turno, array $atributos = []): DocumentoClinico
+    {
+        $documento = DocumentoClinico::factory()->create(array_replace([
+            'paciente_id' => $turno->paciente_id, 'cargado_por_user_id' => $this->paciente->user_id,
+            'ruta_storage' => config('documentos_clinicos.directorio').'/'.Str::uuid(),
+        ], $atributos));
+        DocumentoClinicoOrigenTurno::create(['documento_clinico_id' => $documento->id, 'turno_id' => $turno->id]);
+
+        return $documento;
     }
 
     private function url(array $query = []): string

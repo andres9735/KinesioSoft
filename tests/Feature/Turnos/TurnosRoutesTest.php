@@ -27,6 +27,7 @@ class TurnosRoutesTest extends TestCase
     {
         return [
             ['turnos.mis-turnos.index', 'turnos/mis-turnos', ['GET', 'HEAD'], [MisTurnosController::class, 'index']],
+            ['turnos.mis-turnos.show', 'turnos/mis-turnos/{turno}', ['GET', 'HEAD'], [MisTurnosController::class, 'show']],
             ['turnos.solicitar.create', 'turnos/solicitar', ['GET', 'HEAD'], [SolicitarTurnoController::class, 'create']],
             ['turnos.solicitar.disponibilidad', 'turnos/solicitar/disponibilidad', ['GET', 'HEAD'], [SolicitarTurnoController::class, 'disponibilidad']],
             ['turnos.solicitar.profesionales-disponibles', 'turnos/solicitar/profesionales-disponibles', ['GET', 'HEAD'], [SolicitarTurnoController::class, 'profesionalesDisponibles']],
@@ -40,7 +41,7 @@ class TurnosRoutesTest extends TestCase
         $paciente = collect(Route::getRoutes())->filter(fn ($ruta) => str_starts_with($ruta->uri(), 'turnos/')
             && ! str_starts_with($ruta->uri(), 'turnos/agenda'));
         $this->assertSame([
-            'turnos.mis-turnos.index', 'turnos.solicitar.create', 'turnos.solicitar.disponibilidad', 'turnos.solicitar.profesionales-disponibles', 'turnos.solicitar.store',
+            'turnos.mis-turnos.index', 'turnos.mis-turnos.show', 'turnos.solicitar.create', 'turnos.solicitar.disponibilidad', 'turnos.solicitar.profesionales-disponibles', 'turnos.solicitar.store',
         ], $paciente->map(fn ($ruta) => $ruta->getName())->values()->all());
         $this->assertCount(1, $paciente->filter(fn ($ruta) => $ruta->uri() === 'turnos/solicitar' && in_array('GET', $ruta->methods(), true)));
     }

@@ -70,11 +70,12 @@ La planificación incremental V1.0 contiene 18 subpasos en cinco fases:
 - **6.04: IMPLEMENTADO, VERIFICADO Y CERRADO** en `97b9ac3`; estados y ocupación de agenda conforme a DT-01.
 - **6.05: IMPLEMENTADO, VERIFICADO Y CERRADO** en `f1c103a`; clasificación de Próximos e Historial conforme a D-14 y DT-02.
 - **6.06: IMPLEMENTADO, VERIFICADO Y CERRADO** en `458a308`; filtros y búsqueda conforme a DT-11 y UX-02.
-- **6.07: IMPLEMENTADO, VERIFICADO Y CERRADO mediante este commit**; autorización por turno conforme a D-09 y DT-04.
-- **6.08: siguiente subpaso, PENDIENTE**; requiere prompt y autorización específicos antes de iniciar.
-- **6.09–6.18: PENDIENTES**, sin ejecución anticipada.
+- **6.07: IMPLEMENTADO, VERIFICADO Y CERRADO** en `ecef8f9`; autorización por turno conforme a D-09 y DT-04.
+- **6.08: IMPLEMENTADO, CORREGIDO, CERTIFICADO Y CERRADO mediante este commit**; detalle autorizado y seguridad documental D-09/R4 dentro del alcance disponible, con C-02 / DT-03 pendiente según el bloque de cierre.
+- **6.09: siguiente subpaso, PENDIENTE**; requiere prompt y autorización específicos antes de iniciar.
+- **6.10–6.18: PENDIENTES**, sin ejecución anticipada.
 
-El cierre de 6.07 comprende la revisión de los dos archivos certificados, la actualización de seguimiento en `AGENTS.md` y el único commit expresamente solicitado. No autoriza repetir pruebas, builds o migraciones ni iniciar 6.08.
+El cierre de 6.08 comprende la revisión de los trece archivos certificados, la actualización de seguimiento en `AGENTS.md` y el único commit expresamente solicitado. No autoriza repetir pruebas, builds o migraciones ni iniciar 6.09.
 
 ### UC–06 — Baseline inicial certificado (6.03)
 
@@ -127,6 +128,18 @@ Este es el baseline inicial certificado de UC–06. Los resultados de UC–07 co
 - Sintaxis PHP, Pint acotado en modo `--test` y `git diff --check`: **PASS**.
 - Los dos archivos revisados coinciden con el código certificado, sin modificaciones posteriores a las pruebas; no se repitieron pruebas durante este cierre.
 - JavaScript y MariaDB conservan sus resultados históricos de 6.03; build conserva su resultado de 6.06 (**PASS, 94 módulos**). **No se repitieron durante 6.07**.
+
+### UC–06 — Verificación y cierre de 6.08
+
+- Política documental, descarga privada y detalle de Mis turnos: **233 tests / 1680 assertions PASS**.
+- Focalizadas de UC–06, UC–07 y Agenda: **334 tests / 2307 assertions PASS**.
+- Regresión completa, `php artisan test`: **2453 tests / 15907 assertions PASS**, con SQLite `:memory:`, PDO SQLite y configuración sin caché.
+- Corrección **D-09/R4 CERTIFICADA**: la autorización documental del paciente revalida propiedad, origen permitido y asociación persistida con Primera consulta del mismo paciente; los rechazos por URL directa se verificaron mediante HTTP antes de abrir storage, preservando los accesos legítimos de la profesional asignada y los permisos administrativos existentes.
+- Sintaxis PHP, Pint acotado en modo `--test` y `git diff --check`: **PASS**; verificaciones finales con código de salida 0.
+- Último `npm run build`: **PASS, 94 módulos**, durante la implementación de 6.08 antes de la corrección documental. No se repitió después de esa corrección, que no afectó recursos frontend, ni durante este cierre.
+- Los trece archivos revisados coinciden por hashes con el código certificado, sin modificaciones posteriores a las pruebas; durante este cierre sólo se actualiza `AGENTS.md`, sin repetir pruebas.
+- JavaScript, sintaxis JavaScript y MariaDB conservan sus resultados históricos de 6.03; **no se repitieron durante 6.08**.
+- **Dependencia C-02 / DT-03 PENDIENTE:** integración clínica de datos reales de planes y sesiones de Seguimiento todavía sin infraestructura externa disponible ni certificación. El detalle muestra únicamente los datos administrativos reales y el estado vacío correspondiente; no declara completada esa integración.
 
 ### Obligaciones del incremento UC–06
 

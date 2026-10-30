@@ -384,7 +384,7 @@ class SolicitarTurnoCreateTest extends TestCase
             $botonHtml[0],
         );
         $this->assertSame([
-            'turnos.mis-turnos.index', 'turnos.solicitar.create', 'turnos.solicitar.disponibilidad', 'turnos.solicitar.profesionales-disponibles', 'turnos.solicitar.store',
+            'turnos.mis-turnos.index', 'turnos.mis-turnos.show', 'turnos.solicitar.create', 'turnos.solicitar.disponibilidad', 'turnos.solicitar.profesionales-disponibles', 'turnos.solicitar.store',
         ], collect(Route::getRoutes())->filter(fn ($ruta) => str_starts_with($ruta->uri(), 'turnos/') && ! str_starts_with($ruta->uri(), 'turnos/agenda'))
             ->map(fn ($ruta) => $ruta->getName())->values()->all());
     }
