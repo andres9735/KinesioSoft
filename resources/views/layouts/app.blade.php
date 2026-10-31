@@ -1,3 +1,4 @@
+@php($esMisTurnos = request()->routeIs('turnos.mis-turnos.*'))
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
@@ -8,13 +9,18 @@
         <title>{{ config('app.name', 'Laravel') }}</title>
 
         <!-- Fonts -->
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+        @unless ($esMisTurnos)
+            <link rel="preconnect" href="https://fonts.bunny.net">
+            <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+        @endunless
 
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="font-sans antialiased">
+    <body @class(['font-sans antialiased', 'uc06-mis-turnos' => $esMisTurnos])>
+        @if ($esMisTurnos)
+            <a href="#mis-turnos-contenido" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-3 focus:text-indigo-800 focus:ring-2 focus:ring-indigo-500">Saltar al contenido de Mis turnos</a>
+        @endif
         <div class="min-h-screen bg-gray-100">
             @include('layouts.navigation')
 
@@ -28,7 +34,7 @@
             @endisset
 
             <!-- Page Content -->
-            <main>
+            <main @if ($esMisTurnos) id="mis-turnos-contenido" tabindex="-1" class="focus:outline-none" @endif>
                 {{ $slot }}
             </main>
         </div>

@@ -24,8 +24,16 @@
         <div class="mt-4 rounded-lg bg-red-50 p-4 text-sm text-red-700" role="alert">
             <p class="font-semibold">Revisá los criterios de búsqueda.</p>
             <ul class="mt-2 list-inside list-disc">
-                @foreach ($errors->all() as $mensaje)
-                    <li>{{ $mensaje }}</li>
+                @foreach ($errors->getMessages() as $campo => $mensajes)
+                    @foreach ($mensajes as $mensaje)
+                        <li>
+                            @if (in_array($campo, ['profesional', 'tipo', 'estado', 'fecha_desde', 'fecha_hasta'], true))
+                                <a href="#{{ $campo }}" class="underline focus:outline-none focus:ring-2 focus:ring-red-600">{{ $mensaje }}</a>
+                            @else
+                                {{ $mensaje }}
+                            @endif
+                        </li>
+                    @endforeach
                 @endforeach
             </ul>
         </div>

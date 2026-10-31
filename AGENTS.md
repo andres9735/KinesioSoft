@@ -78,12 +78,13 @@ La planificación incremental V1.0 contiene 18 subpasos en cinco fases:
 - **6.12: IMPLEMENTADO, VERIFICADO Y CERRADO** en `9bd7586`; cancelación transaccional e idempotente, con auditoría e intención durable atómicas conforme a D-04 y DT-05–DT-09.
 - **6.13: IMPLEMENTADO, VERIFICADO Y CERRADO** en `616085b57b425e873ff0e957b0d558cb26add136`.
 - **6.14: IMPLEMENTADO, VERIFICADO Y CERRADO** en `5a9c6edce1a0b18ff4c031cb542d4a646b0e8323`.
-- **6.15: siguiente subpaso PENDIENTE, no iniciado**, sujeto a autorización independiente.
-- **6.16–6.18: PENDIENTES**, sin ejecución anticipada.
+- **6.15: IMPLEMENTADO, VERIFICADO Y CERRADO mediante el commit que incorpora esta certificación**.
+- **6.16: siguiente subpaso PENDIENTE, no iniciado**, sujeto a autorización independiente.
+- **6.17–6.18: PENDIENTES**, sin ejecución anticipada.
 
 El cierre de 6.12, versionado en `9bd7586`, comprendió la revisión de los cuatro archivos certificados, la actualización de seguimiento en `AGENTS.md` y el único commit expresamente solicitado. Esa autorización no habilitaba repetir pruebas, builds o migraciones ni iniciar 6.13.
 
-El cierre formal de 6.13 quedó versionado en `616085b57b425e873ff0e957b0d558cb26add136`. El cierre formal de 6.14 quedó versionado en `5a9c6edce1a0b18ff4c031cb542d4a646b0e8323`: IMPLEMENTADO, VERIFICADO Y CERRADO. Este estado no autoriza por sí solo staging, commit, push, nuevas ejecuciones, limpieza de datos ni iniciar 6.15.
+El cierre formal de 6.13 quedó versionado en `616085b57b425e873ff0e957b0d558cb26add136`. El cierre formal de 6.14 quedó versionado en `5a9c6edce1a0b18ff4c031cb542d4a646b0e8323`: IMPLEMENTADO, VERIFICADO Y CERRADO. El cierre de 6.15 se registra mediante el commit que incorpora su certificación. Estos estados no autorizan por sí solos staging, commit, push, nuevas ejecuciones, limpieza de datos ni iniciar 6.16.
 
 ### UC–06 — Baseline inicial certificado (6.03)
 
@@ -226,9 +227,20 @@ Este es el baseline inicial certificado de UC–06. Los resultados de UC–07 co
 - Pruebas PHP acotadas: **1207 tests / 8555 assertions PASS**; regresión UC–07: **62 tests / 586 assertions PASS**. JavaScript: **26 pruebas nuevas y 155 existentes PASS**. Lint y Pint acotados: **PASS**; build: **PASS, 95 módulos**. Son resultados previamente aprobados; no se reejecutan en esta fase documental ni constituyen una nueva suite PHP global.
 - Revisión estática **R1 satisfactoria** y **validación manual principal satisfactoria**, conforme a la certificación aprobada por el usuario, sobre SQLite temporal aislado con **48 migraciones y 44 tablas**. Auditoría final informada: **5 registros en auditorías, 3 intenciones y 12 turnos sintéticos**, conservados fuera del repositorio, sin limpieza en esta fase.
 - La validación manual no recertifica concurrencia MariaDB ni repite exhaustivamente los bordes temporales, CSRF, propiedad e idempotencia cubiertos automáticamente. La certificación MariaDB de 6.13 permanece histórica e intacta, sin nueva ejecución.
-- Observaciones UX para **6.15, todavía no iniciado**: CSP de la fuente externa en el entorno temporal y diferenciación del indicador de progreso durante el diálogo respecto del envío efectivo. No autorizan modificaciones anticipadas.
+- Observaciones UX registradas al cerrar **6.14**, atendidas en **6.15**: CSP de la fuente externa en el entorno temporal y diferenciación del indicador de progreso durante el diálogo respecto del envío efectivo; el alcance y la certificación se detallan en el bloque siguiente.
 - **C-02 / DT-03 e integraciones externas PENDIENTES:** planes y sesiones clínicas reales, evaluación efectiva de cupos, candidatos, ofertas, enlaces seguros y comunicaciones no se consideran resueltos por 6.14.
-- **6.15** es el siguiente subpaso **PENDIENTE, no iniciado**, sujeto a autorización independiente; **6.16–6.18** permanecen pendientes. Esta regularización documental no autoriza por sí sola staging, commit, push ni ejecuciones adicionales.
+- La transición posterior se registra en el bloque de **6.15** siguiente, conservando íntegros los resultados y limitaciones de **6.14**.
+
+### UC–06 — Certificación y cierre de 6.15: UX final
+
+- **6.15: IMPLEMENTADO, VERIFICADO Y CERRADO mediante el commit que incorpora esta certificación.** No se anticipa el hash de ese commit.
+- Certificación detallada: `docs/implementacion/turnos-gestionar-mis-turnos-615-certificacion.md`.
+- Alcance literal de la planificación V1.0: **Completar mensajes, estados vacíos, responsive, navegación por teclado, accesibilidad y preservación del contexto.**
+- Mejoras acotadas a Mis turnos: tipografía local sin solicitudes a `fonts.bunny.net` ni relajación de CSP, salto al contenido, foco accesible, recuperación de filtros/paginación y estados vacíos; indicador de progreso limitado al transporte y mensajes diferenciados para rechazos HTTP conocidos y resultados inciertos. Se conservan las Actions, autorización, privacidad y garantías transaccionales certificadas.
+- PHP dirigido: **290 tests / 2402 assertions PASS**, con SQLite `:memory:` y configuración de testing aislada. JavaScript: **41 pruebas de Mis turnos y 155 existentes PASS**. Lint, Pint acotado y `git diff --check`: **PASS**; build: **PASS, 95 módulos**. Son certificaciones separadas, sin nueva regresión integral ni repetición de MariaDB de 6.13.
+- Validación manual: **cuatro comprobaciones UX satisfactorias**, conforme al resultado informado por el usuario; SQLite temporal aislado con **48 migraciones y 44 tablas**, auditoría final **PASS**. No se incorporan al repositorio auxiliares, sesiones, claves ni evidencia temporal.
+- La revisión manual es acotada y no constituye una auditoría exhaustiva de accesibilidad o navegadores ni una certificación de concurrencia MariaDB. **C-02 / DT-03 e integraciones externas permanecen PENDIENTES**; no son defectos de UX resueltos por 6.15. La regresión integral corresponde a 6.17.
+- **6.16: siguiente subpaso PENDIENTE, no iniciado**, sujeto a autorización independiente; **6.17–6.18: PENDIENTES**. Este cierre no autoriza ejecutar subpasos posteriores, realizar staging, commit, push ni limpiar sesiones o datos.
 
 ### Obligaciones del incremento UC–06
 

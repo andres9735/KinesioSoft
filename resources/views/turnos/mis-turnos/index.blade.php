@@ -25,6 +25,7 @@
                     @if ($hayFiltros)
                         <h2 class="text-lg font-semibold text-gray-900">No hay turnos que coincidan con los criterios seleccionados.</h2>
                         <p class="mt-2 text-sm text-gray-500">Modificá la búsqueda o usá Limpiar filtros para volver a ver tus turnos.</p>
+                        <a href="{{ route('turnos.mis-turnos.index') }}" class="mt-4 inline-flex min-h-11 items-center rounded-lg px-4 py-2 text-sm font-semibold text-indigo-700 underline focus:outline-none focus:ring-2 focus:ring-indigo-500">Mostrar todos mis turnos</a>
                     @else
                         <h2 class="text-lg font-semibold text-gray-900">Todavía no tenés turnos registrados</h2>
                         <p class="mt-2 text-sm text-gray-500">Tus próximos turnos y tu historial aparecerán aquí.</p>

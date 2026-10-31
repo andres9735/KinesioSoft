@@ -29,7 +29,7 @@
                 </dl>
             </section>
             <section class="rounded-2xl bg-white p-5 shadow-sm sm:p-6 [&_[x-cloak]]:!hidden" aria-labelledby="acciones-turno-titulo"
-                x-data="misTurnos(@js($autogestion + ['csrfToken' => csrf_token()]))" :aria-busy="enviando">
+                x-data="misTurnos(@js($autogestion + ['csrfToken' => csrf_token(), 'urlVolver' => $urlVolver]))" :aria-busy="enviando">
                 <h2 id="acciones-turno-titulo" class="text-lg font-semibold text-gray-900">Gestionar este turno</h2>
                 @if ($detalle['puedeConfirmar'] || $detalle['puedeCancelar'])
                     <p class="mt-2 text-sm text-gray-600">Confirmar asistencia expresa tu intención de asistir. La cancelación online requiere al menos 12 horas de anticipación.</p>
@@ -49,8 +49,9 @@
                 @endif
                 <noscript><p class="mt-3 text-sm text-amber-900">Habilitá JavaScript para utilizar las confirmaciones visuales de estas operaciones.</p></noscript>
                 <p x-cloak x-show="enviando" role="status" class="mt-3 text-sm font-medium text-indigo-700">Procesando la operación…</p>
-                <p x-cloak x-show="mensaje" x-text="mensaje" role="status" aria-live="polite" class="mt-3 text-sm text-gray-800"></p>
+                <p x-cloak x-show="mensaje" x-text="mensaje" x-ref="resultado" tabindex="-1" role="status" aria-live="polite" class="mt-3 rounded-lg text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"></p>
                 <button type="button" x-cloak x-show="necesitaActualizar" @click="actualizar()" :disabled="ocupado"
+                    x-text="volverAlListado ? 'Volver a Mis turnos' : 'Consultar estado actual'"
                     class="mt-3 inline-flex min-h-11 items-center rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">Consultar estado actual</button>
             </section>
             @if ($detalle['tipo'] === \App\Enums\TipoTurnoEnum::PRIMERA_CONSULTA)

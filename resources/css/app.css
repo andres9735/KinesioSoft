@@ -1,3 +1,8 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Mis turnos funciona también en el entorno aislado, sin fuentes remotas. */
+.uc06-mis-turnos {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+}

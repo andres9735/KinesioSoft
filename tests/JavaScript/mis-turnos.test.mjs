@@ -154,6 +154,8 @@ test('una falla al abrir el diálogo no envía una operación', async () => {
     await x.componente.solicitar('cancelar');
     assert.equal(x.envios.length, 0);
     assert.equal(x.componente.ocupado, false);
+    assert.match(x.componente.mensaje, /No se envió la operación/);
+    assert.doesNotMatch(x.componente.mensaje, /No pudimos confirmar el resultado/);
 });
 
 test('una respuesta que no llega termina en incertidumbre con consulta manual y sin reintento', async () => {
@@ -173,3 +175,112 @@ test('una respuesta que no llega termina en incertidumbre con consulta manual y 
     x.componente.actualizar();
     assert.deepEqual(x.navegaciones, [config.urlDetalle]);
 });
+
+for (const [status, texto] of [[401, /iniciá sesión/], [403, /permiso/], [404, /ya no está disponible/], [419, /venció/]]) {
+    test(`HTTP ${status} con HTML comunica rechazo conocido, conserva contexto y nunca reenvía`, async () => {
+        const x = preparar({ fetchImpl: () => new Response('<html>NO EXPONER SQL</html>', { status }) });
+        await x.componente.solicitar('cancelar');
+        assert.match(x.componente.mensaje, texto);
+        assert.doesNotMatch(x.componente.mensaje, /NO EXPONER|SQL|No pudimos confirmar el resultado/);
+        assert.equal(x.componente.volverAlListado, [403, 404].includes(status));
+        assert.equal(x.componente.enviando, false);
+        assert.equal(x.componente.ocupado, false);
+        assert.equal(x.componente.necesitaActualizar, true);
+        await x.componente.solicitar('cancelar');
+        assert.equal(x.envios.length, 1);
+        assert.equal(x.dialogos.length, 1);
+        assert.equal(x.navegaciones.length, 0);
+    });
+}
+
+test('403 y 404 ofrecen volver al listado con sus filtros, sin insistir en el detalle rechazado', async () => {
+    for (const status of [403, 404]) {
+        const navegaciones = [];
+        const componente = misTurnos({ ...config, urlVolver: '/turnos/mis-turnos?estado=PENDIENTE#proximos-titulo' }, {
+            obtenerSwal: () => ({ fire: async () => ({ isConfirmed: true }) }),
+            fetchImpl: () => respuesta({}, status), navegar: (url) => navegaciones.push(url),
+        });
+        await componente.solicitar('confirmar');
+        componente.actualizar();
+        assert.deepEqual(navegaciones, ['/turnos/mis-turnos?estado=PENDIENTE#proximos-titulo']);
+    }
+});
+
+for (const status of [409, 422]) {
+    test(`HTTP ${status} sin JSON sigue siendo un rechazo conocido y recupera el detalle`, async () => {
+        const x = preparar({ fetchImpl: () => new Response('HTML PRIVADO', { status }) });
+        await x.componente.solicitar('confirmar');
+        assert.equal(x.dialogos[1].icon, 'warning');
+        assert.doesNotMatch(x.componente.mensaje, /PRIVADO|incierto|No pudimos confirmar/);
+        assert.deepEqual(x.navegaciones, [config.urlDetalle]);
+        assert.equal(x.envios.length, 1);
+    });
+}
+
+for (const [status, datos] of [
+    [200, { code: 'asistencia_confirmada', es_replay: false, message: 'Confirmado.' }],
+    [200, { code: 'asistencia_confirmada', es_replay: true, message: 'Ya confirmado.' }],
+    [409, { code: 'programacion_modificada' }],
+    [422, { code: 'fuera_de_plazo' }],
+]) {
+    test(`progreso termina antes del diálogo de resultado ${status}/${datos.es_replay ?? datos.code}`, async () => {
+        let cerrarResultado;
+        let dialogos = 0;
+        const navegaciones = [];
+        const componente = misTurnos(config, {
+            obtenerSwal: () => ({ fire: () => {
+                dialogos++;
+                if (dialogos === 1) return Promise.resolve({ isConfirmed: true });
+                assert.equal(componente.enviando, false);
+                assert.equal(componente.ocupado, true);
+                return new Promise((resolve) => { cerrarResultado = resolve; });
+            } }),
+            fetchImpl: async () => respuesta(datos, status), navegar: (url) => navegaciones.push(url),
+        });
+        const operacion = componente.solicitar('confirmar');
+        for (let i = 0; !cerrarResultado && i < 20; i++) await new Promise((resolve) => setImmediate(resolve));
+        assert.equal(typeof cerrarResultado, 'function');
+        await componente.solicitar('cancelar');
+        assert.equal(dialogos, 2);
+        assert.equal(navegaciones.length, 0);
+        cerrarResultado({});
+        await operacion;
+        assert.equal(componente.ocupado, false);
+        assert.deepEqual(navegaciones, [config.urlDetalle]);
+    });
+}
+
+test('errores en línea reciben foco después de recuperar los controles', async () => {
+    const x = preparar({ fetchImpl: () => respuesta({}, 419) });
+    let focos = 0;
+    x.componente.$nextTick = (callback) => {
+        assert.equal(x.componente.ocupado, false);
+        callback();
+    };
+    x.componente.$refs = { resultado: { focus: () => { focos++; } } };
+    await x.componente.solicitar('confirmar');
+    assert.equal(focos, 1);
+    assert.match(x.componente.mensaje, /venció/);
+});
+
+for (const status of [200, 409, 422]) {
+    test(`un fallo del diálogo final no vuelve incierto el resultado HTTP conocido ${status}`, async () => {
+        let dialogos = 0;
+        const x = preparar({
+            obtenerSwal: () => ({ fire: async () => {
+                if (++dialogos === 1) return { isConfirmed: true };
+                throw new Error('Falla visual privada');
+            } }),
+            fetchImpl: () => respuesta({ code: status === 200 ? 'asistencia_confirmada' : 'estado_no_permitido', es_replay: false, message: 'Confirmación persistida.' }, status),
+        });
+        await x.componente.solicitar('confirmar');
+        assert.equal(x.envios.length, 1);
+        assert.doesNotMatch(x.componente.mensaje, /No pudimos confirmar el resultado|privada/);
+        assert.match(x.componente.mensaje, status === 200 ? /persistida/ : status === 409 ? /programación cambió/ : /estado actual/);
+        assert.equal(x.componente.necesitaActualizar, true);
+        assert.equal(x.componente.ocupado, false);
+        assert.equal(x.componente.enviando, false);
+        x.componente.actualizar();
+        assert.deepEqual(x.navegaciones, [config.urlDetalle]);
+    });
+}

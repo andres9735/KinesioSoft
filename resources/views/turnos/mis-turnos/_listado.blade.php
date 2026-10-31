@@ -14,7 +14,7 @@
 @endphp
 
 <section class="min-w-0 space-y-4 [overflow-wrap:anywhere]" aria-labelledby="{{ $seccion }}-titulo">
-    <h2 id="{{ $seccion }}-titulo" class="flex flex-wrap items-center gap-2 text-xl font-semibold text-gray-900">
+    <h2 id="{{ $seccion }}-titulo" tabindex="-1" class="flex flex-wrap items-center gap-2 rounded-lg text-xl font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
         {{ $titulo }}
         <span class="rounded-full bg-indigo-100 px-2.5 py-1 text-sm text-indigo-900" aria-label="{{ $turnos->total() }} {{ $turnos->total() === 1 ? 'turno' : 'turnos' }}">{{ $turnos->total() }}</span>
     </h2>
@@ -23,6 +23,7 @@
         <p class="px-5 py-10 text-center text-sm text-gray-600">{{ $vacio }}</p>
     @elseif ($turnos->isEmpty())
         <p class="px-5 py-10 text-center text-sm text-gray-600">No hay turnos en esta página.</p>
+        <a href="{{ $turnos->url(1) }}" class="inline-flex min-h-11 items-center rounded-lg px-4 py-2 text-sm font-semibold text-indigo-700 underline focus:outline-none focus:ring-2 focus:ring-indigo-500">Volver a la primera página de {{ $titulo }}</a>
     @else
         <ul class="space-y-3">
             @foreach ($turnos as $turno)
