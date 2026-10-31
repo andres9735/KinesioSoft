@@ -79,6 +79,7 @@ final class MisTurnosQueryService
      */
     public function detalle(Turno $turno, User $actor): array
     {
+        $ahora = $this->reloj->ahora();
         $turno->load('kinesiologa.user:id,name,apellido');
         $profesional = $turno->kinesiologa?->user;
         $primeraConsulta = $turno->tipo === TipoTurnoEnum::PRIMERA_CONSULTA;
@@ -104,7 +105,10 @@ final class MisTurnosQueryService
             'inicio_at' => $turno->inicio_at,
             'fin_at' => $turno->fin_at,
             'profesional' => $profesional === null ? null : trim($profesional->name.' '.$profesional->apellido),
-            'seccion' => $this->esProximo($turno, $this->reloj->ahora()) ? 'proximos' : 'historicos',
+            'seccion' => $this->esProximo($turno, $ahora) ? 'proximos' : 'historicos',
+            // Proyección visual: las Actions revalidan autoritativamente bajo locks.
+            'puedeConfirmar' => $turno->estado === EstadoTurnoEnum::PENDIENTE && $turno->inicio_at->greaterThan($ahora),
+            'puedeCancelar' => in_array($turno->estado, self::ESTADOS_PROXIMOS, true) && ! $turno->inicio_at->utc()->lessThan($ahora->utc()->addHours(12)),
             'motivo' => $primeraConsulta ? $turno->motivo_solicitud : null,
             'documentos' => $documentos,
         ];

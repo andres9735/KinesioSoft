@@ -9,6 +9,7 @@ import domicilioPaciente from './components/domicilio-paciente';
 import matrizSemanalAgenda from './agenda/matriz-semanal';
 import bloqueoAgendaForm from './agenda/bloqueo-form';
 import solicitarTurno from './turnos/solicitar-turno';
+import misTurnos from './turnos/mis-turnos';
 
 window.Alpine = Alpine;
 window.Swal = Swal;
@@ -21,5 +22,6 @@ Alpine.data('domicilioPaciente', domicilioPaciente);
 Alpine.data('matrizSemanalAgenda', matrizSemanalAgenda);
 Alpine.data('bloqueoAgendaForm', bloqueoAgendaForm);
 Alpine.data('solicitarTurno', solicitarTurno);
+Alpine.data('misTurnos', misTurnos);
 
 Alpine.start();

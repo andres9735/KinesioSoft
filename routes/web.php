@@ -52,6 +52,16 @@ Route::get('/turnos/mis-turnos/{turno}', [MisTurnosController::class, 'show'])
     ->middleware(['auth', 'verified', 'perfil.completo', 'perfil.paciente'])
     ->name('turnos.mis-turnos.show');
 
+Route::post('/turnos/mis-turnos/{turno}/confirmar-asistencia', [MisTurnosController::class, 'confirmar'])
+    ->whereNumber('turno')
+    ->middleware(['auth', 'verified', 'perfil.completo', 'perfil.paciente'])
+    ->name('turnos.mis-turnos.confirmar');
+
+Route::post('/turnos/mis-turnos/{turno}/cancelar', [MisTurnosController::class, 'cancelar'])
+    ->whereNumber('turno')
+    ->middleware(['auth', 'verified', 'perfil.completo', 'perfil.paciente'])
+    ->name('turnos.mis-turnos.cancelar');
+
 Route::middleware(['auth', 'verified', 'perfil.completo', 'perfil.paciente'])->group(function () {
     Route::get('/turnos/solicitar', [SolicitarTurnoController::class, 'create'])
         ->name('turnos.solicitar.create');

@@ -28,6 +28,31 @@
                     <div><dt class="font-medium text-gray-500">Horario</dt><dd class="mt-1 text-gray-900">{{ $detalle['inicio_at']->format('H:i') }} – {{ $detalle['fin_at']->format('H:i') }} hs</dd></div>
                 </dl>
             </section>
+            <section class="rounded-2xl bg-white p-5 shadow-sm sm:p-6 [&_[x-cloak]]:!hidden" aria-labelledby="acciones-turno-titulo"
+                x-data="misTurnos(@js($autogestion + ['csrfToken' => csrf_token()]))" :aria-busy="enviando">
+                <h2 id="acciones-turno-titulo" class="text-lg font-semibold text-gray-900">Gestionar este turno</h2>
+                @if ($detalle['puedeConfirmar'] || $detalle['puedeCancelar'])
+                    <p class="mt-2 text-sm text-gray-600">Confirmar asistencia expresa tu intención de asistir. La cancelación online requiere al menos 12 horas de anticipación.</p>
+                @endif
+                <div class="mt-4 flex flex-wrap gap-3">
+                    @if ($detalle['puedeConfirmar'])
+                        <button type="button" x-cloak @click="solicitar('confirmar')" :disabled="ocupado || necesitaActualizar"
+                            class="inline-flex min-h-11 items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50">Confirmar asistencia</button>
+                    @endif
+                    @if ($detalle['puedeCancelar'])
+                        <button type="button" x-cloak @click="solicitar('cancelar')" :disabled="ocupado || necesitaActualizar"
+                            class="inline-flex min-h-11 items-center rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50">Cancelar turno</button>
+                    @endif
+                </div>
+                @if (! $detalle['puedeConfirmar'] && ! $detalle['puedeCancelar'])
+                    <p class="mt-3 text-sm text-gray-600">Este turno no admite nuevas confirmaciones ni cancelaciones online con sus condiciones actuales. Si necesitás asistencia, comunicate con el consultorio.</p>
+                @endif
+                <noscript><p class="mt-3 text-sm text-amber-900">Habilitá JavaScript para utilizar las confirmaciones visuales de estas operaciones.</p></noscript>
+                <p x-cloak x-show="enviando" role="status" class="mt-3 text-sm font-medium text-indigo-700">Procesando la operación…</p>
+                <p x-cloak x-show="mensaje" x-text="mensaje" role="status" aria-live="polite" class="mt-3 text-sm text-gray-800"></p>
+                <button type="button" x-cloak x-show="necesitaActualizar" @click="actualizar()" :disabled="ocupado"
+                    class="mt-3 inline-flex min-h-11 items-center rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">Consultar estado actual</button>
+            </section>
             @if ($detalle['tipo'] === \App\Enums\TipoTurnoEnum::PRIMERA_CONSULTA)
                 <section class="rounded-2xl bg-white p-5 shadow-sm sm:p-6" aria-labelledby="solicitud-titulo">
                     <h2 id="solicitud-titulo" class="text-lg font-semibold text-gray-900">Datos de la solicitud</h2>

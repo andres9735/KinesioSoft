@@ -28,6 +28,8 @@ class TurnosRoutesTest extends TestCase
         return [
             ['turnos.mis-turnos.index', 'turnos/mis-turnos', ['GET', 'HEAD'], [MisTurnosController::class, 'index']],
             ['turnos.mis-turnos.show', 'turnos/mis-turnos/{turno}', ['GET', 'HEAD'], [MisTurnosController::class, 'show']],
+            ['turnos.mis-turnos.confirmar', 'turnos/mis-turnos/{turno}/confirmar-asistencia', ['POST'], [MisTurnosController::class, 'confirmar']],
+            ['turnos.mis-turnos.cancelar', 'turnos/mis-turnos/{turno}/cancelar', ['POST'], [MisTurnosController::class, 'cancelar']],
             ['turnos.solicitar.create', 'turnos/solicitar', ['GET', 'HEAD'], [SolicitarTurnoController::class, 'create']],
             ['turnos.solicitar.disponibilidad', 'turnos/solicitar/disponibilidad', ['GET', 'HEAD'], [SolicitarTurnoController::class, 'disponibilidad']],
             ['turnos.solicitar.profesionales-disponibles', 'turnos/solicitar/profesionales-disponibles', ['GET', 'HEAD'], [SolicitarTurnoController::class, 'profesionalesDisponibles']],
@@ -35,13 +37,13 @@ class TurnosRoutesTest extends TestCase
         ];
     }
 
-    public function test_only_approved_patient_routes_exist_without_uc06_actions(): void
+    public function test_only_approved_patient_routes_exist_including_uc06_actions(): void
     {
         $this->assertTrue(Route::has('turnos.solicitar.create'));
         $paciente = collect(Route::getRoutes())->filter(fn ($ruta) => str_starts_with($ruta->uri(), 'turnos/')
             && ! str_starts_with($ruta->uri(), 'turnos/agenda'));
         $this->assertSame([
-            'turnos.mis-turnos.index', 'turnos.mis-turnos.show', 'turnos.solicitar.create', 'turnos.solicitar.disponibilidad', 'turnos.solicitar.profesionales-disponibles', 'turnos.solicitar.store',
+            'turnos.mis-turnos.index', 'turnos.mis-turnos.show', 'turnos.mis-turnos.confirmar', 'turnos.mis-turnos.cancelar', 'turnos.solicitar.create', 'turnos.solicitar.disponibilidad', 'turnos.solicitar.profesionales-disponibles', 'turnos.solicitar.store',
         ], $paciente->map(fn ($ruta) => $ruta->getName())->values()->all());
         $this->assertCount(1, $paciente->filter(fn ($ruta) => $ruta->uri() === 'turnos/solicitar' && in_array('GET', $ruta->methods(), true)));
     }
