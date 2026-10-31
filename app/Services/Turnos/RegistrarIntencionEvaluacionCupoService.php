@@ -9,6 +9,7 @@ use App\Models\Auditoria;
 use App\Models\IntencionEvaluacionCupo;
 use App\Models\Turno;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use LogicException;
@@ -90,7 +91,27 @@ final class RegistrarIntencionEvaluacionCupoService
 
         // UNIQUE identifica una cancelación. createOrFirst usa savepoint al
         // resolver colisiones; no silenciar otros fallos mediante insertOrIgnore.
-        $intencion = IntencionEvaluacionCupo::query()->firstOrCreate(['auditoria_cancelacion_id' => $hecho->id], $datos);
+        try {
+            $intencion = IntencionEvaluacionCupo::query()->firstOrCreate(['auditoria_cancelacion_id' => $hecho->id], $datos);
+        } catch (UniqueConstraintViolationException $error) {
+            if ((int) ($error->errorInfo[1] ?? 0) !== 1062
+                || ! preg_match("/['`](?:intenciones_evaluacion_cupo\\.)?int_eval_cupo_cancelacion_unique['`]/", (string) ($error->errorInfo[2] ?? ''))
+                || $error->getConnectionName() !== $conexion->getNameWithReadWriteType()
+                || ! str_starts_with($error->getSql(), 'insert into '.$conexion->getQueryGrammar()->wrapTable((new IntencionEvaluacionCupo)->getTable()).' ')
+                || $conexion->transactionLevel() === 0) {
+                throw $error;
+            }
+
+            // El savepoint conserva el snapshot REPEATABLE-READ: releer la fila
+            // ganadora con bloqueo en la misma conexión y transacción vigente.
+            $intencion = IntencionEvaluacionCupo::on($conexion->getNameWithReadWriteType())
+                ->where('auditoria_cancelacion_id', $hecho->id)
+                ->lockForUpdate()
+                ->first();
+            if ($intencion === null) {
+                throw $error;
+            }
+        }
         if (! $intencion->exists) {
             throw new RuntimeException('No se pudo persistir la intención de evaluación.');
         }

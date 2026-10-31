@@ -75,11 +75,14 @@ La planificación incremental V1.0 contiene 18 subpasos en cinco fases:
 - **6.09: IMPLEMENTADO, VERIFICADO Y CERRADO** en `a1c662d`; infraestructura transaccional compartida conforme a DT-05 y DT-06, con concurrencia real MariaDB pendiente de 6.13.
 - **6.10: IMPLEMENTADO, VERIFICADO Y CERRADO** en `cb607b2`; Confirmar asistencia conforme a D-06, D-09–D-12 y DT-05–DT-08.
 - **6.11: IMPLEMENTADO, VERIFICADO Y CERRADO** en `eea2d15`; infraestructura de intención durable, única e idempotente de evaluación del cupo conforme a DT-09.
-- **6.12: IMPLEMENTADO, VERIFICADO Y CERRADO mediante este commit**; cancelación transaccional e idempotente, con auditoría e intención durable atómicas conforme a D-04 y DT-05–DT-09.
-- **6.13: siguiente subpaso, PENDIENTE**; certificación de idempotencia y concurrencia real MariaDB/InnoDB, que requiere prompt y autorización específicos antes de iniciar.
-- **6.14–6.18: PENDIENTES**, sin ejecución anticipada.
+- **6.12: IMPLEMENTADO, VERIFICADO Y CERRADO** en `9bd7586`; cancelación transaccional e idempotente, con auditoría e intención durable atómicas conforme a D-04 y DT-05–DT-09.
+- **6.13: IMPLEMENTADO, VERIFICADO Y CERRADO mediante el commit que incorpora esta certificación**.
+- **6.14: siguiente subpaso PENDIENTE, no iniciado**, sujeto a autorización independiente.
+- **6.15–6.18: PENDIENTES**, sin ejecución anticipada.
 
-El cierre de 6.12 comprende la revisión de los cuatro archivos certificados, la actualización de seguimiento en `AGENTS.md` y el único commit expresamente solicitado. No autoriza repetir pruebas, builds o migraciones ni iniciar 6.13.
+El cierre de 6.12, versionado en `9bd7586`, comprendió la revisión de los cuatro archivos certificados, la actualización de seguimiento en `AGENTS.md` y el único commit expresamente solicitado. Esa autorización no habilitaba repetir pruebas, builds o migraciones ni iniciar 6.13.
+
+El cierre formal de 6.13 se registra mediante el commit que incorpora esta certificación. Esta declaración no autoriza por sí sola staging, commit, push, nuevas ejecuciones, limpieza de datos ni iniciar 6.14.
 
 ### UC–06 — Baseline inicial certificado (6.03)
 
@@ -200,6 +203,19 @@ Este es el baseline inicial certificado de UC–06. Los resultados de UC–07 co
 - **Dependencia C-02 / DT-03 PENDIENTE:** no se inventan planes ni sesiones reales de Seguimiento, no se consumen prestaciones ni se modifican otros turnos; la integración clínica externa continúa sin infraestructura disponible ni certificación.
 - **Integraciones externas, enlaces seguros y comunicaciones PENDIENTES:** la intención durable no implementa evaluación efectiva, candidatos, ofertas ni notificaciones; el contexto de canal requiere validación específica previa y no implementa enlaces. La interfaz de autogestión permanece pendiente de sus subpasos posteriores.
 - JavaScript y sintaxis JavaScript conservan los resultados históricos de 6.03; build conserva su último **PASS, 94 módulos** de 6.08; MariaDB conserva su certificación histórica de 6.03. **No se repitieron durante 6.12**.
+
+### UC–06 — Certificación y cierre definitivo de 6.13
+
+- **Estado: IMPLEMENTADO, VERIFICADO Y CERRADO mediante el commit que incorpora esta certificación.**
+- Certificación detallada: `docs/implementacion/turnos-gestionar-mis-turnos-613-certificacion.md`, con alcance, incidencias, entorno, SHA-256 certificados y limitaciones.
+- Regresión ordinaria de Fase C: dirigidas **259 tests / 2040 assertions PASS**; completa **2712 tests / 17947 assertions PASS**, con `testing`, PDO SQLite `:memory:` y configuración sin caché; suite MariaDB especial excluida.
+- Lint de **11 archivos PHP**, Pint acotado en modo `--test` y `git diff --check`: **PASS**. Las huellas del servicio, soporte y conjunto de once archivos permanecen certificadas.
+- MariaDB **10.4.32 / InnoDB / REPEATABLE-READ**, destino exclusivo `127.0.0.1:3306/kinesiosoft_uc06_613_test`: **V1 2 tests / 49 assertions PASS**, **V2-A 1 test / 21 assertions PASS** y **V2-B 27 tests / 609 assertions PASS**.
+- V2-B certificó **25 esperas reales, 8 carreras y 26 límites entre casos**, mutex compartidos, transiciones, revalidación, idempotencia, recuperación UNIQUE, timeout 1205, deadlock 1213 y rollback. Auditoría posterior **PASS**: sin residuos ni conexiones ajenas; esquema intacto, con 48 migraciones y 44 tablas.
+- Incidencias corregidas: fuga de conexiones del harness (cierre explícito de conexiones propias incluso ante excepciones) y recuperación UNIQUE productiva (lectura actual mediante `lockForUpdate()` en la misma conexión/transacción, conservando `firstOrCreate()` y su savepoint). Guards y assertions originales preservados.
+- MariaDB y SQLite son certificaciones separadas; no sumar sus cantidades ni las validaciones V1/V2-A/V2-B como una única ejecución. Las dirigidas forman parte del alcance de la regresión ordinaria completa. SQLite no certifica locking real y el ensayo de deadlock no implica ausencia universal de deadlocks.
+- **C-02 / DT-03 e integraciones externas PENDIENTES:** planes y sesiones clínicas reales, evaluación efectiva de cupos, candidatos, ofertas, enlaces seguros y comunicaciones continúan fuera de esta certificación.
+- Los antecedentes de UC–07 y de 6.03–6.12 se conservan, incluidas las menciones históricas de MariaDB entonces pendiente. JavaScript y build conservan sus resultados históricos; esta fase documental no repite pruebas, builds ni migraciones.
 
 ### Obligaciones del incremento UC–06
 
