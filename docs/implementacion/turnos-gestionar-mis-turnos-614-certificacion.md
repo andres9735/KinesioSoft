@@ -1,6 +1,6 @@
 # UC–06 — Subpaso 6.14: certificación técnica y manual
 
-**Estado:** implementación y verificaciones técnicas y manuales completas; pendiente únicamente del commit formal de cierre, sujeto a autorización expresa. No se asigna un hash futuro.
+**Estado de 6.14:** IMPLEMENTADO, VERIFICADO Y CERRADO en el commit definitivo `5a9c6edce1a0b18ff4c031cb542d4a646b0e8323`.
 
 ## Referencia y alcance
 
@@ -65,4 +65,4 @@ No se incorporan claves, contraseñas, cookies, datos personales o clínicos, au
 - **Observaciones UX para 6.15:** la CSP del entorno temporal bloquea la fuente externa y utiliza la tipografía de respaldo; revisar su presentación. Revisar también la diferenciación entre el estado ocupado durante el diálogo y el indicador de progreso del POST. Estas observaciones no modifican el resultado satisfactorio del flujo principal ni autorizan cambios anticipados.
 - **C-02 / DT-03 PENDIENTE:** la integración clínica de planes y sesiones reales de Seguimiento no queda resuelta ni certificada por esta interfaz.
 - **Integraciones externas PENDIENTES:** evaluación efectiva de cupos, candidatos, ofertas, enlaces seguros y comunicaciones. Registrar una intención durable no implementa estos procesos.
-- **6.14 permanece pendiente únicamente del commit formal de cierre. 6.15 es el siguiente subpaso, pendiente y sin iniciar; 6.16–6.18 continúan pendientes.** Esta documentación no autoriza staging, commit, push ni nuevos trabajos.
+- **6.14: IMPLEMENTADO, VERIFICADO Y CERRADO en `5a9c6edce1a0b18ff4c031cb542d4a646b0e8323`. 6.15 es el siguiente subpaso, pendiente y sin iniciar; 6.16–6.18 continúan pendientes.** Esta documentación no autoriza por sí sola staging, commit, push ni nuevos trabajos.

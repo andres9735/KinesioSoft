@@ -77,13 +77,13 @@ La planificación incremental V1.0 contiene 18 subpasos en cinco fases:
 - **6.11: IMPLEMENTADO, VERIFICADO Y CERRADO** en `eea2d15`; infraestructura de intención durable, única e idempotente de evaluación del cupo conforme a DT-09.
 - **6.12: IMPLEMENTADO, VERIFICADO Y CERRADO** en `9bd7586`; cancelación transaccional e idempotente, con auditoría e intención durable atómicas conforme a D-04 y DT-05–DT-09.
 - **6.13: IMPLEMENTADO, VERIFICADO Y CERRADO** en `616085b57b425e873ff0e957b0d558cb26add136`.
-- **6.14: IMPLEMENTACIÓN Y VERIFICACIONES TÉCNICAS Y MANUALES COMPLETAS**; pendiente únicamente del commit formal de cierre, sujeto a autorización expresa.
+- **6.14: IMPLEMENTADO, VERIFICADO Y CERRADO** en `5a9c6edce1a0b18ff4c031cb542d4a646b0e8323`.
 - **6.15: siguiente subpaso PENDIENTE, no iniciado**, sujeto a autorización independiente.
 - **6.16–6.18: PENDIENTES**, sin ejecución anticipada.
 
 El cierre de 6.12, versionado en `9bd7586`, comprendió la revisión de los cuatro archivos certificados, la actualización de seguimiento en `AGENTS.md` y el único commit expresamente solicitado. Esa autorización no habilitaba repetir pruebas, builds o migraciones ni iniciar 6.13.
 
-El cierre formal de 6.13 quedó versionado en `616085b57b425e873ff0e957b0d558cb26add136`. La implementación de 6.14 y sus verificaciones técnicas y manuales están completas; queda pendiente únicamente su commit formal. Este estado no autoriza por sí solo staging, commit, push, nuevas ejecuciones, limpieza de datos ni iniciar 6.15.
+El cierre formal de 6.13 quedó versionado en `616085b57b425e873ff0e957b0d558cb26add136`. El cierre formal de 6.14 quedó versionado en `5a9c6edce1a0b18ff4c031cb542d4a646b0e8323`: IMPLEMENTADO, VERIFICADO Y CERRADO. Este estado no autoriza por sí solo staging, commit, push, nuevas ejecuciones, limpieza de datos ni iniciar 6.15.
 
 ### UC–06 — Baseline inicial certificado (6.03)
 
@@ -220,7 +220,7 @@ Este es el baseline inicial certificado de UC–06. Los resultados de UC–07 co
 
 ### UC–06 — Certificación técnica y manual de 6.14
 
-- **Estado: implementación y verificaciones completas; pendiente únicamente del commit formal de cierre**, sin hash futuro asignado ni autorización implícita para versionar.
+- **Estado: IMPLEMENTADO, VERIFICADO Y CERRADO** en `5a9c6edce1a0b18ff4c031cb542d4a646b0e8323`.
 - Certificación detallada: `docs/implementacion/turnos-gestionar-mis-turnos-614-certificacion.md`.
 - Alcance: Confirmar asistencia y Cancelar turno desde el detalle de Mis turnos, referencia cifrada de programación, diálogos explícitos y recuperación del detalle vigente. Se reutilizan las Actions y las garantías transaccionales certificadas en 6.13, sin modificar esa infraestructura.
 - Pruebas PHP acotadas: **1207 tests / 8555 assertions PASS**; regresión UC–07: **62 tests / 586 assertions PASS**. JavaScript: **26 pruebas nuevas y 155 existentes PASS**. Lint y Pint acotados: **PASS**; build: **PASS, 95 módulos**. Son resultados previamente aprobados; no se reejecutan en esta fase documental ni constituyen una nueva suite PHP global.
@@ -228,7 +228,7 @@ Este es el baseline inicial certificado de UC–06. Los resultados de UC–07 co
 - La validación manual no recertifica concurrencia MariaDB ni repite exhaustivamente los bordes temporales, CSRF, propiedad e idempotencia cubiertos automáticamente. La certificación MariaDB de 6.13 permanece histórica e intacta, sin nueva ejecución.
 - Observaciones UX para **6.15, todavía no iniciado**: CSP de la fuente externa en el entorno temporal y diferenciación del indicador de progreso durante el diálogo respecto del envío efectivo. No autorizan modificaciones anticipadas.
 - **C-02 / DT-03 e integraciones externas PENDIENTES:** planes y sesiones clínicas reales, evaluación efectiva de cupos, candidatos, ofertas, enlaces seguros y comunicaciones no se consideran resueltos por 6.14.
-- **6.15** será el siguiente subpaso sólo después del cierre formal y de su autorización independiente; **6.16–6.18** permanecen pendientes. Esta preparación documental no autoriza staging, commit, push ni ejecuciones adicionales.
+- **6.15** es el siguiente subpaso **PENDIENTE, no iniciado**, sujeto a autorización independiente; **6.16–6.18** permanecen pendientes. Esta regularización documental no autoriza por sí sola staging, commit, push ni ejecuciones adicionales.
 
 ### Obligaciones del incremento UC–06
 
