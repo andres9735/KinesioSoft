@@ -23,7 +23,11 @@ Stack actual:
 - PHPUnit para pruebas automatizadas.
 - Spatie Permission para roles/permisos.
 
-## Incremento activo — UC–06 Gestionar Mis turnos
+## Estado del último incremento — UC–06 Gestionar Mis turnos
+
+**UC–06: IMPLEMENTADO, VERIFICADO Y CERRADO mediante el commit que incorpora la certificación de 6.18**, hasta su alcance implementado y certificado, con dependencias externas y límites de evidencia expresamente identificados.
+
+**No hay un nuevo incremento iniciado ni autorizado.** Agenda Diaria Automática y los demás procesos externos requieren alcance, preparación y autorización independientes; no se inician por este cierre.
 
 Rama esperada:
 
@@ -81,11 +85,11 @@ La planificación incremental V1.0 contiene 18 subpasos en cinco fases:
 - **6.15: IMPLEMENTADO, VERIFICADO Y CERRADO mediante el commit que incorpora esta certificación**.
 - **6.16: IMPLEMENTADO, VERIFICADO Y CERRADO mediante el commit que incorpora esta certificación**, hasta el alcance disponible y con dependencias externas pendientes explícitas.
 - **6.17: IMPLEMENTADO, VERIFICADO Y CERRADO mediante el commit que incorpora esta certificación**, con regresión ordinaria integral PASS y evidencia MariaDB/visual previa reutilizada explícitamente.
-- **6.18: siguiente subpaso PENDIENTE, no iniciado**, sujeto a autorización independiente.
+- **6.18: COMPLETADO Y CERRADO mediante el commit que incorpora el informe definitivo y la matriz de los 40 criterios**, sin anticipar su hash. No quedan subpasos de UC–06 autorizados para ejecución automática.
 
 El cierre de 6.12, versionado en `9bd7586`, comprendió la revisión de los cuatro archivos certificados, la actualización de seguimiento en `AGENTS.md` y el único commit expresamente solicitado. Esa autorización no habilitaba repetir pruebas, builds o migraciones ni iniciar 6.13.
 
-El cierre formal de 6.13 quedó versionado en `616085b57b425e873ff0e957b0d558cb26add136`. El cierre formal de 6.14 quedó versionado en `5a9c6edce1a0b18ff4c031cb542d4a646b0e8323`: IMPLEMENTADO, VERIFICADO Y CERRADO. El cierre de 6.15 se registra mediante el commit que incorpora su certificación. El cierre de 6.16 se registra mediante el commit que incorpora la certificación de integraciones. El cierre de 6.17 se registra mediante el commit que incorpora la certificación de regresión integral. Estos estados no autorizan por sí solos staging, commit, push, nuevas ejecuciones, limpieza de datos ni iniciar 6.18.
+El cierre formal de 6.13 quedó versionado en `616085b57b425e873ff0e957b0d558cb26add136`; el de 6.14, en `5a9c6edce1a0b18ff4c031cb542d4a646b0e8323`; el de 6.15, en `cdf196bc0bc98f84bfb93967bba019c1db6a595a`; el de 6.16, en `d73af11ef98d77ebb81de59a56ada35d9af4639c`; y el de 6.17, en `ee3d2577c2899c791e842e53e1f45b542ae2ab98`. El cierre definitivo de 6.18 y de UC–06 queda formalizado mediante el commit que incorpora su informe. Estos estados no autorizan por sí solos staging, commit, push, merge, PR, despliegues, nuevas ejecuciones, limpieza de datos ni iniciar otro incremento.
 
 ### UC–06 — Baseline inicial certificado (6.03)
 
@@ -263,7 +267,18 @@ Este es el baseline inicial certificado de UC–06. Los resultados de UC–07 co
 - `npm run build`: **PASS, 95 módulos**, Vite 7.3.1, 5.05 s, exit code 0. Aviso informativo de Browserslist sobre datos antiguos; sin actualización de dependencias.
 - Lint y Pint `--test`: **PASS en los 54 archivos PHP del alcance UC-06**; `git diff --check`: **PASS**. No constituye Pint global sobre deuda ajena. Integridad de 683 archivos versionados de código, pruebas, configuración y dependencias conservada, sin cambios productivos ni de tests durante la certificación.
 - Exclusiones explícitas de la ejecución actual: suites reales `tests/Integration/MySql` y `tests/Integration/Uc06MariaDb`, fuera del `phpunit.xml` ordinario. Se conserva MariaDB 6.13 **27 tests / 609 assertions PASS**, con sus validaciones independientes V1/V2-A, y UX manual de 6.14–6.15; la integración dirigida de 6.16 (**45/617 PASS**) es antecedente, no una cantidad a sumar a la regresión global.
-- No se detectaron regresiones en el alcance ejecutado. **C-02 / DT-03 e integraciones externas permanecen pendientes**, según 6.16; SQLite no recertifica locking MariaDB ni acredita consumidores ausentes. **6.18: siguiente subpaso PENDIENTE, no iniciado**, sujeto a autorización independiente. No se autoriza staging, commit, push ni nuevas operaciones por esta declaración.
+- No se detectaron regresiones en el alcance ejecutado. **C-02 / DT-03 e integraciones externas permanecen pendientes**, según 6.16; SQLite no recertifica locking MariaDB ni acredita consumidores ausentes. El cierre documental definitivo se registra en el bloque de **6.18** siguiente, sin nuevas pruebas.
+
+### UC–06 — Cierre definitivo de 6.18 y del incremento
+
+- **6.18 COMPLETADO; UC–06 IMPLEMENTADO, VERIFICADO Y CERRADO mediante el commit que incorpora esta certificación.** Informe, matriz CA-01–CA-40 y resumen para revisión futura: `docs/implementacion/turnos-gestionar-mis-turnos-618-cierre.md`.
+- Alcance literal V1.0: **Elaborar informe de cierre, matriz de cumplimiento de los 40 criterios de aceptación, evidencias y estado final de Git.** Los subpasos 6.01–6.17 cuentan con su seguimiento, commits y certificaciones previas; esta fase es exclusivamente documental.
+- Baseline final reutilizado de 6.17: **2760 tests / 18474 assertions PHP PASS**, **196 JavaScript PASS**, build **PASS, 95 módulos**, lint/Pint acotado **54 archivos PASS** y aislamiento SQLite `:memory:` verificado. No se repiten estas ejecuciones.
+- Concurrencia real reutilizada de 6.13: MariaDB **27 tests / 609 assertions PASS**, 25 esperas, 8 carreras y 26 límites; V1 **2/49** y V2-A **1/21 PASS** son validaciones separadas. UX funcional/visual de 6.14–6.15 e integración de 6.16 **45/617 PASS** conservan su evidencia y límites propios, sin sumar resultados como una única ejecución.
+- La matriz clasifica los **40 criterios** sin declarar un 40/40 PASS: **30** con pruebas localizadas; **CA-14** con revisión estática sin ensayo específico localizado del fallo de carga inicial; **CA-17** con revisión del límite administrativo sin flujo clínico UC-08 real; **CA-16 y CA-26** condicionados parcialmente por C-02 / DT-03; y **seis criterios de integración** pendientes de sus componentes externos, con los contratos de salida disponibles verificados.
+- No se identificó una contradicción material que impida cerrar el alcance implementado. Persisten las dependencias de planes/sesiones reales, UC-08, reprogramación profesional completa, resolvedor de enlaces, recordatorios/Agenda Diaria Automática, procesamiento de intenciones, candidatos y ofertas. Un enum de canal o una intención persistida no son consumidores operativos; DX-01–DX-07 no se resuelven implícitamente.
+- Los 683 archivos de código, pruebas, configuración y manifiestos conservan la huella certificada en 6.17. Las menciones a subpasos siguientes pendientes en certificaciones anteriores se conservan como estados históricos al emitir cada documento; el estado vigente es este cierre, sin reescribir sus evidencias.
+- No hay siguiente incremento iniciado. La integración futura requiere revisión y autorización independientes, comprobación del destino y de migraciones aplicables, conservación de las fuentes locales congeladas y decisión humana sobre commit/PR/merge/despliegue. Este cierre no ejecuta ni autoriza automáticamente esas operaciones o la limpieza de sesiones y bases.
 
 ### Obligaciones del incremento UC–06
 
@@ -321,7 +336,7 @@ Planificación ejecutada: **Parte II V2 7.29–7.52 COMPLETADA**, con V2-P1–V2
 
 Último subpaso de UC–07 completado: **7.52 — Cierre documental definitivo de UC–07 V2**.
 
-No quedan subpasos V2 por ejecutar. El nuevo incremento activo es UC–06, con el estado y las autorizaciones delimitados en el bloque inicial de este archivo.
+No quedan subpasos V2 por ejecutar. UC–06, incremento posterior a UC–07, también queda cerrado conforme al bloque inicial de este archivo. No hay un nuevo incremento iniciado ni autorización implícita para iniciar otro trabajo.
 
 La ejecución se realizó mediante autorizaciones y prompts independientes. El cierre no autoriza reejecutar subpasos, limpiar fixtures ni iniciar otro trabajo. Toda intervención posterior requiere alcance y autorización explícitos del usuario.
 
