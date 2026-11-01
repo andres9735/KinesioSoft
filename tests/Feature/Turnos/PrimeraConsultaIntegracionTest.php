@@ -9,9 +9,11 @@ use App\Models\Auditoria;
 use App\Models\BloqueoAgenda;
 use App\Models\DocumentoClinico;
 use App\Models\DocumentoClinicoOrigenTurno;
+use App\Models\IntencionEvaluacionCupo;
 use App\Models\Kinesiologa;
 use App\Models\Paciente;
 use App\Models\Turno;
+use App\Services\Agenda\AgendaQueryService;
 use App\Services\Turnos\Documentos\CoordinadorBloqueoDocumental;
 use App\Services\Turnos\ReconciliadorDocumentosClinicosService;
 use Carbon\CarbonImmutable;
@@ -22,6 +24,10 @@ use Illuminate\Foundation\Testing\RefreshDatabaseState;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use LogicException;
@@ -160,6 +166,79 @@ class PrimeraConsultaIntegracionTest extends TestCase
     public static function cantidades(): array
     {
         return ['sin adjuntos' => [0], 'cinco adjuntos' => [5]];
+    }
+
+    public function test_uc07_to_uc06_confirmation_cancellation_and_rebooking_preserve_shared_contracts(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake();
+        Mail::fake();
+        Notification::fake();
+        Queue::fake();
+        $inicio = '2026-10-12 10:00:00';
+        $datos = $this->payload(['inicio_at' => $inicio, 'adjuntos' => [$this->adjunto()]]);
+        $this->post(route('turnos.solicitar.store'), $datos, ['Accept' => 'application/json'])->assertCreated();
+        $turno = Turno::sole();
+        $original = $turno->getAttributes();
+        $documento = DocumentoClinico::sole();
+        $originalDocumento = $documento->getAttributes();
+        $contenido = $this->disco->get($documento->ruta_storage);
+        $agenda = app(AgendaQueryService::class);
+        $ocupacion = fn () => $agenda->turnosAfectadosPorIntervalo($this->profesional, $turno->inicio_at, $turno->fin_at)->pluck('id')->all();
+        $disponibles = fn () => $this->getJson(route('turnos.solicitar.profesionales-disponibles', ['inicio_at' => $inicio]))->assertOk()->json('profesionales');
+        $this->assertSame([$turno->id], $ocupacion());
+        $this->assertSame([], $disponibles());
+        $this->get(route('turnos.solicitar.create'))->assertOk()->assertViewHas('bloqueadoPorPrimeraConsulta', true);
+
+        $detalle = $this->get(route('turnos.mis-turnos.show', $turno))->assertOk();
+        $this->assertSame($original['motivo_solicitud'], $detalle->viewData('detalle')['motivo']);
+        $this->assertSame($documento->descripcion, $detalle->viewData('detalle')['documentos']->sole()['descripcion']);
+        $referencia = ['referencia_programacion' => $detalle->viewData('autogestion')['referencia']];
+        $this->postJson(route('turnos.mis-turnos.confirmar', $turno), $referencia)
+            ->assertOk()->assertJsonPath('es_replay', false);
+        $this->assertSame(EstadoTurnoEnum::CONFIRMADO, $turno->fresh()->estado);
+        $this->assertSame([$turno->id], $ocupacion());
+        $this->assertSame([], $disponibles());
+        $this->get(route('turnos.solicitar.create'))->assertOk()->assertViewHas('bloqueadoPorPrimeraConsulta', true);
+
+        $this->postJson(route('turnos.mis-turnos.cancelar', $turno), $referencia)
+            ->assertOk()->assertJsonPath('es_replay', false);
+        $this->postJson(route('turnos.mis-turnos.cancelar', $turno), $referencia)
+            ->assertOk()->assertJsonPath('es_replay', true);
+        $this->assertSame(EstadoTurnoEnum::CANCELADO, $turno->fresh()->estado);
+        $this->assertSame([], $ocupacion());
+        $this->assertSame([$this->profesional->id], array_column($disponibles(), 'kinesiologa_id'));
+        $this->get(route('turnos.mis-turnos.show', $turno))->assertOk()
+            ->assertViewHas('detalle', fn ($d) => $d['seccion'] === 'historicos');
+        foreach (['tipo', 'paciente_id', 'kinesiologa_id', 'inicio_at', 'fin_at', 'motivo_solicitud'] as $campo) {
+            $this->assertSame($original[$campo], $turno->fresh()->getRawOriginal($campo));
+        }
+        $this->assertSame($originalDocumento, $documento->fresh()->getAttributes());
+        $this->assertSame($turno->id, $documento->origenTurno->turno_id);
+        $this->get(route('documentos-clinicos.download', $documento))->assertOk()->assertStreamedContent($contenido);
+        $this->actingAs($this->pacienteUc07()->user)->get(route('documentos-clinicos.download', $documento))->assertForbidden();
+        $this->actingAs($this->paciente->user);
+
+        $wizard = $this->get(route('turnos.solicitar.create'))->assertOk()->viewData('configuracionWizard');
+        $this->assertNotSame($this->uuid, $wizard['uuid']);
+        $this->postJson(route('turnos.solicitar.store'), $this->payload([
+            'clave_idempotencia' => $wizard['uuid'], 'inicio_at' => $inicio,
+        ]))->assertCreated();
+        $nuevo = Turno::query()->whereKeyNot($turno->id)->sole();
+        $this->assertSame([$nuevo->id], $ocupacion());
+        $this->assertSame(EstadoTurnoEnum::CANCELADO, $turno->fresh()->estado);
+        $this->assertDatabaseCount('intenciones_evaluacion_cupo', 1);
+        $intencion = IntencionEvaluacionCupo::sole();
+        $cancelacion = Auditoria::where('evento', 'turno_cancelado')->sole();
+        $this->assertSame($cancelacion->id, $intencion->auditoria_cancelacion_id);
+        $this->assertSame($turno->id, $intencion->turno_id);
+        $this->assertNull($intencion->procesado_at);
+        $this->assertSame(1, Auditoria::where('evento', 'turno_asistencia_confirmada')->count());
+        Http::assertNothingSent();
+        Mail::assertNothingSent();
+        Mail::assertNothingQueued();
+        Notification::assertNothingSent();
+        Queue::assertNothingPushed();
     }
 
     public function test_lost_response_then_uuid_only_replay_precedes_all_mutated_creation_conditions(): void

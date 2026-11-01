@@ -79,12 +79,13 @@ La planificación incremental V1.0 contiene 18 subpasos en cinco fases:
 - **6.13: IMPLEMENTADO, VERIFICADO Y CERRADO** en `616085b57b425e873ff0e957b0d558cb26add136`.
 - **6.14: IMPLEMENTADO, VERIFICADO Y CERRADO** en `5a9c6edce1a0b18ff4c031cb542d4a646b0e8323`.
 - **6.15: IMPLEMENTADO, VERIFICADO Y CERRADO mediante el commit que incorpora esta certificación**.
-- **6.16: siguiente subpaso PENDIENTE, no iniciado**, sujeto a autorización independiente.
-- **6.17–6.18: PENDIENTES**, sin ejecución anticipada.
+- **6.16: IMPLEMENTADO, VERIFICADO Y CERRADO mediante el commit que incorpora esta certificación**, hasta el alcance disponible y con dependencias externas pendientes explícitas.
+- **6.17: siguiente subpaso PENDIENTE, no iniciado**, sujeto a autorización independiente.
+- **6.18: PENDIENTE**, sin ejecución anticipada.
 
 El cierre de 6.12, versionado en `9bd7586`, comprendió la revisión de los cuatro archivos certificados, la actualización de seguimiento en `AGENTS.md` y el único commit expresamente solicitado. Esa autorización no habilitaba repetir pruebas, builds o migraciones ni iniciar 6.13.
 
-El cierre formal de 6.13 quedó versionado en `616085b57b425e873ff0e957b0d558cb26add136`. El cierre formal de 6.14 quedó versionado en `5a9c6edce1a0b18ff4c031cb542d4a646b0e8323`: IMPLEMENTADO, VERIFICADO Y CERRADO. El cierre de 6.15 se registra mediante el commit que incorpora su certificación. Estos estados no autorizan por sí solos staging, commit, push, nuevas ejecuciones, limpieza de datos ni iniciar 6.16.
+El cierre formal de 6.13 quedó versionado en `616085b57b425e873ff0e957b0d558cb26add136`. El cierre formal de 6.14 quedó versionado en `5a9c6edce1a0b18ff4c031cb542d4a646b0e8323`: IMPLEMENTADO, VERIFICADO Y CERRADO. El cierre de 6.15 se registra mediante el commit que incorpora su certificación. El cierre de 6.16 se registra mediante el commit que incorpora la certificación de integraciones. Estos estados no autorizan por sí solos staging, commit, push, nuevas ejecuciones, limpieza de datos ni iniciar 6.17.
 
 ### UC–06 — Baseline inicial certificado (6.03)
 
@@ -240,7 +241,18 @@ Este es el baseline inicial certificado de UC–06. Los resultados de UC–07 co
 - PHP dirigido: **290 tests / 2402 assertions PASS**, con SQLite `:memory:` y configuración de testing aislada. JavaScript: **41 pruebas de Mis turnos y 155 existentes PASS**. Lint, Pint acotado y `git diff --check`: **PASS**; build: **PASS, 95 módulos**. Son certificaciones separadas, sin nueva regresión integral ni repetición de MariaDB de 6.13.
 - Validación manual: **cuatro comprobaciones UX satisfactorias**, conforme al resultado informado por el usuario; SQLite temporal aislado con **48 migraciones y 44 tablas**, auditoría final **PASS**. No se incorporan al repositorio auxiliares, sesiones, claves ni evidencia temporal.
 - La revisión manual es acotada y no constituye una auditoría exhaustiva de accesibilidad o navegadores ni una certificación de concurrencia MariaDB. **C-02 / DT-03 e integraciones externas permanecen PENDIENTES**; no son defectos de UX resueltos por 6.15. La regresión integral corresponde a 6.17.
-- **6.16: siguiente subpaso PENDIENTE, no iniciado**, sujeto a autorización independiente; **6.17–6.18: PENDIENTES**. Este cierre no autoriza ejecutar subpasos posteriores, realizar staging, commit, push ni limpiar sesiones o datos.
+- La transición posterior se registra en el bloque de **6.16** siguiente. Se conserva la certificación de UX de 6.15, sin repetir sus pruebas visuales o build.
+
+### UC–06 — Verificación y cierre de integraciones de 6.16
+
+- **6.16: IMPLEMENTADO, VERIFICADO Y CERRADO mediante el commit que incorpora esta certificación**, sin anticipar su hash y sin declarar implementados consumidores externos pendientes.
+- Alcance literal V1.0: **Verificar contratos con UC-07, Agenda, Seguimientos, UC-08, enlaces, recordatorios y adelantamiento; distinguir lo implementado de lo pendiente.** Certificación: `docs/implementacion/turnos-gestionar-mis-turnos-616-certificacion.md`.
+- Pruebas PHP dirigidas: **45 tests / 617 assertions PASS**, PHP 8.2.12 / PHPUnit 11.5.55; `testing`, configuración sin caché y SQLite `:memory:` efectivo, con PDO MySQL ausente. Lint del test ampliado, Pint acotado `--test` y `git diff --check`: **PASS**.
+- Se añadió un único recorrido HTTP a la prueba existente de integración: UC-07 → confirmar → cancelar/replay → reservar nuevamente el cupo, verificando D-01, ocupación, originales privados, auditoría e intención única pendiente. Se reutilizaron pruebas administrativas de Seguimiento, estados profesionales, programación obsoleta, canal prevalidado, autorización, CSRF y rollback. No se modificaron Actions ni infraestructura certificada.
+- **Implementado y verificable:** integración administrativa con UC-07 y Agenda, autorización, privacidad documental, auditoría e idempotencia; confirmación conserva ocupación y cancelación la libera. El registro durable de intención está operativo, separado de su procesamiento futuro.
+- **Preparado sin consumidor operativo:** contexto `ENLACE_SEGURO` de las Actions y registro de intención con `procesado_at`. El enum no valida enlaces; la referencia cifrada del portal no es un enlace externo. No se certifica procesamiento asíncrono por existir una intención pendiente.
+- **Pendientes externos:** C-02 / DT-03 (planes y sesiones reales), inicio/restauración clínica de UC-08, reprogramación profesional completa, resolución/vigencia/revocación de enlaces, recordatorios/Agenda Diaria Automática, evaluación efectiva, candidatos, ofertas y aceptación. UC-06 respeta estados profesionales y preserva otros turnos; eso no certifica los flujos clínicos ausentes ni las decisiones DX-01–DX-07.
+- La certificación MariaDB de 6.13 y las validaciones visuales de 6.14–6.15 se reutilizan como antecedentes separados, sin repetición ni nueva regresión integral. **6.17: siguiente subpaso PENDIENTE, no iniciado; 6.18: PENDIENTE**. No se autoriza staging, commit, push ni operaciones posteriores por esta declaración documental.
 
 ### Obligaciones del incremento UC–06
 
