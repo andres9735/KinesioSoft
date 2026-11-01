@@ -80,12 +80,12 @@ La planificación incremental V1.0 contiene 18 subpasos en cinco fases:
 - **6.14: IMPLEMENTADO, VERIFICADO Y CERRADO** en `5a9c6edce1a0b18ff4c031cb542d4a646b0e8323`.
 - **6.15: IMPLEMENTADO, VERIFICADO Y CERRADO mediante el commit que incorpora esta certificación**.
 - **6.16: IMPLEMENTADO, VERIFICADO Y CERRADO mediante el commit que incorpora esta certificación**, hasta el alcance disponible y con dependencias externas pendientes explícitas.
-- **6.17: siguiente subpaso PENDIENTE, no iniciado**, sujeto a autorización independiente.
-- **6.18: PENDIENTE**, sin ejecución anticipada.
+- **6.17: IMPLEMENTADO, VERIFICADO Y CERRADO mediante el commit que incorpora esta certificación**, con regresión ordinaria integral PASS y evidencia MariaDB/visual previa reutilizada explícitamente.
+- **6.18: siguiente subpaso PENDIENTE, no iniciado**, sujeto a autorización independiente.
 
 El cierre de 6.12, versionado en `9bd7586`, comprendió la revisión de los cuatro archivos certificados, la actualización de seguimiento en `AGENTS.md` y el único commit expresamente solicitado. Esa autorización no habilitaba repetir pruebas, builds o migraciones ni iniciar 6.13.
 
-El cierre formal de 6.13 quedó versionado en `616085b57b425e873ff0e957b0d558cb26add136`. El cierre formal de 6.14 quedó versionado en `5a9c6edce1a0b18ff4c031cb542d4a646b0e8323`: IMPLEMENTADO, VERIFICADO Y CERRADO. El cierre de 6.15 se registra mediante el commit que incorpora su certificación. El cierre de 6.16 se registra mediante el commit que incorpora la certificación de integraciones. Estos estados no autorizan por sí solos staging, commit, push, nuevas ejecuciones, limpieza de datos ni iniciar 6.17.
+El cierre formal de 6.13 quedó versionado en `616085b57b425e873ff0e957b0d558cb26add136`. El cierre formal de 6.14 quedó versionado en `5a9c6edce1a0b18ff4c031cb542d4a646b0e8323`: IMPLEMENTADO, VERIFICADO Y CERRADO. El cierre de 6.15 se registra mediante el commit que incorpora su certificación. El cierre de 6.16 se registra mediante el commit que incorpora la certificación de integraciones. El cierre de 6.17 se registra mediante el commit que incorpora la certificación de regresión integral. Estos estados no autorizan por sí solos staging, commit, push, nuevas ejecuciones, limpieza de datos ni iniciar 6.18.
 
 ### UC–06 — Baseline inicial certificado (6.03)
 
@@ -252,7 +252,18 @@ Este es el baseline inicial certificado de UC–06. Los resultados de UC–07 co
 - **Implementado y verificable:** integración administrativa con UC-07 y Agenda, autorización, privacidad documental, auditoría e idempotencia; confirmación conserva ocupación y cancelación la libera. El registro durable de intención está operativo, separado de su procesamiento futuro.
 - **Preparado sin consumidor operativo:** contexto `ENLACE_SEGURO` de las Actions y registro de intención con `procesado_at`. El enum no valida enlaces; la referencia cifrada del portal no es un enlace externo. No se certifica procesamiento asíncrono por existir una intención pendiente.
 - **Pendientes externos:** C-02 / DT-03 (planes y sesiones reales), inicio/restauración clínica de UC-08, reprogramación profesional completa, resolución/vigencia/revocación de enlaces, recordatorios/Agenda Diaria Automática, evaluación efectiva, candidatos, ofertas y aceptación. UC-06 respeta estados profesionales y preserva otros turnos; eso no certifica los flujos clínicos ausentes ni las decisiones DX-01–DX-07.
-- La certificación MariaDB de 6.13 y las validaciones visuales de 6.14–6.15 se reutilizan como antecedentes separados, sin repetición ni nueva regresión integral. **6.17: siguiente subpaso PENDIENTE, no iniciado; 6.18: PENDIENTE**. No se autoriza staging, commit, push ni operaciones posteriores por esta declaración documental.
+- La certificación MariaDB de 6.13 y las validaciones visuales de 6.14–6.15 se reutilizan como antecedentes separados, sin repetición durante 6.16. La regresión integral y la transición posterior se registran en el bloque de **6.17** siguiente; se conservan los resultados y límites de 6.16.
+
+### UC–06 — Regresión integral y cierre de 6.17
+
+- **6.17: IMPLEMENTADO, VERIFICADO Y CERRADO mediante el commit que incorpora esta certificación**, sin anticipar su hash. Certificación: `docs/implementacion/turnos-gestionar-mis-turnos-617-certificacion.md`.
+- Alcance literal V1.0: **Ejecutar regresión integral, pruebas PHP/JavaScript, build, integraciones MariaDB y verificaciones manuales de UX.** Conforme a la autorización específica, se ejecutaron PHP/JavaScript globales y build; MariaDB y UX manual reutilizan las evidencias certificadas de 6.13–6.15, sin nuevas ejecuciones.
+- Suite PHP ordinaria completa, sin filtros: **2760 tests / 18474 assertions PASS**, exit code 0, 08:15.712; PHP 8.2.12 / PHPUnit 11.5.55. Sin failures, errors, skipped, risky ni warnings. Preflight efectivo: `testing`, configuración sin caché y SQLite `:memory:`, con PDO MySQL ausente en el proceso PHPUnit. Se invocó PHPUnit directamente con `phpunit.xml` para conservar `-n` y las extensiones restringidas; no se repitió la suite global.
+- JavaScript completo: **196 PASS / 0 FAIL / 0 SKIP**, exit code 0: 150 wizard, 41 Mis turnos y 5 bloqueo-form. El primer intento fue bloqueado antes de ejecutar casos por `spawn EPERM`; el mismo comando pasó tras autorizar sus subprocesos, sin cambios de código o tests.
+- `npm run build`: **PASS, 95 módulos**, Vite 7.3.1, 5.05 s, exit code 0. Aviso informativo de Browserslist sobre datos antiguos; sin actualización de dependencias.
+- Lint y Pint `--test`: **PASS en los 54 archivos PHP del alcance UC-06**; `git diff --check`: **PASS**. No constituye Pint global sobre deuda ajena. Integridad de 683 archivos versionados de código, pruebas, configuración y dependencias conservada, sin cambios productivos ni de tests durante la certificación.
+- Exclusiones explícitas de la ejecución actual: suites reales `tests/Integration/MySql` y `tests/Integration/Uc06MariaDb`, fuera del `phpunit.xml` ordinario. Se conserva MariaDB 6.13 **27 tests / 609 assertions PASS**, con sus validaciones independientes V1/V2-A, y UX manual de 6.14–6.15; la integración dirigida de 6.16 (**45/617 PASS**) es antecedente, no una cantidad a sumar a la regresión global.
+- No se detectaron regresiones en el alcance ejecutado. **C-02 / DT-03 e integraciones externas permanecen pendientes**, según 6.16; SQLite no recertifica locking MariaDB ni acredita consumidores ausentes. **6.18: siguiente subpaso PENDIENTE, no iniciado**, sujeto a autorización independiente. No se autoriza staging, commit, push ni nuevas operaciones por esta declaración.
 
 ### Obligaciones del incremento UC–06
 
