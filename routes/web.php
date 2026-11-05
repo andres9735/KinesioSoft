@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AgendaAtencionController;
 use App\Http\Controllers\AgendaController;
 use App\Http\Controllers\AnulacionBloqueoAgendaController;
 use App\Http\Controllers\AnulacionConfiguracionAgendaController;
@@ -38,6 +39,10 @@ Route::get('/', function () {
 Route::get('/dashboard', DashboardController::class)
     ->middleware(['auth', 'perfil.completo', 'verified'])
     ->name('dashboard');
+
+Route::get('/turnos/agenda-atencion', [AgendaAtencionController::class, 'index'])
+    ->middleware(['auth', 'perfil.kinesiologo', 'verified', 'perfil.completo'])
+    ->name('turnos.agenda-atencion.index');
 
 Route::get('/documentos-clinicos/{documento}/descargar', DescargarDocumentoClinicoController::class)
     ->middleware(['auth', 'verified', 'perfil.completo'])

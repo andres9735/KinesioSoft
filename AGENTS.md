@@ -53,14 +53,19 @@ Commit base del incremento:
 - **6.07: COMPLETADO Y VERIFICADO** — consulta interna compartida de turnos por profesional y jornada.
 - **6.08: COMPLETADO Y VERIFICADO** — consulta por período y representación administrativa mínima, sin escrituras.
 - **6.09: COMPLETADO Y VERIFICADO** — frontera de autorización profesional, separada de la lectura interna de UC–29.
+- **6.10: COMPLETADO Y VERIFICADO** — ruta, controlador y validación de consulta HTTP profesional de UC–05.
+- **6.11: COMPLETADO Y VERIFICADO** — agenda diaria y navegación entre fechas con datos administrativos autorizados.
+- **6.12: COMPLETADO Y VERIFICADO** — búsqueda por paciente, filtros combinables, períodos y paginación de resultados.
 
 **Bloque B (6.07–6.09): CHECKPOINT CERTIFICADO** para los contratos internos de lectura y autorización implementados. Regresión conjunta focalizada: **102 tests / 534 assertions PASS**, con SQLite `:memory:`; sintaxis y Pint `--test` de los cuatro PHP satisfactorios. Certificación: `docs/implementacion/turnos-agenda-diaria-607-609-bloque-b.md`. No constituye implementación completa de UC–05/UC–29 ni certificación MariaDB.
 
-**Último subpaso completado: 6.09.**
+**Checkpoint UC–05 (6.10–6.12): DOCUMENTADO Y VERSIONADO mediante su commit de cierre.** Certificación: `docs/implementacion/turnos-agenda-diaria-610-612-uc05.md`. Se reutiliza la ejecución definitiva de 6.12: **70 tests / 618 assertions PASS**, exit code 0, del archivo HTTP completo, incluida la ruta de UC–05. En este checkpoint no se repiten PHPUnit, JavaScript, build, MariaDB ni regresión global. La paginación actual se realiza en memoria; la verificación de rendimiento y volumen conforme a los requisitos aprobados queda pendiente para **6.16**, sin optimizaciones preventivas. No constituye cierre completo de UC–05.
 
-**Próximo subpaso para preparar: 6.10 — Rutas y controlador de UC–05.**
+**Último subpaso completado: 6.12.**
 
-6.10 todavía no está autorizado para ejecución automática y su alcance concreto deberá definirse antes de modificar código. Su integración HTTP deberá aplicar la frontera profesional y conservar los controles transversales de cuenta, correo y perfil. Cada subpaso requiere su solicitud y alcance específicos. Staging, commits, cambios de rama, operaciones sobre remotos y operaciones destructivas no quedan autorizados por este seguimiento.
+**Próximo subpaso para preparar: 6.13 — Detalle administrativo de turno.**
+
+6.13 no está autorizado para ejecución automática y su alcance concreto deberá definirse antes de modificar código. Deberá conservar la frontera profesional y los controles transversales de cuenta, correo y perfil, sin inferir acceso clínico de la autorización administrativa. Cada subpaso requiere su solicitud y alcance específicos. Staging, commits, cambios de rama, operaciones sobre remotos y operaciones destructivas no quedan autorizados por este seguimiento.
 
 ### Fuentes autoritativas de Agenda Diaria Automática V1.0
 
