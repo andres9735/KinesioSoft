@@ -23,17 +23,119 @@ Stack actual:
 - PHPUnit para pruebas automatizadas.
 - Spatie Permission para roles/permisos.
 
-## Estado del último incremento — UC–06 Gestionar Mis turnos
+## Incremento activo — Agenda Diaria Automática
 
-**UC–06: IMPLEMENTADO, VERIFICADO Y CERRADO mediante el commit que incorpora la certificación de 6.18**, hasta su alcance implementado y certificado, con dependencias externas y límites de evidencia expresamente identificados.
+El incremento activo comprende exclusivamente:
 
-**No hay un nuevo incremento iniciado ni autorizado.** Agenda Diaria Automática y los demás procesos externos requieren alcance, preparación y autorización independientes; no se inician por este cierre.
+- **UC–05 — Consultar agenda de atención.**
+- **UC–27 — Notificar próximos turnos automáticamente.**
+- **UC–28 — Resolver asistencia de turno vía enlace.**
+- **UC–29 — Generar agenda diaria automáticamente.**
 
 Rama esperada:
 
-`feature/turnos-gestionar-mis-turnos`
+`feature/turnos-agenda-diaria-automatica`
 
 Commit base del incremento:
+
+`ddcbdb9acfdf0ef87b3220179ecdcfe2dd249082` — `docs: cerrar incremento UC-06 gestionar mis turnos`.
+
+### Estado y alcance operativo
+
+- **Etapas 1 a 5: APROBADAS Y CERRADAS.**
+- **Etapa 6: IMPLEMENTACIÓN INCREMENTAL ACTIVA**, limitada al subpaso expresamente solicitado; no implica funcionalidades implementadas ni autorización general para ejecutar los siguientes.
+- **6.01: COMPLETADO** — preparación y verificación inicial.
+- **6.02: COMPLETADO** — integridad y trazabilidad de las fuentes locales verificadas.
+- **6.03: COMPLETADO** — rama independiente creada sobre el commit base indicado.
+- **6.04: COMPLETADO** — instrucciones operativas actualizadas; sin pruebas ni cambios funcionales.
+- **6.05: COMPLETADO Y CERTIFICADO** — baseline ordinario actual de PHP/SQLite, JavaScript y build; MariaDB pendiente de certificación independiente.
+- **6.06: COMPLETADO — checkpoint documental preparado y versionado mediante el commit de cierre de este subpaso.**
+
+**Último subpaso completado: 6.06.**
+
+**Próximo subpaso para preparar: 6.07 — Inicio de la implementación incremental conforme al orden aprobado UXP-14.**
+
+6.07 todavía no está autorizado para ejecución automática y su alcance concreto deberá definirse antes de modificar código. Cada subpaso requiere su solicitud y alcance específicos. Staging, commits, cambios de rama, operaciones sobre remotos y operaciones destructivas no quedan autorizados por este seguimiento.
+
+### Fuentes autoritativas de Agenda Diaria Automática V1.0
+
+Ubicación local:
+
+`docs/_codex_sources/turnos/agenda_diaria_automatica/`
+
+Los tres originales DOCX son:
+
+- `Planificacion Agenda Diaria Automatica(1).docx` — compendio de decisiones aprobadas de las Etapas 1 a 5.
+- `KinesioSoft_Etapa3_302_GrupoA_UC27_UC28_APROBADO_V1.0.docx` — especificaciones extendidas de UC–27 y UC–28.
+- `KinesioSoft_GrupoB_UC29_UC05_Especificaciones_Extendidas_V1.0_Revision.docx` — especificaciones extendidas de UC–29 y UC–05, aprobadas en la conversación posterior de revisión.
+
+Completan el paquete los tres TXT homónimos, auxiliares para búsqueda y análisis, `SHA256_6_02.txt` y `LEEME_6_02.txt`. Los DOCX prevalecen como fuentes originales frente a diferencias de representación en los TXT.
+
+El compendio contiene las decisiones funcionales D-01 a D-13, la identificación 3.01, la matriz consolidada 3.03 y el cierre 3.04, junto con:
+
+- **114 criterios de aceptación:** UC–27: 29; UC–28: 34; UC–29: 19; UC–05: 32.
+- **18 dependencias funcionales** y **10 escenarios integrales**.
+- **AT-01 a AT-12:** arquitectura y contratos compartidos, Etapa 5.01.
+- **GA-01 a GA-13:** diseño técnico del Grupo A, Etapa 5.02.
+- **GB-01 a GB-12:** diseño técnico del Grupo B, Etapa 5.03.
+- **UXP-01 a UXP-16:** UX, pruebas y planificación incremental, Etapa 5.04. QA-01 a QA-04 corresponden respectivamente a UXP-09 a UXP-12; no son decisiones adicionales.
+
+Estas fuentes están **APROBADAS Y CONGELADAS**, disponibles localmente y excluidas de Git mediante `.git/info/exclude`. No modificar sus contenidos ni las exclusiones. No reconstruir criterios, decisiones o especificaciones desde resúmenes; ante dudas, consultar las fuentes completas.
+
+Las referencias provisionales UC–XX y la leyenda histórica de propuesta pendiente de 3.03 se interpretan conforme a la consolidación 3.01 y al cierre aprobado 3.04. No corregir retrospectivamente los originales. Las decisiones de UC–06, UC–07 y Configuración de Agenda conservan autoridad dentro de sus propios contratos; no sustituyen las fuentes del incremento activo. Los identificadores de decisiones se interpretan dentro del incremento al que pertenecen.
+
+### Contratos protegidos durante el nuevo incremento
+
+Son obligatorios los contratos completos de las fuentes aprobadas; las siguientes referencias operativas no los sustituyen:
+
+- **UC–06:** preservar los seis estados y transiciones canónicas; confirmar Pendiente estrictamente antes del inicio y cancelar Pendiente/Confirmado con al menos 12 horas corridas, incluido el límite exacto. Reutilizar `ConfirmarAsistenciaTurnoAction` y `CancelarTurnoAction`, con propiedad y autorización del paciente, `TransaccionTurnoService`, locks Kinesióloga → Paciente → Turno, revalidación temporal posterior a los locks con `RelojAplicacion`, idempotencia y auditoría atómica. Conservar el registro durable de intención de evaluación del cupo y su unicidad, sin atribuirle un consumidor externo implementado.
+- **UC–07:** preservar creación y programación de Primera consulta, disponibilidad y elegibilidad canónicas, idempotencia, reserva de agenda y persistencia de originales con protección documental. No duplicar ni reejecutar la reserva desde los procesos nuevos.
+- **Configuración de Agenda:** conservar vigencias, duración, franjas, bloqueos, políticas y operaciones profesionales existentes. Mantener separadas la configuración de disponibilidad y UC–05 Consultar agenda de atención; no recalcular turnos históricos según configuraciones posteriores.
+- **Agenda Diaria Automática:** preservar `Turno` y la programación consolidada como fuente autoritativa, separar las responsabilidades de los cuatro casos de uso y mantener autorización específica por canal. Reutilizar las operaciones existentes, conservar la independencia de UC–05 respecto del éxito de UC–29 y diferenciar las identidades de recordatorios, intentos y ejecuciones. Proteger los datos personales y clínicos y verificar sobre MariaDB real las garantías que dependan de concurrencia, conforme a AT/GA/GB/UXP.
+
+No incorporar por inferencia operaciones clínicas, reprogramación profesional, reservas de equipos ni procesamiento de candidatos u ofertas de otros procesos. Conservar sus dependencias y límites de evidencia explícitos. Las instrucciones históricas de los incrementos cerrados no obligan a trabajar en sus ramas ni habilitan reejecutar sus subpasos.
+
+### Aclaración complementaria de seguridad — APROBADA Y CONGELADA
+
+La aclaración de 6.04 complementa **AT-10, GA-07 y GA-08**: se autoriza exclusivamente incluir la credencial opaca necesaria dentro de la URL de acceso seguro enviada al paciente por correo electrónico.
+
+Esta excepción no autoriza:
+
+- Mostrar la credencial separadamente de la URL necesaria.
+- Almacenar el token original en texto plano.
+- Incorporar credenciales, firmas o secretos a logs, auditorías o mensajes de error.
+- Exponerlas mediante redirecciones, referencias externas o registros técnicos evitables.
+- Incluir datos clínicos innecesarios en el correo o en la página de resolución.
+
+El mecanismo deberá conservar autenticidad, alcance limitado, vigencia, revocación, verificación en servidor y protección frente a filtraciones accidentales. La inclusión de la credencial en la URL no sustituye las validaciones de propiedad, programación, estado y temporalidad de las Actions compartidas.
+
+Esta aclaración resuelve la observación de coherencia registrada en 6.02 y complementa las decisiones congeladas sin modificar sus demás contratos. No editar retrospectivamente el compendio aprobado.
+
+### Baseline ordinario actual y antecedentes
+
+**Baseline ordinario actual — CERTIFICADO en 6.05:**
+
+- PHP: **2760 tests / 18474 assertions PASS**.
+- JavaScript: **196 PASS**.
+- Build: **PASS, 95 módulos**.
+
+Certificación detallada: `docs/implementacion/turnos-agenda-diaria-605-baseline.md`. PHP 8.2.12 / PHPUnit 11.5.55, Node.js 25.8.1 y Vite 7.3.1; ejecuciones satisfactorias con código de salida 0. Durante 6.05 se verificó el aislamiento efectivo de SQLite `:memory:`, sin PDO MySQL y con storage y vistas exclusivos, sin cambios funcionales.
+
+**MariaDB: certificación actual pendiente.** No se ejecutaron `phpunit.mysql.xml` ni `tests/Integration/Uc06MariaDb/phpunit.xml`. Mantener diferenciadas las pruebas SQLite y las integraciones MariaDB; SQLite no certifica locking real. Las certificaciones históricas de UC–06 y UC–07 conservan su alcance original y no sustituyen una ejecución actual ni autorizan automáticamente reinicializaciones u otras operaciones destructivas en bases de pruebas.
+
+En 6.06 sólo se registra la evidencia existente: no repetir pruebas, builds, migraciones o seeders ni utilizar bases de datos. Los 134 temporales ignorados de 6.05 se conservan sin limpieza ni incorporación a Git; su ubicación y los límites de certificación constan en el documento citado. El checkpoint queda versionado mediante el commit de cierre de 6.06. Las referencias del certificado a preparación pendiente describen su estado de emisión previo al commit; el seguimiento operativo vigente es el indicado en este bloque.
+
+## Antecedente cerrado — UC–06 Gestionar Mis turnos
+
+**UC–06: IMPLEMENTADO, VERIFICADO Y CERRADO mediante el commit que incorpora la certificación de 6.18**, hasta su alcance implementado y certificado, con dependencias externas y límites de evidencia expresamente identificados.
+
+**Al cierre de UC–06 no había un nuevo incremento iniciado ni autorizado.** Agenda Diaria Automática y los demás procesos externos requieren alcance, preparación y autorización independientes; no se inician por ese cierre. El estado operativo vigente de Agenda Diaria Automática se registra en el bloque inicial de este archivo.
+
+Rama histórica de UC–06:
+
+`feature/turnos-gestionar-mis-turnos`
+
+Commit base histórico de UC–06:
 
 `6c9dcd63160ca60603547feab7eb6afe525ee653` — `docs: cerrar UC-07 Solicitar turno V2`.
 
@@ -278,7 +380,7 @@ Este es el baseline inicial certificado de UC–06. Los resultados de UC–07 co
 - La matriz clasifica los **40 criterios** sin declarar un 40/40 PASS: **30** con pruebas localizadas; **CA-14** con revisión estática sin ensayo específico localizado del fallo de carga inicial; **CA-17** con revisión del límite administrativo sin flujo clínico UC-08 real; **CA-16 y CA-26** condicionados parcialmente por C-02 / DT-03; y **seis criterios de integración** pendientes de sus componentes externos, con los contratos de salida disponibles verificados.
 - No se identificó una contradicción material que impida cerrar el alcance implementado. Persisten las dependencias de planes/sesiones reales, UC-08, reprogramación profesional completa, resolvedor de enlaces, recordatorios/Agenda Diaria Automática, procesamiento de intenciones, candidatos y ofertas. Un enum de canal o una intención persistida no son consumidores operativos; DX-01–DX-07 no se resuelven implícitamente.
 - Los 683 archivos de código, pruebas, configuración y manifiestos conservan la huella certificada en 6.17. Las menciones a subpasos siguientes pendientes en certificaciones anteriores se conservan como estados históricos al emitir cada documento; el estado vigente es este cierre, sin reescribir sus evidencias.
-- No hay siguiente incremento iniciado. La integración futura requiere revisión y autorización independientes, comprobación del destino y de migraciones aplicables, conservación de las fuentes locales congeladas y decisión humana sobre commit/PR/merge/despliegue. Este cierre no ejecuta ni autoriza automáticamente esas operaciones o la limpieza de sesiones y bases.
+- Al cierre de UC–06 no había siguiente incremento iniciado. La integración futura requiere revisión y autorización independientes, comprobación del destino y de migraciones aplicables, conservación de las fuentes locales congeladas y decisión humana sobre commit/PR/merge/despliegue. Este cierre no ejecuta ni autoriza automáticamente esas operaciones o la limpieza de sesiones y bases.
 
 ### Obligaciones del incremento UC–06
 
@@ -294,7 +396,7 @@ Este es el baseline inicial certificado de UC–06. Los resultados de UC–07 co
 
 ## Antecedente cerrado — UC–07 Solicitar turno V2
 
-Último incremento implementado, certificado y cerrado:
+Incremento histórico implementado, certificado y cerrado:
 
 **UC–07 Solicitar turno V2 — CERRADO**
 
@@ -336,7 +438,7 @@ Planificación ejecutada: **Parte II V2 7.29–7.52 COMPLETADA**, con V2-P1–V2
 
 Último subpaso de UC–07 completado: **7.52 — Cierre documental definitivo de UC–07 V2**.
 
-No quedan subpasos V2 por ejecutar. UC–06, incremento posterior a UC–07, también queda cerrado conforme al bloque inicial de este archivo. No hay un nuevo incremento iniciado ni autorización implícita para iniciar otro trabajo.
+No quedan subpasos V2 por ejecutar. UC–06, incremento posterior a UC–07, también queda cerrado conforme a su bloque histórico en este archivo. Esos cierres no autorizan implícitamente otros trabajos; el incremento activo y su alcance se identifican en el bloque inicial.
 
 La ejecución se realizó mediante autorizaciones y prompts independientes. El cierre no autoriza reejecutar subpasos, limpiar fixtures ni iniciar otro trabajo. Toda intervención posterior requiere alcance y autorización explícitos del usuario.
 
@@ -369,7 +471,7 @@ Pint:
 - Para UC–07, exigir Pint PASS sobre los archivos modificados por el incremento cuando corresponda y mantener `git diff --check` limpio.
 - No mezclar reformateos globales de módulos ajenos con cambios funcionales de UC–07.
 
-El baseline previo a UC–07 y la certificación V1 (incluidas P1–P7) son históricos. El baseline de cierre de UC–07 es el definitivo V2 indicado arriba, con V2-P1–V2-P6 PASS y regresión global reejecutada en 7.51. El baseline inicial de UC–06 quedó certificado en 6.03 y se registra en el bloque inicial de este archivo. Ninguno de estos resultados implica un PASS de Pint global sobre deuda histórica ajena al incremento.
+El baseline previo a UC–07 y la certificación V1 (incluidas P1–P7) son históricos. El baseline de cierre de UC–07 es el definitivo V2 indicado arriba, con V2-P1–V2-P6 PASS y regresión global reejecutada en 7.51. El baseline inicial de UC–06 quedó certificado en 6.03 y se registra en su bloque histórico de este archivo. Ninguno de estos resultados implica un PASS de Pint global sobre deuda histórica ajena al incremento.
 
 El documento `docs/implementacion/turnos-solicitar-turno-cierre.md` contiene el cierre definitivo V2 y conserva la evidencia V1 como anexo histórico. Su preparación documental no autoriza staging, commit, push ni limpieza de datos; el usuario controla la revisión y el versionado final.
 
@@ -853,6 +955,8 @@ Antes de modificar:
 6. Informar cualquier discrepancia relevante antes de inventar una solución no prevista.
 7. Verificar `git branch --show-current`, `git rev-parse HEAD` y `git status --short` cuando se vaya a modificar el repositorio.
 
+Para Agenda Diaria Automática, consultar las fuentes y el estado del bloque inicial, junto con la solicitud específica del subpaso. Las referencias siguientes a UC–06 y UC–07 corresponden a incrementos cerrados y no habilitan reejecutarlos.
+
 Para UC–06, antes de modificar, leer las fuentes congeladas pertinentes, el subpaso de `docs/_codex_sources/turnos/uc06/UC06_PLANIFICACION_INCREMENTAL_V1.0.md` y su prompt blindado independiente. No ejecutar un subpaso sin autorización específica ni avanzar automáticamente al siguiente. La planificación de UC–07, incluidas la Parte I V1 y la Parte II V2 7.29–7.52, está ejecutada y cerrada; sólo aporta trazabilidad histórica.
 
 Después de modificar:
@@ -1153,7 +1257,7 @@ Estrategia:
 2. Corregir únicamente fallos causados por el subpaso actual.
 3. Ejecutar la regresión indicada por planificación/prompt.
 4. No avanzar con tests rojos causados por el cambio actual.
-5. Ejecutar `php artisan test` completo en las puertas de regresión definidas por la planificación y el prompt autorizado de UC–06; las puertas de UC–07 ya ejecutadas son antecedentes.
+5. Ejecutar `php artisan test` completo únicamente en las puertas de regresión definidas por la planificación y el prompt autorizado del incremento activo; las puertas ya ejecutadas de UC–06 y UC–07 son antecedentes históricos.
 6. Ejecutar Pint sobre los archivos modificados o el alcance explícitamente indicado; no reformatear masivamente archivos ajenos para intentar producir un Pint global verde.
 7. Ejecutar `git diff --check` antes de cierres/checkpoints relevantes.
 8. Ejecutar `npm run build` cuando el cambio afecte frontend o en puertas de regresión definidas.
