@@ -37,7 +37,7 @@
                 </nav>
                 @endif
 
-                <form method="GET" action="{{ route('turnos.agenda-atencion.index') }}" class="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <form method="GET" action="{{ route('turnos.agenda-atencion.index') }}" aria-label="Consultar una jornada" class="flex flex-col gap-3 sm:flex-row sm:items-end">
                     @foreach ($filtros as $nombre => $valor)
                         <input type="hidden" name="{{ $nombre }}" value="{{ $valor }}">
                     @endforeach
@@ -54,7 +54,7 @@
                     <x-primary-button class="min-h-11 justify-center self-start">Consultar fecha</x-primary-button>
                 </form>
 
-                <form method="GET" action="{{ route('turnos.agenda-atencion.index') }}">
+                <form method="GET" action="{{ route('turnos.agenda-atencion.index') }}" aria-label="Consultar un período">
                     @foreach ($filtros as $nombre => $valor)
                         <input type="hidden" name="{{ $nombre }}" value="{{ $valor }}">
                     @endforeach
@@ -80,7 +80,7 @@
                 @foreach ($contextoTemporal as $nombre => $valor)
                     <input type="hidden" name="{{ $nombre }}" value="{{ $valor }}">
                 @endforeach
-                <fieldset class="min-w-0 space-y-4">
+                <fieldset class="min-w-0 space-y-4" aria-describedby="filtros-ayuda">
                     <legend class="font-semibold text-gray-900">Filtrar turnos</legend>
                     <p id="filtros-ayuda" class="text-sm text-gray-600">Buscá por parte del nombre o apellido del paciente. El horario corresponde al inicio del turno, en hora local.</p>
                     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -118,7 +118,12 @@
                 </fieldset>
             </form>
 
-            <p class="text-sm text-gray-600">{{ $paginacion->total() }} turnos encontrados. Página {{ $paginacion->currentPage() }} de {{ $paginacion->lastPage() }}.</p>
+            <nav aria-label="Obtener agenda" class="flex flex-wrap gap-3">
+                <a href="{{ route('turnos.agenda-atencion.index', $contextoTemporal + $filtros + ['page' => $paginacion->currentPage()]) }}" class="inline-flex min-h-11 items-center rounded-lg bg-white px-4 py-2 font-semibold text-indigo-700 underline focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Actualizar agenda</a>
+                <a href="{{ route('turnos.agenda-atencion.imprimir', $contextoTemporal + $filtros) }}" class="inline-flex min-h-11 items-center rounded-lg bg-white px-4 py-2 font-semibold text-indigo-700 underline focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Versión para imprimir todos los resultados</a>
+                <a href="{{ route('turnos.agenda-atencion.pdf', $contextoTemporal + $filtros) }}" class="inline-flex min-h-11 items-center rounded-lg bg-white px-4 py-2 font-semibold text-indigo-700 underline focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Descargar todos los resultados en PDF</a>
+            </nav>
+            <p id="resumen-resultados" role="status" class="text-sm text-gray-600">{{ $paginacion->total() }} turnos encontrados. Página {{ $paginacion->currentPage() }} de {{ $paginacion->lastPage() }}.</p>
             @if ($turnos === [])
                 <div class="rounded-2xl bg-white px-6 py-10 text-center shadow-sm">
                     @if ($filtros !== [])
@@ -126,7 +131,7 @@
                         <p class="mt-2 text-sm text-gray-600">Modificá o limpiá los filtros para consultar otros resultados.</p>
                     @else
                     <p class="font-semibold text-gray-900">{{ $esPeriodo ? 'No hay turnos registrados para este período.' : 'No hay turnos registrados para esta fecha.' }}</p>
-                    <p class="mt-2 text-sm text-gray-600">Seleccioná otra fecha o navegá hacia la jornada anterior o siguiente.</p>
+                    <p class="mt-2 text-sm text-gray-600">{{ $esPeriodo ? 'Elegí otras fechas para consultar otro período.' : 'Seleccioná otra fecha o navegá hacia la jornada anterior o siguiente.' }}</p>
                     @endif
                 </div>
             @else
@@ -149,6 +154,9 @@
                             </dl>
                             <div class="min-w-0 space-y-3 sm:col-span-2">
                                 <h3 class="break-words text-lg font-semibold text-gray-900">{{ $turno['paciente']['nombre'] ?? 'Paciente sin nombre registrado' }}</h3>
+                                <a href="{{ route('turnos.agenda-atencion.show', ['turno' => $turno['id']] + $contextoTemporal + $filtros + ['page' => $paginacion->currentPage()]) }}"
+                                   aria-label="Ver detalle administrativo de {{ $turno['paciente']['nombre'] ?? 'paciente' }}, {{ $turno['inicio_at']->format('d/m/Y H:i') }}"
+                                   class="inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-semibold text-indigo-700 underline focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Ver detalle administrativo</a>
                                 <dl class="space-y-2 text-sm text-gray-700">
                                     <div>
                                         <dt class="font-medium">Tipo de consulta</dt>

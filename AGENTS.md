@@ -56,16 +56,24 @@ Commit base del incremento:
 - **6.10: COMPLETADO Y VERIFICADO** — ruta, controlador y validación de consulta HTTP profesional de UC–05.
 - **6.11: COMPLETADO Y VERIFICADO** — agenda diaria y navegación entre fechas con datos administrativos autorizados.
 - **6.12: COMPLETADO Y VERIFICADO** — búsqueda por paciente, filtros combinables, períodos y paginación de resultados.
+- **6.13: IMPLEMENTACIÓN Y VERIFICACIONES COMPLETADAS** — detalle administrativo autorizado, sin acceso clínico ni escrituras funcionales.
+- **6.14: IMPLEMENTACIÓN Y VERIFICACIONES COMPLETADAS** — impresión y PDF auténtico de resultados autorizados, con contexto y momento de emisión.
+- **6.15: IMPLEMENTACIÓN Y VERIFICACIONES COMPLETADAS** — refinamiento UX y accesibilidad automatizada; revisión visual manual pendiente.
+- **6.16: IMPLEMENTACIÓN Y VERIFICACIONES COMPLETADAS** — regresión funcional y de seguridad conjunta, con ensayos locales de rendimiento y volumen y sus reservas explícitas.
 
 **Bloque B (6.07–6.09): CHECKPOINT CERTIFICADO** para los contratos internos de lectura y autorización implementados. Regresión conjunta focalizada: **102 tests / 534 assertions PASS**, con SQLite `:memory:`; sintaxis y Pint `--test` de los cuatro PHP satisfactorios. Certificación: `docs/implementacion/turnos-agenda-diaria-607-609-bloque-b.md`. No constituye implementación completa de UC–05/UC–29 ni certificación MariaDB.
 
 **Checkpoint UC–05 (6.10–6.12): DOCUMENTADO Y VERSIONADO mediante su commit de cierre.** Certificación: `docs/implementacion/turnos-agenda-diaria-610-612-uc05.md`. Se reutiliza la ejecución definitiva de 6.12: **70 tests / 618 assertions PASS**, exit code 0, del archivo HTTP completo, incluida la ruta de UC–05. En este checkpoint no se repiten PHPUnit, JavaScript, build, MariaDB ni regresión global. La paginación actual se realiza en memoria; la verificación de rendimiento y volumen conforme a los requisitos aprobados queda pendiente para **6.16**, sin optimizaciones preventivas. No constituye cierre completo de UC–05.
 
-**Último subpaso completado: 6.12.**
+**UC–05: BLOQUE IMPLEMENTADO Y CERTIFICADO EN LAS CONDICIONES LOCALES ENSAYADAS**, con dependencias y reservas documentadas. Checkpoint 6.13–6.16 registrado mediante su commit de cierre; certificado: `docs/implementacion/turnos-agenda-diaria-613-616-uc05.md`. Regresión definitiva: **181 tests / 1785 assertions PASS, exit 0**. CA-05-09/23/24 conservan dependencias no resueltas; CA-05-30–32 se contrastaron sólo en el ensayo SQLite preparado. Paginación y exportación permanecen en memoria; el PDF procesa tablas por bloques sin recortar resultados. Revisión visual manual, carga fría, MariaDB, producción y suite global no certificados por este bloque. Las menciones pendientes de los checkpoints anteriores describen su estado de emisión; no sustituyen estas reservas ni sus evidencias históricas.
 
-**Próximo subpaso para preparar: 6.13 — Detalle administrativo de turno.**
+**Último subpaso completado: 6.16.**
 
-6.13 no está autorizado para ejecución automática y su alcance concreto deberá definirse antes de modificar código. Deberá conservar la frontera profesional y los controles transversales de cuenta, correo y perfil, sin inferir acceso clínico de la autorización administrativa. Cada subpaso requiere su solicitud y alcance específicos. Staging, commits, cambios de rama, operaciones sobre remotos y operaciones destructivas no quedan autorizados por este seguimiento.
+**Próximo subpaso para preparar: 6.17 — UC–29.**
+
+**Modalidad acelerada experimental aprobada para UC–29:** primera ejecución **6.17–6.18**; segunda ejecución **6.19–6.21**. **Prioridad de optimización: cuota semanal.** Esta modalidad no modifica los contratos congelados ni reduce las verificaciones de seguridad necesarias.
+
+6.17 no está autorizado para ejecución automática durante este checkpoint. Cada ejecución requiere su solicitud y alcance específicos. Staging, commits, cambios de rama, operaciones sobre remotos y operaciones destructivas no quedan autorizados por este seguimiento.
 
 ### Fuentes autoritativas de Agenda Diaria Automática V1.0
 

@@ -136,6 +136,11 @@
                     </x-slot>
 
                     <x-slot name="content">
+                        @if ($user->esKinesiologo())
+                            <x-dropdown-link :href="route('turnos.agenda-atencion.index')" :active="request()->routeIs('turnos.agenda-atencion.*')">
+                                Agenda de atención
+                            </x-dropdown-link>
+                        @endif
                         <x-dropdown-link
                             :href="route('profile.edit')"
                             :active="request()->routeIs('profile.*')"
@@ -171,7 +176,7 @@
                 <button
                     type="button"
                     @click="open = ! open"
-                    class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:text-gray-500 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-150 ease-in-out"
+                    class="inline-flex items-center justify-center p-2 rounded-md text-gray-600 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-150 ease-in-out"
                     aria-label="Abrir o cerrar menú de navegación"
                     aria-controls="responsive-navigation-menu"
                     :aria-expanded="open.toString()"
@@ -236,6 +241,9 @@
             @endif
 
             @if ($user->esKinesiologo())
+                <x-responsive-nav-link :href="route('turnos.agenda-atencion.index')" :active="request()->routeIs('turnos.agenda-atencion.*')">
+                    Agenda de atención
+                </x-responsive-nav-link>
                 <x-responsive-nav-link
                     :href="route('perfil.kinesiologa.completar')"
                     :active="request()->routeIs(

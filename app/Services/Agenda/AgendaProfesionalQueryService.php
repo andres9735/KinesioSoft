@@ -34,6 +34,17 @@ final class AgendaProfesionalQueryService
         CarbonInterface $desde,
         CarbonInterface $hasta,
     ): array {
+        return $this->consulta->informacionDePeriodo($this->autorizarProfesional($kinesiologaId), $desde, $hasta);
+    }
+
+    /** Detalle administrativo: el id del turno nunca amplía el ámbito profesional. */
+    public function informacionDeTurno(int $kinesiologaId, int $turnoId): ?array
+    {
+        return $this->consulta->informacionDeTurno($this->autorizarProfesional($kinesiologaId), $turnoId);
+    }
+
+    private function autorizarProfesional(int $kinesiologaId): Kinesiologa
+    {
         $actor = $this->autenticacion->guard('web')->user();
         if (! $actor instanceof User || ! $actor->exists) {
             throw new AuthorizationException('No tenés autorización para consultar esta agenda.');
@@ -53,6 +64,6 @@ final class AgendaProfesionalQueryService
             throw new AuthorizationException('No tenés autorización para consultar esta agenda.');
         }
 
-        return $this->consulta->informacionDePeriodo($kinesiologa, $desde, $hasta);
+        return $kinesiologa;
     }
 }

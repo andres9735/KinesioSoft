@@ -44,6 +44,19 @@ Route::get('/turnos/agenda-atencion', [AgendaAtencionController::class, 'index']
     ->middleware(['auth', 'perfil.kinesiologo', 'verified', 'perfil.completo'])
     ->name('turnos.agenda-atencion.index');
 
+Route::get('/turnos/agenda-atencion/turnos/{turno}', [AgendaAtencionController::class, 'show'])
+    ->whereNumber('turno')
+    ->middleware(['auth', 'perfil.kinesiologo', 'verified', 'perfil.completo'])
+    ->name('turnos.agenda-atencion.show');
+
+Route::get('/turnos/agenda-atencion/imprimir', [AgendaAtencionController::class, 'imprimir'])
+    ->middleware(['auth', 'perfil.kinesiologo', 'verified', 'perfil.completo'])
+    ->name('turnos.agenda-atencion.imprimir');
+
+Route::get('/turnos/agenda-atencion/pdf', [AgendaAtencionController::class, 'pdf'])
+    ->middleware(['auth', 'perfil.kinesiologo', 'verified', 'perfil.completo'])
+    ->name('turnos.agenda-atencion.pdf');
+
 Route::get('/documentos-clinicos/{documento}/descargar', DescargarDocumentoClinicoController::class)
     ->middleware(['auth', 'verified', 'perfil.completo'])
     ->name('documentos-clinicos.download');

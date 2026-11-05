@@ -1,4 +1,5 @@
 @php($esMisTurnos = request()->routeIs('turnos.mis-turnos.*'))
+@php($esAgendaAtencion = request()->routeIs('turnos.agenda-atencion.*'))
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
@@ -6,10 +7,10 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>{{ config('app.name', 'Laravel') }}</title>
+        <title>@if ($esAgendaAtencion)Agenda de atención — @endif{{ config('app.name', 'Laravel') }}</title>
 
         <!-- Fonts -->
-        @unless ($esMisTurnos)
+        @unless ($esMisTurnos || $esAgendaAtencion)
             <link rel="preconnect" href="https://fonts.bunny.net">
             <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
         @endunless
@@ -20,6 +21,9 @@
     <body @class(['font-sans antialiased', 'uc06-mis-turnos' => $esMisTurnos])>
         @if ($esMisTurnos)
             <a href="#mis-turnos-contenido" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-3 focus:text-indigo-800 focus:ring-2 focus:ring-indigo-500">Saltar al contenido de Mis turnos</a>
+        @endif
+        @if ($esAgendaAtencion)
+            <a href="#agenda-atencion-contenido" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-3 focus:text-indigo-800 focus:ring-2 focus:ring-indigo-500">Saltar al contenido de Agenda de atención</a>
         @endif
         <div class="min-h-screen bg-gray-100">
             @include('layouts.navigation')
@@ -34,7 +38,7 @@
             @endisset
 
             <!-- Page Content -->
-            <main @if ($esMisTurnos) id="mis-turnos-contenido" tabindex="-1" class="focus:outline-none" @endif>
+            <main @if ($esMisTurnos) id="mis-turnos-contenido" tabindex="-1" class="focus:outline-none" @elseif ($esAgendaAtencion) id="agenda-atencion-contenido" tabindex="-1" class="focus:outline-none" @endif>
                 {{ $slot }}
             </main>
         </div>

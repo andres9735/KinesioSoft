@@ -75,6 +75,23 @@ final class AgendaAtencionQueryService
         CarbonInterface $hasta,
     ): array {
         $turnos = $this->turnosDePeriodo($kinesiologa, $desde, $hasta);
+
+        return $this->representar($turnos);
+    }
+
+    /** Lectura interna de un único turno; el consumidor debe autorizar la profesional. */
+    public function informacionDeTurno(Kinesiologa $kinesiologa, int $turnoId): ?array
+    {
+        $turnos = Turno::query()->where('kinesiologa_id', $kinesiologa->getKey())
+            ->whereKey($turnoId)
+            ->get(['id', 'paciente_id', 'kinesiologa_id', 'tipo', 'estado', 'inicio_at', 'fin_at']);
+
+        return $this->representar($turnos)[0] ?? null;
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function representar(Collection $turnos): array
+    {
         $turnos->load([
             'paciente:id,user_id',
             'paciente.user:id,name,apellido',
