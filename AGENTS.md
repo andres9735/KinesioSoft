@@ -50,12 +50,17 @@ Commit base del incremento:
 - **6.04: COMPLETADO** — instrucciones operativas actualizadas; sin pruebas ni cambios funcionales.
 - **6.05: COMPLETADO Y CERTIFICADO** — baseline ordinario actual de PHP/SQLite, JavaScript y build; MariaDB pendiente de certificación independiente.
 - **6.06: COMPLETADO — checkpoint documental preparado y versionado mediante el commit de cierre de este subpaso.**
+- **6.07: COMPLETADO Y VERIFICADO** — consulta interna compartida de turnos por profesional y jornada.
+- **6.08: COMPLETADO Y VERIFICADO** — consulta por período y representación administrativa mínima, sin escrituras.
+- **6.09: COMPLETADO Y VERIFICADO** — frontera de autorización profesional, separada de la lectura interna de UC–29.
 
-**Último subpaso completado: 6.06.**
+**Bloque B (6.07–6.09): CHECKPOINT CERTIFICADO** para los contratos internos de lectura y autorización implementados. Regresión conjunta focalizada: **102 tests / 534 assertions PASS**, con SQLite `:memory:`; sintaxis y Pint `--test` de los cuatro PHP satisfactorios. Certificación: `docs/implementacion/turnos-agenda-diaria-607-609-bloque-b.md`. No constituye implementación completa de UC–05/UC–29 ni certificación MariaDB.
 
-**Próximo subpaso para preparar: 6.07 — Inicio de la implementación incremental conforme al orden aprobado UXP-14.**
+**Último subpaso completado: 6.09.**
 
-6.07 todavía no está autorizado para ejecución automática y su alcance concreto deberá definirse antes de modificar código. Cada subpaso requiere su solicitud y alcance específicos. Staging, commits, cambios de rama, operaciones sobre remotos y operaciones destructivas no quedan autorizados por este seguimiento.
+**Próximo subpaso para preparar: 6.10 — Rutas y controlador de UC–05.**
+
+6.10 todavía no está autorizado para ejecución automática y su alcance concreto deberá definirse antes de modificar código. Su integración HTTP deberá aplicar la frontera profesional y conservar los controles transversales de cuenta, correo y perfil. Cada subpaso requiere su solicitud y alcance específicos. Staging, commits, cambios de rama, operaciones sobre remotos y operaciones destructivas no quedan autorizados por este seguimiento.
 
 ### Fuentes autoritativas de Agenda Diaria Automática V1.0
 
@@ -113,13 +118,15 @@ Esta aclaración resuelve la observación de coherencia registrada en 6.02 y com
 
 ### Baseline ordinario actual y antecedentes
 
-**Baseline ordinario actual — CERTIFICADO en 6.05:**
+**Baseline global de referencia — CERTIFICADO en 6.05 (ejecución previa):**
 
 - PHP: **2760 tests / 18474 assertions PASS**.
 - JavaScript: **196 PASS**.
 - Build: **PASS, 95 módulos**.
 
 Certificación detallada: `docs/implementacion/turnos-agenda-diaria-605-baseline.md`. PHP 8.2.12 / PHPUnit 11.5.55, Node.js 25.8.1 y Vite 7.3.1; ejecuciones satisfactorias con código de salida 0. Durante 6.05 se verificó el aislamiento efectivo de SQLite `:memory:`, sin PDO MySQL y con storage y vistas exclusivos, sin cambios funcionales.
+
+Se conserva esta certificación como referencia histórica vigente de partida. El checkpoint del bloque B ejecutó únicamente su regresión focalizada y no repitió el baseline global, JavaScript ni build; sus resultados no se suman a los de 6.05 ni los recertifican globalmente.
 
 **MariaDB: certificación actual pendiente.** No se ejecutaron `phpunit.mysql.xml` ni `tests/Integration/Uc06MariaDb/phpunit.xml`. Mantener diferenciadas las pruebas SQLite y las integraciones MariaDB; SQLite no certifica locking real. Las certificaciones históricas de UC–06 y UC–07 conservan su alcance original y no sustituyen una ejecución actual ni autorizan automáticamente reinicializaciones u otras operaciones destructivas en bases de pruebas.
 
