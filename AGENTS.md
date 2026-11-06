@@ -65,6 +65,10 @@ Commit base del incremento:
 - **6.19: COMPLETADO Y VERIFICADO EN EL ENTORNO LOCAL** — comando interno y Scheduler diario a las 7:00 según `app.timezone`; activación operativa pendiente.
 - **6.20: COMPLETADO Y VERIFICADO EN EL ENTORNO LOCAL** — identidad lógica de jornada, repetición idempotente, recuperación parcial y reclamo renovable con validación de titularidad; concurrencia real MariaDB pendiente.
 - **6.21: COMPLETADO Y VERIFICADO EN EL ENTORNO LOCAL** — regresión conjunta y ensayos de rendimiento de UC–29, con matriz de criterios y reservas documentadas.
+- **6.22: COMPLETADO Y VERIFICADO LOCALMENTE** — persistencia de enlaces seguros y revisión monotónica separada de los atributos de Turno, preservando UC–06.
+- **6.23: COMPLETADO Y VERIFICADO LOCALMENTE** — emisión criptográfica, idempotencia por turno/revisión y auditoría atómica, sin envío de correos.
+- **6.24: COMPLETADO Y VERIFICADO LOCALMENTE** — autenticidad, asociación, vigencia, revocación y permisos temporales del enlace, sin transiciones.
+- **6.25: COMPLETADO Y VERIFICADO LOCALMENTE** — acceso HTTPS GET/HEAD sin login general ni sesión, con datos mínimos y controles de privacidad, sin efectos funcionales.
 
 **Bloque B (6.07–6.09): CHECKPOINT CERTIFICADO** para los contratos internos de lectura y autorización implementados. Regresión conjunta focalizada: **102 tests / 534 assertions PASS**, con SQLite `:memory:`; sintaxis y Pint `--test` de los cuatro PHP satisfactorios. Certificación: `docs/implementacion/turnos-agenda-diaria-607-609-bloque-b.md`. No constituye implementación completa de UC–05/UC–29 ni certificación MariaDB.
 
@@ -74,13 +78,17 @@ Commit base del incremento:
 
 **UC–29: IMPLEMENTADO Y CERTIFICADO BAJO CONDICIONES LOCALES, CON RESERVAS DOCUMENTADAS.** Checkpoint conjunto 6.17–6.21 registrado mediante su commit de cierre; certificado: `docs/implementacion/turnos-agenda-diaria-617-621-uc29.md`. Regresión definitiva: **98 tests / 770 assertions PASS, exit 0**, SQLite `:memory:`, 19,253 segundos. La cota de 60 segundos por profesional se verificó sólo en los ensayos sintéticos locales de 30/150/600 turnos totales. El reclamo técnico renovable de 300 segundos no redefine esa cota. Activación operativa del Scheduler, concurrencia real MariaDB, producción, carga fría, equipos y flujos clínicos externos, integración y certificación posteriores permanecen pendientes en sus alcances respectivos. UC–05 conserva la consulta de programación vigente, independiente del resultado automático; no se certifica un cumplimiento sin reservas de los 19 criterios.
 
-**Último subpaso completado: 6.21.**
+**Checkpoint parcial UC–28 (6.22–6.25): REGISTRADO mediante el commit que incorpora su certificado**, `docs/implementacion/turnos-agenda-diaria-622-625-uc28.md`. Se reutiliza la regresión definitiva de **258 tests / 2032 assertions PASS, exit 0**, SQLite `:memory:`, sin repetir pruebas durante este checkpoint documental. Su conjunto difiere del antecedente de 265 tests y no recertifica globalmente UC–07. Código y pruebas históricos de UC–06 intactos. MariaDB real, ejecución de triggers y concurrencia, revisión visual manual, logs HTTP/proxy e integración de entrega/reintentos con UC–27 continúan pendientes. **UC–28 no está completo.**
 
-**Próximo subpaso para preparar: 6.22 — UC–28.**
+**Último subpaso completado: 6.25.**
+
+**Próximo subpaso para preparar: 6.26 — Resolución de asistencia mediante Actions de UC–06.**
+
+**Contrato pendiente de 6.26:** la credencial se excluye del HTML de 6.25. El POST posterior deberá conservar una autorización segura del enlace sin exigir login general y sin filtraciones por HTML, logs, referrer o almacenamiento persistente en texto plano. La validación inicial no sustituye la revalidación transaccional de credencial, programación, revisión, revocación, actor, estado y plazo al ejecutar las Actions compartidas. Este checkpoint no resuelve ese contrato ni implementa POST de decisión.
 
 **Modalidad acelerada experimental aplicada satisfactoriamente a UC–29:** primera ejecución **6.17–6.18**; segunda ejecución **6.19–6.21**, con las reservas de certificación indicadas. **Prioridad vigente: conservar cuota semanal de Codex.** Esta modalidad no modifica los contratos congelados ni reduce las verificaciones de seguridad necesarias.
 
-6.22 no está autorizado automáticamente durante este checkpoint. Cada ejecución requiere su solicitud y alcance específicos. Staging, commits, cambios de rama, operaciones sobre remotos y operaciones destructivas no quedan autorizados por este seguimiento.
+6.26 no está autorizado automáticamente durante este checkpoint. Cada ejecución requiere su solicitud y alcance específicos. Staging, commits, cambios de rama, operaciones sobre remotos y operaciones destructivas no quedan autorizados por este seguimiento.
 
 ### Fuentes autoritativas de Agenda Diaria Automática V1.0
 

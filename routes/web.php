@@ -15,6 +15,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DescargarDocumentoClinicoController;
 use App\Http\Controllers\DiagnosticoClinicoController;
 use App\Http\Controllers\EjercicioDomiciliarioController;
+use App\Http\Controllers\EnlaceAsistenciaTurnoController;
 use App\Http\Controllers\EspecialidadKinesiologiaController;
 use App\Http\Controllers\GeografiaController;
 use App\Http\Controllers\HistorialConfiguracionAgendaController;
@@ -30,11 +31,18 @@ use App\Http\Controllers\TecnicaTerapeuticaController;
 use App\Http\Controllers\TipoEquipoTerapeuticoController;
 use App\Http\Controllers\TituloProfesionalController;
 use App\Http\Controllers\UserController;
+use App\Http\Middleware\ProtegerAccesoEnlaceAsistencia;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
 });
+
+// Canal específico por credencial: sin sesión, cookies ni autorización del portal.
+Route::get('/turnos/asistencia', EnlaceAsistenciaTurnoController::class)
+    ->withoutMiddleware('web')
+    ->middleware(ProtegerAccesoEnlaceAsistencia::class)
+    ->name('turnos.asistencia.show');
 
 Route::get('/dashboard', DashboardController::class)
     ->middleware(['auth', 'perfil.completo', 'verified'])
