@@ -2,9 +2,20 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\Turnos\AccesoEnlaceRechazadoException;
+use App\Exceptions\Turnos\CancelacionTurnoNoPermitidaException;
+use App\Exceptions\Turnos\ConfirmacionAsistenciaNoPermitidaException;
+use App\Exceptions\Turnos\ProgramacionTurnoModificadaException;
+use App\Exceptions\Turnos\RecursosTurnoModificadosException;
 use App\Services\Turnos\AccesoEnlaceAsistencia;
+use App\Services\Turnos\AutorizacionNavegadorEnlaceService;
+use App\Services\Turnos\ResolverAsistenciaEnlaceService;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+use Throwable;
 
 final class EnlaceAsistenciaTurnoController extends Controller
 {
@@ -19,6 +30,49 @@ final class EnlaceAsistenciaTurnoController extends Controller
             default => 403,
         };
 
-        return response()->view('turnos.asistencia.show', ['acceso' => $acceso], $status);
+        return response()->view('turnos.asistencia.show', ['acceso' => $acceso, 'csrf' => $request->attributes->get('uc28.csrf'), 'operaciones' => $request->attributes->get('uc28.operaciones', [])], $status);
+    }
+
+    public function decidir(Request $request, ResolverAsistenciaEnlaceService $resolver, AutorizacionNavegadorEnlaceService $navegador): RedirectResponse
+    {
+        $datos = $request->attributes->get('uc28.autorizacion');
+        $accion = $request->attributes->get('uc28.decision');
+        $resultado = ['accion' => '', 'replay' => false, 'codigo' => 'decision_invalida'];
+        if (is_array($datos) && in_array($accion, ['confirmar', 'cancelar'], true) && $request->attributes->get('uc28.acepto') === true) {
+            try {
+                $operacion = $datos['operaciones'][$accion] ?? null;
+                if (! is_string($operacion)) {
+                    throw new AccesoEnlaceRechazadoException;
+                }
+                $resultado = $resolver->ejecutar($datos, $accion, $operacion);
+            } catch (AccesoEnlaceRechazadoException $error) {
+                $resultado['codigo'] = $error->motivo;
+            } catch (CancelacionTurnoNoPermitidaException $error) {
+                $resultado['codigo'] = $error->motivo === 'fuera_de_plazo' ? 'cancelacion_fuera_de_plazo' : 'estado_o_programacion';
+            } catch (ConfirmacionAsistenciaNoPermitidaException $error) {
+                $resultado['codigo'] = $error->motivo === 'inicio_no_futuro' ? 'vencido' : 'estado_o_programacion';
+            } catch (AuthorizationException) {
+                $resultado['codigo'] = 'invalido';
+            } catch (ProgramacionTurnoModificadaException|RecursosTurnoModificadosException) {
+                $resultado['codigo'] = 'programacion_modificada';
+            } catch (Throwable) {
+                Log::error('No se pudo resolver la asistencia mediante enlace.');
+                $resultado['codigo'] = 'error_tecnico';
+            }
+        }
+        $response = new RedirectResponse('/turnos/asistencia/resultado', 303);
+        $response->headers->setCookie($navegador->resultado($datos['enlace'], $resultado));
+
+        return $response;
+    }
+
+    public function resultado(Request $request): Response
+    {
+        $datos = $request->attributes->get('uc28.resultado');
+
+        return response()->view('turnos.asistencia.resultado', [
+            'codigo' => $datos['codigo'] ?? 'error_tecnico',
+            'accion' => $datos['accion'] ?? '', 'replay' => $datos['replay'] ?? false,
+        ]);
     }
 }

@@ -44,6 +44,16 @@ Route::get('/turnos/asistencia', EnlaceAsistenciaTurnoController::class)
     ->middleware(ProtegerAccesoEnlaceAsistencia::class)
     ->name('turnos.asistencia.show');
 
+Route::post('/turnos/asistencia/decidir', [EnlaceAsistenciaTurnoController::class, 'decidir'])
+    ->withoutMiddleware('web')
+    ->middleware(ProtegerAccesoEnlaceAsistencia::class)
+    ->name('turnos.asistencia.decidir');
+
+Route::get('/turnos/asistencia/resultado', [EnlaceAsistenciaTurnoController::class, 'resultado'])
+    ->withoutMiddleware('web')
+    ->middleware(ProtegerAccesoEnlaceAsistencia::class)
+    ->name('turnos.asistencia.resultado');
+
 Route::get('/dashboard', DashboardController::class)
     ->middleware(['auth', 'perfil.completo', 'verified'])
     ->name('dashboard');

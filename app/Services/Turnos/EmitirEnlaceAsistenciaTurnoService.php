@@ -4,6 +4,7 @@ namespace App\Services\Turnos;
 
 use App\Enums\EstadoTurnoEnum;
 use App\Models\EnlaceAsistenciaTurno;
+use App\Models\SobreEntregaEnlace;
 use App\Models\Turno;
 use App\Services\AuditoriaService;
 use Carbon\CarbonImmutable;
@@ -19,6 +20,7 @@ final class EmitirEnlaceAsistenciaTurnoService
     public function __construct(
         private TransaccionTurnoService $transaccion,
         private AuditoriaService $auditoria,
+        private SobreEntregaEnlaceService $sobres,
     ) {}
 
     /**
@@ -52,7 +54,9 @@ final class EmitirEnlaceAsistenciaTurnoService
                     throw new DomainException('El ciclo de emisión no admite otra credencial.');
                 }
 
-                return new EnlaceAsistenciaEmitido((int) $existente->id, false, null);
+                $sobreId = SobreEntregaEnlace::query()->where('enlace_id', $existente->id)->value('id');
+
+                return new EnlaceAsistenciaEmitido((int) $existente->id, false, null, $sobreId === null ? null : (int) $sobreId);
             }
 
             $token = bin2hex(random_bytes(32));
@@ -65,6 +69,8 @@ final class EmitirEnlaceAsistenciaTurnoService
                 'inicio_at' => $inicioOriginal, 'fin_at' => $finOriginal, 'zona_horaria' => $zona,
                 'emitido_at' => $ahora, 'vence_at' => $inicio,
             ])->saveOrFail();
+            $url = $baseUrl.self::RUTA_RESOLUCION.'?token='.$token;
+            $sobreId = $this->sobres->preparar($enlace, $url);
             $this->auditoria->registrar(
                 evento: 'enlace_asistencia_emitido', modulo: 'Turnos', auditable: $enlace,
                 valoresNuevos: [
@@ -72,11 +78,12 @@ final class EmitirEnlaceAsistenciaTurnoService
                     'version_programacion' => $version, 'ciclo_emision' => $enlace->ciclo_emision,
                     'alcance' => EnlaceAsistenciaTurno::ALCANCE, 'emitido_at' => $ahora->toIso8601String(),
                     'vence_at' => $inicio->toIso8601String(),
+                    'sobre_id' => $sobreId,
                 ],
                 url: 'urn:kinesiosoft:emision-enlace-asistencia', ipAddress: '', userAgent: 'Proceso interno',
             );
 
-            return new EnlaceAsistenciaEmitido((int) $enlace->id, true, $baseUrl.self::RUTA_RESOLUCION.'?token='.$token);
+            return new EnlaceAsistenciaEmitido((int) $enlace->id, true, $url, $sobreId);
         });
     }
 

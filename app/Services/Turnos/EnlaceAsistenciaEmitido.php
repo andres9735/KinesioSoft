@@ -13,6 +13,7 @@ final readonly class EnlaceAsistenciaEmitido implements JsonSerializable
         public int $enlaceId,
         public bool $nuevaEmision,
         #[SensitiveParameter] private ?string $url,
+        public ?int $sobreId = null,
     ) {}
 
     public function urlParaCorreo(): ?string
@@ -22,7 +23,7 @@ final readonly class EnlaceAsistenciaEmitido implements JsonSerializable
 
     public function jsonSerialize(): array
     {
-        return ['enlace_id' => $this->enlaceId, 'nueva_emision' => $this->nuevaEmision];
+        return ['enlace_id' => $this->enlaceId, 'nueva_emision' => $this->nuevaEmision, 'sobre_id' => $this->sobreId];
     }
 
     public function __debugInfo(): array

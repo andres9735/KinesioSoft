@@ -27,6 +27,16 @@ final class ValidarEnlaceAsistenciaTurnoService
         if ($enlace === null || ! $enlace->coincideConToken($token) || $enlace->alcance !== EnlaceAsistenciaTurno::ALCANCE) {
             return new AccesoEnlaceAsistencia(AccesoEnlaceAsistencia::INVALIDO);
         }
+
+        return $this->validarReferencia($enlace);
+    }
+
+    /** Sólo para un enlace previamente acreditado por credencial/cookie autenticada. */
+    public function validarReferencia(EnlaceAsistenciaTurno $enlace): AccesoEnlaceAsistencia
+    {
+        if ($enlace->alcance !== EnlaceAsistenciaTurno::ALCANCE) {
+            return new AccesoEnlaceAsistencia(AccesoEnlaceAsistencia::INVALIDO);
+        }
         if ($enlace->revocado_at !== null) {
             return new AccesoEnlaceAsistencia(AccesoEnlaceAsistencia::REVOCADO);
         }

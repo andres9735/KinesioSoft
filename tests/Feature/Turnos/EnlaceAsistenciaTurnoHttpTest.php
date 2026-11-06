@@ -5,6 +5,7 @@ namespace Tests\Feature\Turnos;
 use App\Enums\TipoTurnoEnum;
 use App\Models\EnlaceAsistenciaTurno;
 use App\Models\Turno;
+use App\Services\Turnos\AutorizacionNavegadorEnlaceService;
 use App\Services\Turnos\EmitirEnlaceAsistenciaTurnoService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -69,7 +70,10 @@ class EnlaceAsistenciaTurnoHttpTest extends TestCase
             $this->assertSame([], $this->app['request']->query());
             $this->assertStringNotContainsString($this->token, $this->app['request']->fullUrl());
             $this->assertStringNotContainsString($this->token, $this->app['request']->getRequestUri());
-            $this->assertSame([], $response->headers->getCookies());
+            $cookies = $response->headers->getCookies();
+            $this->assertCount(3, $cookies);
+            $this->assertSame(AutorizacionNavegadorEnlaceService::COOKIE, $cookies[0]->getName());
+            $this->assertTrue($cookies[0]->isSecure() && $cookies[0]->isHttpOnly());
         }
         $this->head($this->url)->assertOk();
         $this->assertSame([], $escrituras);
@@ -87,8 +91,8 @@ class EnlaceAsistenciaTurnoHttpTest extends TestCase
         $response->assertHeader('X-Frame-Options', 'DENY')->assertHeader('X-Content-Type-Options', 'nosniff');
         $this->assertStringContainsString('no-store', $response->headers->get('Cache-Control'));
         $this->assertStringContainsString("default-src 'none'", $response->headers->get('Content-Security-Policy'));
-        $this->assertStringContainsString("form-action 'none'", $response->headers->get('Content-Security-Policy'));
-        $this->assertDoesNotMatchRegularExpression('/<(script|link|img|iframe|form)\b|\b(?:src|href|action)\s*=/i', $response->getContent());
+        $this->assertStringContainsString("form-action 'self'", $response->headers->get('Content-Security-Policy'));
+        $this->assertDoesNotMatchRegularExpression('/<(script|link|img|iframe)\b|\b(?:src|href|action)\s*=\s*["\x27]https?:/i', $response->getContent());
         $response->assertSee('lang="es"', false)->assertSee('name="viewport"', false);
         $response->assertSee('aria-labelledby="titulo"', false);
         $response->assertHeaderMissing('Location');
@@ -142,12 +146,12 @@ class EnlaceAsistenciaTurnoHttpTest extends TestCase
     }
 
     #[DataProvider('acciones')]
-    public function test_acciones_presentadas_segun_estado_y_plazo_sin_formularios(string $estado, string $ahora, string $confirmacion, string $cancelacion): void
+    public function test_acciones_presentadas_segun_estado_y_plazo_con_decision_expresa(string $estado, string $ahora, string $confirmacion, string $cancelacion): void
     {
         DB::table('turnos')->where('id', $this->turno->id)->update(['estado' => $estado]);
         CarbonImmutable::setTestNow(CarbonImmutable::parse($ahora, config('app.timezone')));
         $response = $this->get($this->url);
-        $response->assertOk()->assertSee($confirmacion)->assertSee($cancelacion)->assertDontSee('<form', false);
+        $response->assertOk()->assertSee($confirmacion)->assertSee($cancelacion)->assertDontSee($this->token, false);
         $this->assertSame($estado, $this->turno->fresh()->estado->value);
     }
 

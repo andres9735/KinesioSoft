@@ -14,6 +14,11 @@
         dt { font-weight: 700; }
         dd { margin: 0 0 1rem; overflow-wrap: anywhere; }
         .aviso { padding: 1rem; border-left: .3rem solid #1d4ed8; background: #eff6ff; }
+        details { margin: 1rem 0; padding: 1rem; border: 1px solid #6b7280; border-radius: .4rem; }
+        summary, button { cursor: pointer; }
+        button { padding: .7rem 1rem; color: #fff; background: #1e40af; border: 0; border-radius: .3rem; font: inherit; }
+        input { margin-right: .5rem; }
+        :focus-visible { outline: 3px solid #1d4ed8; outline-offset: 4px; }
         @media (max-width: 42rem) { main { margin: .75rem; padding: 1rem; } }
     </style>
 </head>
@@ -40,6 +45,25 @@
                     {{ $acceso->puedeCancelar ? 'permitido mientras resten al menos 12 horas.' : 'no disponible online: restan menos de 12 horas. Comunicate con el consultorio.' }}
                 </li>
             </ul>
+            @if ($csrf && ($acceso->puedeConfirmar || $acceso->puedeCancelar))
+                @foreach (['confirmar' => 'Confirmar asistencia', 'cancelar' => 'Cancelar turno'] as $accion => $etiqueta)
+                    @if (($accion === 'confirmar' && $acceso->puedeConfirmar) || ($accion === 'cancelar' && $acceso->puedeCancelar))
+                        <details>
+                            <summary>{{ $etiqueta }}</summary>
+                            <form method="POST" action="/turnos/asistencia/decidir">
+                                <input type="hidden" name="_csrf_enlace" value="{{ $csrf }}">
+                                <input type="hidden" name="accion" value="{{ $accion }}">
+                                <fieldset>
+                                    <legend>Revisá y confirmá tu decisión</legend>
+                                    <p>{{ $accion === 'confirmar' ? 'Confirmar expresa tu intención de concurrir; no registra una atención realizada.' : 'Cancelar libera la reserva de este horario y conserva el historial del turno.' }}</p>
+                                    <label for="acepto-{{ $accion }}"><input id="acepto-{{ $accion }}" type="checkbox" name="acepto" value="1" required>Deseo {{ $accion === 'confirmar' ? 'confirmar mi asistencia' : 'cancelar este turno' }}.</label>
+                                </fieldset>
+                                <button type="submit">{{ $etiqueta }}</button>
+                            </form>
+                        </details>
+                    @endif
+                @endforeach
+            @endif
             <p class="aviso">Esta consulta no registra ninguna decisión sobre tu asistencia.</p>
         </section>
     @else
@@ -54,6 +78,17 @@
         @endphp
         <p role="status" class="aviso">{{ $mensaje }}</p>
         <p>No se realizó ningún cambio. Comunicate con el consultorio para recibir orientación.</p>
+    @endif
+    @if ($operaciones)
+        <section aria-labelledby="recuperacion">
+            <h2 id="recuperacion">Si no recibiste la respuesta</h2>
+            <p>Consultá el resultado registrado antes de reintentar. Esta consulta no vuelve a ejecutar tu decisión y está disponible durante 15 minutos desde que abriste el enlace.</p>
+            <ul>
+                @foreach ($operaciones as $accion => $operacion)
+                    <li><a href="/turnos/asistencia/resultado?operacion={{ $operacion }}">Consultar resultado de {{ $accion === 'confirmar' ? 'confirmar asistencia' : 'cancelar turno' }}</a></li>
+                @endforeach
+            </ul>
+        </section>
     @endif
 </main>
 </body>
