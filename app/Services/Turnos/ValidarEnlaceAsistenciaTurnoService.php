@@ -65,6 +65,7 @@ final class ValidarEnlaceAsistenciaTurnoService
         $fin = CarbonImmutable::parse($turno->getRawOriginal('fin_at'), $enlace->zona_horaria);
         $turno->load(['kinesiologa:id,user_id', 'kinesiologa.user:id,name,apellido']);
         $profesional = $turno->kinesiologa?->user;
+        $acciones = $this->accionesPara($turno, $ahora, $enlace->zona_horaria);
 
         return new AccesoEnlaceAsistencia(
             AccesoEnlaceAsistencia::VALIDO,
@@ -74,8 +75,21 @@ final class ValidarEnlaceAsistenciaTurnoService
                 'kinesiologa' => trim(($profesional?->name ?? '').' '.($profesional?->apellido ?? '')),
                 'estado' => $turno->estado === EstadoTurnoEnum::PENDIENTE ? 'Pendiente' : 'Confirmado',
             ],
-            $turno->estado === EstadoTurnoEnum::PENDIENTE && $ahora->lt($inicio),
-            ! $inicio->utc()->lt($ahora->utc()->addHours(12)),
+            $acciones['confirmar'],
+            $acciones['cancelar'],
         );
+    }
+
+    /** Posibilidades informativas compartidas con el correo; no sustituyen la autorización de las Actions. */
+    public function accionesPara(Turno $turno, CarbonImmutable $ahora, ?string $zona = null): array
+    {
+        $inicio = CarbonImmutable::parse($turno->getRawOriginal('inicio_at'), $zona ?? config('app.timezone'));
+        $futuro = $ahora->lt($inicio);
+
+        return [
+            'confirmar' => $turno->estado === EstadoTurnoEnum::PENDIENTE && $futuro,
+            'cancelar' => in_array($turno->estado, [EstadoTurnoEnum::PENDIENTE, EstadoTurnoEnum::CONFIRMADO], true)
+                && $futuro && ! $inicio->utc()->lt($ahora->utc()->addHours(12)),
+        ];
     }
 }

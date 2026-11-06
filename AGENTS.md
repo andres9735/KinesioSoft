@@ -73,6 +73,10 @@ Commit base del incremento:
 - **6.27: COMPLETADO Y VERIFICADO LOCALMENTE** — decisiones expresas, resultados, rechazos y recuperación de errores sin exposición clínica ni credenciales en HTML.
 - **6.28: COMPLETADO Y VERIFICADO LOCALMENTE** — revisión de seguridad y correcciones de cookies no escalares, propósito de autorización y origen HTTPS canónico, con regresión focalizada.
 - **6.29: COMPLETADO Y VERIFICADO LOCALMENTE** — CA-28-33 recuperado y verificado, contraste de los 34 criterios e infraestructura mínima de entrega durable cifrada; reservas MariaDB e integraciones externas documentadas.
+- **6.30: COMPLETADO Y VERIFICADO LOCALMENTE** — identidad durable por turno/revisión, persistencia separada de intentos, estados/resultados técnicos, idempotencia y auditoría atómica.
+- **6.31: COMPLETADO Y VERIFICADO LOCALMENTE** — elegibilidad de Primera consulta/Seguimiento Pendiente/Confirmado, umbral de 24 horas, futuro estricto, correo vigente y recuperación de pendientes sin modificar turnos.
+- **6.32: COMPLETADO Y VERIFICADO LOCALMENTE** — comando y Scheduler configurable de cinco minutos, zona local, franja opcional, controles de solapamiento y coordinación de preparación durable independiente de UC–29.
+- **6.33: COMPLETADO Y VERIFICADO LOCALMENTE** — contenido administrativo y Mailable/Blade transitorios con acciones vigentes, referencias de sobres cifrados y controles de privacidad; sin transporte.
 
 **Bloque B (6.07–6.09): CHECKPOINT CERTIFICADO** para los contratos internos de lectura y autorización implementados. Regresión conjunta focalizada: **102 tests / 534 assertions PASS**, con SQLite `:memory:`; sintaxis y Pint `--test` de los cuatro PHP satisfactorios. Certificación: `docs/implementacion/turnos-agenda-diaria-607-609-bloque-b.md`. No constituye implementación completa de UC–05/UC–29 ni certificación MariaDB.
 
@@ -90,13 +94,17 @@ Commit base del incremento:
 
 **Contrato GET → POST verificado localmente:** la credencial original se excluye del HTML; cookies cifradas y autenticadas de propósito y vigencia limitados autorizan el POST sin login general, con CSRF y controles de origen. La decisión revalida programación, revisión, revocación, actor, estado y plazo dentro de la transacción compartida. La recuperación de respuesta perdida consulta el resultado registrado sin rehabilitar autorizaciones modificatorias ni ejecutar otra Action.
 
-**Último subpaso completado: 6.29.**
+**Checkpoint parcial UC–27 (6.30–6.33): COMPLETADO Y VERIFICADO LOCALMENTE**, registrado mediante el commit que incorpora `docs/implementacion/turnos-agenda-diaria-630-633-uc27.md`. Regresión definitiva reutilizada: **228 tests / 1457 assertions PASS, exit 0**, SQLite `:memory:`, sin PDO MySQL y con NullHandler. Las diecinueve huellas coinciden con el código certificado; este checkpoint sólo modifica documentación y no repite PHPUnit. El antecedente 6.30–6.31 de **266 tests / 1821 assertions PASS** corresponde a otro conjunto y no se suma al definitivo. **UC–27 no está completo:** transporte, Jobs, SMTP, reintentos operativos y Mailpit siguen pendientes; MariaDB, concurrencia, rendimiento, caché compartida, activación operativa y entrega real no certificados.
 
-**Próximo subpaso para preparar: 6.30 — UC–27.** Integración obligatoria con el sobre cifrado aprobado; correo, Jobs, colas, reintentos y Mailpit pertenecen a 6.30–6.36. La infraestructura durable no certifica entrega operativa ni exactamente una vez. El alcance concreto deberá definirse antes de modificar código.
+**Coherencia temporal del checkpoint:** UC–27 conserva el cron predeterminado de cinco minutos y una franja opcional sin exclusión adicional por defecto. UC–29 mantiene su evento independiente a las 7:00 locales, con zona `app.timezone`. El inicio estrictamente futuro, el umbral de 24 horas y el límite inclusivo de doce horas se mantienen separados de esa programación operativa. El correo reutiliza los predicados compartidos; no sustituye la autorización de las Actions de UC–06.
+
+**Último subpaso completado: 6.33.**
+
+**Próximo subpaso para preparar: 6.34 — Integración de transporte y Mailpit.** Se mantiene el orden aprobado UXP-14 y los contratos GA aplicables; la distribución numérica concreta procede de las solicitudes autorizadas. La decisión transversal R1–R10 de sobre cifrado sigue siendo obligatoria: los futuros Jobs transportarán sólo referencias y revalidarán antes del despacho. El alcance concreto deberá definirse antes de modificar código; la infraestructura preparada no certifica entrega operativa ni exactamente una vez.
 
 **Modalidad acelerada experimental aplicada satisfactoriamente a UC–29:** primera ejecución **6.17–6.18**; segunda ejecución **6.19–6.21**, con las reservas de certificación indicadas. **Prioridad vigente: conservar cuota semanal de Codex.** Esta modalidad no modifica los contratos congelados ni reduce las verificaciones de seguridad necesarias.
 
-6.30 no está autorizado automáticamente durante este checkpoint. Cada ejecución requiere su solicitud y alcance específicos. Staging, commits, cambios de rama, operaciones sobre remotos y operaciones destructivas no quedan autorizados por este seguimiento.
+6.34 no está autorizado automáticamente durante este checkpoint. Cada ejecución requiere su solicitud y alcance específicos. Staging, commits, cambios de rama, operaciones sobre remotos y operaciones destructivas no quedan autorizados por este seguimiento.
 
 ### Fuentes autoritativas de Agenda Diaria Automática V1.0
 
