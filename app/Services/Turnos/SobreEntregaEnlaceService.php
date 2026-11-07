@@ -179,6 +179,17 @@ final class SobreEntregaEnlaceService
         });
     }
 
+    /** R7: terminar la necesidad de entrega sin revocar el enlace ni revelar material. */
+    public function finalizarNecesidad(int $sobreId): void
+    {
+        $this->autorizarProceso();
+        $this->bajoLocks($sobreId, function (SobreEntregaEnlace $sobre, EnlaceAsistenciaTurno $enlace, Turno $turno, CarbonImmutable $ahora): void {
+            if ($sobre->estado !== 'CERRADO') {
+                $this->cerrar($sobre, 'FINALIZADO', $ahora);
+            }
+        });
+    }
+
     /** Limpieza invocable por un proceso interno; sin Scheduler nuevo ni descifrado. */
     public function depurar(int $sobreId): void
     {

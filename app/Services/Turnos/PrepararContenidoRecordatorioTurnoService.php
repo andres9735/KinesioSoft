@@ -48,7 +48,9 @@ final class PrepararContenidoRecordatorioTurnoService
                 $this->registros->asociarSobre((int) $registro->id, $emitido->sobreId);
                 $sobreId = $emitido->sobreId;
             } else {
-                $sobreId = null;
+                // Si ya se preparó una entrega, conservar su frontera de revocación
+                // incluso cuando el mensaje pasó a ser exclusivamente informativo.
+                $sobreId = $registro->sobre_id;
             }
 
             return ['recordatorio_id' => (int) $registro->id, 'sobre_id' => $sobreId];
@@ -77,7 +79,7 @@ final class PrepararContenidoRecordatorioTurnoService
             $this->comprobar($registro, $turno, $ahora);
             $acciones = $this->validador->accionesPara($turno, $ahora, $registro->zona_horaria);
             $url = null;
-            if ($acciones['confirmar'] || $acciones['cancelar']) {
+            if ($acciones['confirmar'] || $acciones['cancelar'] || $registro->sobre_id !== null) {
                 $enlace = EnlaceAsistenciaTurno::query()->lockForUpdate()->find($registro->enlace_id);
                 $sobre = SobreEntregaEnlace::query()->lockForUpdate()->find($registro->sobre_id);
                 $url = $material?->urlParaCorreo();
@@ -95,6 +97,9 @@ final class PrepararContenidoRecordatorioTurnoService
                     || ! is_string($parametros['token']) || ! $enlace->coincideConToken($parametros['token'])
                     || $url !== rtrim(config('app.url'), '/').EmitirEnlaceAsistenciaTurnoService::RUTA_RESOLUCION.'?token='.$parametros['token']) {
                     throw new DomainException('El contenido requiere una referencia de entrega autorizada y vigente.');
+                }
+                if (! $acciones['confirmar'] && ! $acciones['cancelar']) {
+                    $url = null;
                 }
             }
             $profesional = $turno->kinesiologa->user()->first(['name', 'apellido']);

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Console;
 
+use App\Jobs\DespacharRecordatorioTurnoJob;
 use App\Models\Auditoria;
 use App\Models\Turno;
 use App\Services\Turnos\OrquestarRecordatoriosTurnoService;
@@ -97,7 +98,14 @@ class PrepararRecordatoriosTurnoCommandTest extends TestCase
         $this->assertDatabaseCount('intentos_recordatorio_turno', 0);
         $this->assertSame($antes, $turno->fresh()->getAttributes());
         Mail::assertNothingSent();
-        Queue::assertNothingPushed();
+        Queue::assertPushed(DespacharRecordatorioTurnoJob::class, 4);
+        Queue::assertPushed(DespacharRecordatorioTurnoJob::class, function ($job): bool {
+            $payload = serialize($job);
+            $this->assertStringNotContainsString('?token=', $payload);
+            $this->assertStringNotContainsString('material_cifrado', $payload);
+
+            return $job->recordatorioId > 0 && $job->tries === 1 && $job->afterCommit === true;
+        });
     }
 
     public function test_ejecucion_con_mutex_ocupado_no_interfiere_ni_libera_lock_ajeno(): void

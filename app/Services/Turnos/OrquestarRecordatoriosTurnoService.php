@@ -2,6 +2,7 @@
 
 namespace App\Services\Turnos;
 
+use App\Jobs\DespacharRecordatorioTurnoJob;
 use App\Services\Agenda\RelojAplicacion;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
@@ -10,7 +11,7 @@ use LogicException;
 use RuntimeException;
 use Throwable;
 
-/** Selección durable automática. El transporte en cola pertenece al siguiente bloque. */
+/** Selección y preparación durables; el despacho se delega a la cola mediante IDs. */
 final class OrquestarRecordatoriosTurnoService
 {
     public const MUTEX = 'uc27:seleccion-recordatorios';
@@ -19,6 +20,7 @@ final class OrquestarRecordatoriosTurnoService
         private SeleccionarRecordatoriosTurnoService $selector,
         private RelojAplicacion $reloj,
         private PrepararContenidoRecordatorioTurnoService $contenido,
+        private GestionarReintentosRecordatorioTurnoService $reintentos,
     ) {}
 
     /** null: omitida por horario/solapamiento; 0: ejecución normal sin candidatos. */
@@ -40,8 +42,12 @@ final class OrquestarRecordatoriosTurnoService
                 // Sólo referencias cifradas durables; no renderizar, descifrar ni enviar.
                 $this->contenido->preparar($id);
             }
+            $planes = $this->reintentos->planificar();
+            foreach ($planes as $plan) {
+                DespacharRecordatorioTurnoJob::dispatch($plan['recordatorio_id'], $plan['identidad'], $plan['numero'])->afterCommit();
+            }
 
-            return count($ids);
+            return count($planes);
         } catch (Throwable) {
             // No transportar la excepción original, SQL, parámetros o credenciales.
             // Sin candidato persistido no fabricar un objetivo de AuditoriaService.
