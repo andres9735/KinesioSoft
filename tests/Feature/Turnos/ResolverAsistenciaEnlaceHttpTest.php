@@ -127,6 +127,8 @@ class ResolverAsistenciaEnlaceHttpTest extends TestCase
             $headers['Origin'] = 'https://atacante.example.test';
         } elseif ($caso === 'sin_origen') {
             $headers['Origin'] = '';
+        } elseif ($caso === 'origen_nulo') {
+            $headers['Origin'] = 'null';
         } else {
             $headers['Sec-Fetch-Site'] = 'cross-site';
         }
@@ -137,7 +139,39 @@ class ResolverAsistenciaEnlaceHttpTest extends TestCase
 
     public static function rechazosCsrf(): array
     {
-        return [['token'], ['origen'], ['sin_origen'], ['cross_site']];
+        return [['token'], ['origen'], ['sin_origen'], ['origen_nulo'], ['cross_site']];
+    }
+
+    #[DataProvider('origenesConPuerto')]
+    public function test_formulario_https_con_puerto_exige_origen_exacto(string $origen, int $status): void
+    {
+        config(['app.url' => 'https://localhost:8443']);
+        $this->url = str_replace('https://consultorio.example.test', 'https://localhost:8443', $this->url);
+        $this->autorizar()->assertHeader('Referrer-Policy', 'strict-origin')
+            ->assertSee('<meta name="referrer" content="strict-origin">', false);
+
+        // strict-origin transmite sólo el origen; la credencial no viaja en Referer.
+        $this->withHeaders(['Origin' => $origen, 'Sec-Fetch-Site' => 'same-origin', 'Referer' => 'https://localhost:8443/'])
+            ->post('https://localhost:8443/turnos/asistencia/decidir', [
+                '_csrf_enlace' => $this->csrf, 'accion' => 'confirmar', 'acepto' => '1',
+            ])->assertStatus($status)->assertHeader('Referrer-Policy', 'no-referrer')
+            ->assertDontSee($this->token, false);
+
+        $this->assertNull($this->app['request']->headers->get('Referer'));
+        $this->assertSame($status === 303 ? 'CONFIRMADO' : 'PENDIENTE', $this->turno->fresh()->estado->value);
+        $this->assertSame($status === 303 ? 1 : 0, Auditoria::where('evento', 'turno_asistencia_confirmada')->count());
+        $this->assertStringNotContainsString($this->token, Auditoria::all()->toJson());
+    }
+
+    public static function origenesConPuerto(): array
+    {
+        return [
+            'exacto' => ['https://localhost:8443', 303],
+            'sin_puerto' => ['https://localhost', 419],
+            'otro_puerto' => ['https://localhost:8444', 419],
+            'nulo' => ['null', 419],
+            'ajeno' => ['https://ajeno.example.test:8443', 419],
+        ];
     }
 
     public function test_post_sin_cookie_o_solo_con_token_original_no_autoriza(): void
@@ -253,7 +287,7 @@ class ResolverAsistenciaEnlaceHttpTest extends TestCase
         config(['app.debug' => true]);
         $cookies = [AutorizacionNavegadorEnlaceService::COOKIE => ['dato' => $this->token]];
         $response = $this->call('GET', $this->url, [], $cookies);
-        $response->assertOk()->assertDontSee($this->token, false)->assertHeader('Referrer-Policy', 'no-referrer');
+        $response->assertOk()->assertDontSee($this->token, false)->assertHeader('Referrer-Policy', 'strict-origin');
         $this->assertSame('', $this->app['request']->server->get('QUERY_STRING'));
         $this->call('POST', 'https://consultorio.example.test/turnos/asistencia/decidir?token='.$this->token, [], $cookies)
             ->assertStatus(403)->assertDontSee($this->token, false);

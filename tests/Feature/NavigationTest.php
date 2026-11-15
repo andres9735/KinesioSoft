@@ -489,6 +489,29 @@ class NavigationTest extends TestCase
         );
     }
 
+    public function test_agenda_de_atencion_esta_activa_en_menu_principal_y_movil_solo_para_kinesiologo(): void
+    {
+        foreach (RoleEnum::cases() as $rol) {
+            $html = $this->renderNavigationFor($rol, 'turnos.agenda-atencion.show');
+            $url = route('turnos.agenda-atencion.index');
+            if ($rol !== RoleEnum::KINESIOLOGO) {
+                $this->assertStringNotContainsString($url, $html);
+
+                continue;
+            }
+
+            $this->assertSame(2, substr_count($html, 'href="'.$url.'"'));
+            $principal = explode('<!-- Settings Dropdown -->', $html)[0];
+            $this->assertSame(1, substr_count($principal, 'href="'.$url.'"'));
+            $dom = new \DOMDocument;
+            @$dom->loadHTML($html);
+            $enlaces = (new \DOMXPath($dom))->query('//a[@href="'.$url.'"]');
+            foreach ($enlaces as $enlace) {
+                $this->assertSame('page', $enlace->getAttribute('aria-current'));
+            }
+        }
+    }
+
     private function renderNavigationFor(
         RoleEnum $rol,
         ?string $routeName = null

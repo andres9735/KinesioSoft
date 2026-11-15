@@ -4,6 +4,10 @@
     $esAdministrativo =
         $user->esAdministrador() ||
         $user->esSuperadmin();
+    $recibeAlertasRecordatorios = $user->activo && $user->esAdministrador();
+    $cantidadAlertasRecordatorios = $recibeAlertasRecordatorios
+        ? app(\App\Services\Turnos\ConsultarAlertasRecordatorioService::class)->contar($user)
+        : 0;
 @endphp
 
 <nav
@@ -28,7 +32,11 @@
                 </div>
 
                 <!-- Desktop Navigation Links -->
-                <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                <div @class([
+                    'hidden',
+                    'space-x-4 lg:-my-px lg:ms-6 lg:flex' => $user->esKinesiologo(),
+                    'space-x-8 sm:-my-px sm:ms-10 sm:flex' => ! $user->esKinesiologo(),
+                ])>
                     <x-nav-link
                         :href="route('dashboard')"
                         :active="request()->routeIs('dashboard')"
@@ -77,6 +85,12 @@
                         >
                             Horarios de atención
                         </x-nav-link>
+                        <x-nav-link
+                            :href="route('turnos.agenda-atencion.index')"
+                            :active="request()->routeIs('turnos.agenda-atencion.*')"
+                        >
+                            Agenda de atención
+                        </x-nav-link>
                     @endif
 
                     @if ($esAdministrativo)
@@ -100,12 +114,24 @@
                         >
                             Auditoría
                         </x-nav-link>
+                        @if ($recibeAlertasRecordatorios)
+                            <x-nav-link :href="route('turnos.recordatorios.alertas')" :active="request()->routeIs('turnos.recordatorios.alertas')">
+                                Alertas de recordatorios
+                                @if ($cantidadAlertasRecordatorios > 0)
+                                    <span class="ms-1 rounded-full bg-amber-100 px-2 text-xs font-bold text-amber-900" aria-label="Alertas registradas: {{ $cantidadAlertasRecordatorios }}">{{ $cantidadAlertasRecordatorios }}</span>
+                                @endif
+                            </x-nav-link>
+                        @endif
                     @endif
                 </div>
             </div>
 
             <!-- Settings Dropdown -->
-            <div class="hidden sm:flex sm:items-center sm:ms-6">
+            <div @class([
+                'hidden',
+                'lg:flex lg:items-center lg:ms-6' => $user->esKinesiologo(),
+                'sm:flex sm:items-center sm:ms-6' => ! $user->esKinesiologo(),
+            ])>
                 <x-dropdown align="right" width="48" id="user-account-menu">
                     <x-slot name="trigger">
                         <button
@@ -114,7 +140,7 @@
                             aria-controls="user-account-menu"
                             :aria-expanded="open.toString()"
                         >
-                            <div>
+                            <div @class(['max-w-32 truncate' => $user->esKinesiologo()])>
                                 {{ $user->name }}
                             </div>
 
@@ -136,11 +162,6 @@
                     </x-slot>
 
                     <x-slot name="content">
-                        @if ($user->esKinesiologo())
-                            <x-dropdown-link :href="route('turnos.agenda-atencion.index')" :active="request()->routeIs('turnos.agenda-atencion.*')">
-                                Agenda de atención
-                            </x-dropdown-link>
-                        @endif
                         <x-dropdown-link
                             :href="route('profile.edit')"
                             :active="request()->routeIs('profile.*')"
@@ -172,7 +193,7 @@
             </div>
 
             <!-- Hamburger -->
-            <div class="-me-2 flex items-center sm:hidden">
+            <div @class(['-me-2 flex items-center', 'lg:hidden' => $user->esKinesiologo(), 'sm:hidden' => ! $user->esKinesiologo()])>
                 <button
                     type="button"
                     @click="open = ! open"
@@ -215,7 +236,7 @@
     <div
         id="responsive-navigation-menu"
         :class="{'block': open, 'hidden': ! open}"
-        class="hidden sm:hidden"
+        @class(['hidden', 'lg:hidden' => $user->esKinesiologo(), 'sm:hidden' => ! $user->esKinesiologo()])
     >
         <div class="pt-2 pb-3 space-y-1">
             <x-responsive-nav-link
@@ -292,6 +313,14 @@
                 >
                     Auditoría
                 </x-responsive-nav-link>
+                @if ($recibeAlertasRecordatorios)
+                    <x-responsive-nav-link :href="route('turnos.recordatorios.alertas')" :active="request()->routeIs('turnos.recordatorios.alertas')">
+                        Alertas de recordatorios
+                        @if ($cantidadAlertasRecordatorios > 0)
+                            <span class="ms-1 rounded-full bg-amber-100 px-2 text-xs font-bold text-amber-900" aria-label="Alertas registradas: {{ $cantidadAlertasRecordatorios }}">{{ $cantidadAlertasRecordatorios }}</span>
+                        @endif
+                    </x-responsive-nav-link>
+                @endif
             @endif
         </div>
 

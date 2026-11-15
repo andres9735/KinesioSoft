@@ -87,7 +87,8 @@ class EnlaceAsistenciaTurnoHttpTest extends TestCase
     public function test_headers_y_documento_no_cargan_recursos_ni_reenvian_credencial(): void
     {
         $response = $this->get($this->url);
-        $response->assertHeader('Referrer-Policy', 'no-referrer')->assertHeader('Pragma', 'no-cache');
+        $response->assertHeader('Referrer-Policy', 'strict-origin')->assertHeader('Pragma', 'no-cache');
+        $response->assertSee('<meta name="referrer" content="strict-origin">', false);
         $response->assertHeader('X-Frame-Options', 'DENY')->assertHeader('X-Content-Type-Options', 'nosniff');
         $this->assertStringContainsString('no-store', $response->headers->get('Cache-Control'));
         $this->assertStringContainsString("default-src 'none'", $response->headers->get('Content-Security-Policy'));
@@ -96,6 +97,7 @@ class EnlaceAsistenciaTurnoHttpTest extends TestCase
         $response->assertSee('lang="es"', false)->assertSee('name="viewport"', false);
         $response->assertSee('aria-labelledby="titulo"', false);
         $response->assertHeaderMissing('Location');
+        $this->head($this->url)->assertOk()->assertHeader('Referrer-Policy', 'no-referrer');
     }
 
     #[DataProvider('rechazos')]
@@ -128,6 +130,7 @@ class EnlaceAsistenciaTurnoHttpTest extends TestCase
         $response->assertDontSee('08/11/2026')->assertDontSee('CLINICO-NO-EXPOSICION')->assertDontSee($this->token, false);
         $response->assertDontSee($this->turno->kinesiologa->user->name);
         $response->assertHeader('Referrer-Policy', 'no-referrer');
+        $response->assertSee('<meta name="referrer" content="no-referrer">', false);
         $this->assertStringContainsString('no-store', $response->headers->get('Cache-Control'));
         $this->assertSame($antes, $this->turno->fresh()->getAttributes());
         $this->assertSame($enlaceAntes, DB::table('enlaces_asistencia_turno')->get()->toJson());
@@ -152,6 +155,9 @@ class EnlaceAsistenciaTurnoHttpTest extends TestCase
         CarbonImmutable::setTestNow(CarbonImmutable::parse($ahora, config('app.timezone')));
         $response = $this->get($this->url);
         $response->assertOk()->assertSee($confirmacion)->assertSee($cancelacion)->assertDontSee($this->token, false);
+        $politica = str_contains($response->getContent(), '<form ') ? 'strict-origin' : 'no-referrer';
+        $response->assertHeader('Referrer-Policy', $politica);
+        $response->assertSee('<meta name="referrer" content="'.$politica.'">', false);
         $this->assertSame($estado, $this->turno->fresh()->estado->value);
     }
 

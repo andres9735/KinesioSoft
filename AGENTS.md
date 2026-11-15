@@ -43,7 +43,7 @@ Commit base del incremento:
 ### Estado y alcance operativo
 
 - **Etapas 1 a 5: APROBADAS Y CERRADAS.**
-- **Etapa 6: IMPLEMENTACIÓN INCREMENTAL ACTIVA**, limitada al subpaso expresamente solicitado; no implica funcionalidades implementadas ni autorización general para ejecutar los siguientes.
+- **Etapa 6: CIERRE TÉCNICO LOCAL CONSOLIDADO CON RESERVAS**, pendiente de revisión y versionado; no equivale al cierre formal de la Etapa 7 ni al cumplimiento integral de los 114 criterios.
 - **6.01: COMPLETADO** — preparación y verificación inicial.
 - **6.02: COMPLETADO** — integridad y trazabilidad de las fuentes locales verificadas.
 - **6.03: COMPLETADO** — rama independiente creada sobre el commit base indicado.
@@ -80,6 +80,11 @@ Commit base del incremento:
 - **6.34: IMPLEMENTADO Y VERIFICADO LOCALMENTE** — Job persistente con referencias técnicas y transporte SMTP local; recuperación del sobre cifrado y revalidación inmediatamente anterior al despacho.
 - **6.35: IMPLEMENTADO Y VERIFICADO LOCALMENTE** — reintentos de 5/10/20 minutos, máximo tres dentro de una hora desde el primer fallo recuperable; deduplicación, reclamos y tratamiento conservador de resultados inciertos.
 - **6.36: COMPLETADO CON RESERVAS** — certificación funcional y de seguridad local, SMTP real hacia Mailpit y mediciones sintéticas; criterios pendientes y coste de consultas documentados.
+- **6.37: CERRADO LOCALMENTE CON RESERVAS** — EI-01–EI-10; última corrida SQLite completa: **12 pruebas / 218 aserciones PASS, salida 0**, 15/11/2026. Dependencias externas explícitas.
+- **6.38: CERRADO EN EL ALCANCE FUNCIONAL LOCAL ENSAYADO** — regresión pertinente previa **881/7013**, complementada por la regresión global de Etapa 7 indicada debajo. El formato pendiente de tres PHP del arnés se corrigió exclusivamente con Pint, sin cambio funcional según revisión y comparación de tokens; Pint, sintaxis y guardas **139/191** pasan, salidas 0. No se repitió MariaDB por cambios de formato.
+- **6.39: COMPLETADO EN EL ALCANCE LOCAL ENSAYADO** — MariaDB **10.11.19**, instancia descartable **127.0.0.1:3308**, detenida; suite completa **25/321 PASS** y refuerzo posterior exclusivo de EI-08 **2/40 PASS**, ambas salidas 0. El worker final sólo añade observación opcional de EI-08; no se suman corridas ni se atribuye la completa a su versión posterior.
+- **6.40: CIERRE TÉCNICO LOCAL CONSOLIDADO, PROVISIONAL** — registro vigente en `docs/agenda-diaria-automatica/6.40-cierre-provisional.md`. Modal UC-05 blanco comprobado por el usuario en escritorio y pantalla angosta; UC-27 con dos disparos reales locales sin duplicado, UC-28 con decisiones HTTPS verificadas y UC-29 con reloj de proceso y disparo temporal aislado. Observación operativa a las 07:00 reales y consumidor de cupos siguen pendientes, además de las reservas por criterio y calidad allí detalladas.
+- **Etapa 7 — VERIFICACIONES GLOBALES Y TRAZABILIDAD REGISTRADAS, CIERRE FORMAL PENDIENTE** — antecedente global **3504/23754**, 0 errores/fallos, 1 omitida SMTP opt-in, salida 0; JavaScript **215 PASS** y build **96 módulos PASS**, salidas 0. Tras la decisión del usuario, **CA-27-26 verificado localmente**: avisos internos de fallos terminales para administradores activos, derivados de auditoría durable y sin escrituras nuevas en el despacho. Regresión afectada posterior **337/3132 PASS**, 0 errores/fallos/omisiones, salida 0; incluye avisos **10/96**. No es una segunda global del código ampliado. Matriz **114 CA / 18 DEP / 10 EI**: **99 CA locales, 8 con reserva y 7 con dependencia externa**, sin declarar 114/114. Consumidor de cupos corresponde a **Asignación automática de turnos**; falta aceptación/resolución expresa de las reservas y revisión/versionado autorizados.
 
 **Bloque B (6.07–6.09): CHECKPOINT CERTIFICADO** para los contratos internos de lectura y autorización implementados. Regresión conjunta focalizada: **102 tests / 534 assertions PASS**, con SQLite `:memory:`; sintaxis y Pint `--test` de los cuatro PHP satisfactorios. Certificación: `docs/implementacion/turnos-agenda-diaria-607-609-bloque-b.md`. No constituye implementación completa de UC–05/UC–29 ni certificación MariaDB.
 
@@ -103,13 +108,13 @@ Commit base del incremento:
 
 **Coherencia temporal del checkpoint:** UC–27 conserva el cron predeterminado de cinco minutos y una franja opcional sin exclusión adicional por defecto. UC–29 mantiene su evento independiente a las 7:00 locales, con zona `app.timezone`. El inicio estrictamente futuro, el umbral de 24 horas y el límite inclusivo de doce horas se mantienen separados de esa programación operativa. El correo reutiliza los predicados compartidos; no sustituye la autorización de las Actions de UC–06.
 
-**Último subpaso completado: 6.36.**
+**Último subpaso consolidado: 6.40, cierre técnico local provisional con reservas y revisión pendiente.** Los checkpoints anteriores conservan su alcance histórico; el registro de 6.40 actualiza sus pendientes resueltos sin recertificar producción.
 
-**Próximo subpaso para preparar: 6.37 — Integración entre casos de uso.** Se mantiene el orden aprobado UXP-14 y los contratos GA aplicables; la distribución numérica concreta procede de las solicitudes autorizadas. La decisión transversal R1–R10 de sobre cifrado sigue siendo obligatoria: los Jobs transportan sólo referencias y revalidan antes del despacho. El alcance concreto deberá definirse antes de modificar código, conservando criterios pendientes y reservas; la infraestructura verificada no certifica entrega operativa ni exactamente una vez.
+**Siguiente instancia: revisión de la evidencia de Etapa 7 y resolución/aceptación expresa de sus reservas.** CA-27-26 quedó cubierto en el canal interno elegido por el usuario; la inspección visual real del nuevo acceso no se atribuye a sus pruebas HTTP. UXP-16 exige resolver contratos pendientes para un cierre integral o aprobar expresamente el alcance con reservas, además de revisar y conservar lo aprobado mediante commits identificables. No se dispensan ni implementan por inferencia las dependencias de otros incrementos. R1–R10 sigue vigente; no se certifica entrega externa ni exactamente una vez.
 
 **Modalidad acelerada experimental aplicada satisfactoriamente a UC–29:** primera ejecución **6.17–6.18**; segunda ejecución **6.19–6.21**, con las reservas de certificación indicadas. **Prioridad vigente: conservar cuota semanal de Codex.** Esta modalidad no modifica los contratos congelados ni reduce las verificaciones de seguridad necesarias.
 
-6.37 no está autorizado automáticamente durante este checkpoint. Cada ejecución requiere su solicitud y alcance específicos. Staging, commits, cambios de rama, operaciones sobre remotos y operaciones destructivas no quedan autorizados por este seguimiento.
+Esta verificación no autoriza automáticamente implementar dependencias externas, repetir ensayos operativos ni declarar el cierre formal. Cada ejecución requiere su solicitud y alcance específicos. Staging, commits, cambios de rama, operaciones sobre remotos y operaciones destructivas no quedan autorizados por este seguimiento.
 
 ### Fuentes autoritativas de Agenda Diaria Automática V1.0
 
@@ -177,7 +182,7 @@ Certificación detallada: `docs/implementacion/turnos-agenda-diaria-605-baseline
 
 Se conserva esta certificación como referencia histórica vigente de partida. El checkpoint del bloque B ejecutó únicamente su regresión focalizada y no repitió el baseline global, JavaScript ni build; sus resultados no se suman a los de 6.05 ni los recertifican globalmente.
 
-**MariaDB: certificación actual pendiente.** No se ejecutaron `phpunit.mysql.xml` ni `tests/Integration/Uc06MariaDb/phpunit.xml`. Mantener diferenciadas las pruebas SQLite y las integraciones MariaDB; SQLite no certifica locking real. Las certificaciones históricas de UC–06 y UC–07 conservan su alcance original y no sustituyen una ejecución actual ni autorizan automáticamente reinicializaciones u otras operaciones destructivas en bases de pruebas.
+**MariaDB: 6.39 certificado en su arnés local exclusivo, con reservas.** Evidencia y destino descartable en 6.40; instancia detenida y artefactos conservados. Esto no recertifica las suites históricas `phpunit.mysql.xml` ni `tests/Integration/Uc06MariaDb/phpunit.xml`, que no se ejecutaron en este cierre. Mantener diferenciadas las pruebas SQLite y las integraciones MariaDB; SQLite no certifica locking real. Las certificaciones históricas de UC–06 y UC–07 conservan su alcance y no autorizan reinicializaciones u operaciones destructivas.
 
 En 6.06 sólo se registra la evidencia existente: no repetir pruebas, builds, migraciones o seeders ni utilizar bases de datos. Los 134 temporales ignorados de 6.05 se conservan sin limpieza ni incorporación a Git; su ubicación y los límites de certificación constan en el documento citado. El checkpoint queda versionado mediante el commit de cierre de 6.06. Las referencias del certificado a preparación pendiente describen su estado de emisión previo al commit; el seguimiento operativo vigente es el indicado en este bloque.
 

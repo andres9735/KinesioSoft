@@ -3,8 +3,10 @@
 namespace Tests\Feature\Turnos;
 
 use App\Http\Controllers\DescargarDocumentoClinicoController;
+use App\Http\Controllers\EnlaceAsistenciaTurnoController;
 use App\Http\Controllers\MisTurnosController;
 use App\Http\Controllers\SolicitarTurnoController;
+use App\Http\Middleware\ProtegerAccesoEnlaceAsistencia;
 use Illuminate\Support\Facades\Route;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -43,6 +45,7 @@ class TurnosRoutesTest extends TestCase
         $paciente = collect(Route::getRoutes())->filter(fn ($ruta) => str_starts_with($ruta->uri(), 'turnos/')
             && ! str_starts_with($ruta->uri(), 'turnos/agenda'));
         $this->assertSame([
+            'turnos.asistencia.show', 'turnos.asistencia.decidir', 'turnos.asistencia.resultado',
             'turnos.mis-turnos.index', 'turnos.mis-turnos.show', 'turnos.mis-turnos.confirmar', 'turnos.mis-turnos.cancelar', 'turnos.solicitar.create', 'turnos.solicitar.disponibilidad', 'turnos.solicitar.profesionales-disponibles', 'turnos.solicitar.store',
         ], $paciente->map(fn ($ruta) => $ruta->getName())->values()->all());
         $this->assertCount(1, $paciente->filter(fn ($ruta) => $ruta->uri() === 'turnos/solicitar' && in_array('GET', $ruta->methods(), true)));
@@ -55,5 +58,27 @@ class TurnosRoutesTest extends TestCase
         $this->assertSame(['GET', 'HEAD'], $ruta->methods());
         $this->assertSame(DescargarDocumentoClinicoController::class, $ruta->getActionName());
         $this->assertSame(['web', 'auth', 'verified', 'perfil.completo'], $ruta->gatherMiddleware());
+    }
+
+    #[DataProvider('rutasEnlace')]
+    public function test_secure_link_routes_have_exact_boundaries(string $nombre, string $uri, array $metodos, string $accion): void
+    {
+        $ruta = Route::getRoutes()->getByName($nombre);
+        $this->assertNotNull($ruta);
+        $this->assertSame($uri, $ruta->uri());
+        $this->assertSame($metodos, $ruta->methods());
+        $this->assertSame($accion, $ruta->getActionName());
+        $this->assertSame(['web'], $ruta->excludedMiddleware());
+        $this->assertSame([ProtegerAccesoEnlaceAsistencia::class], app('router')->gatherRouteMiddleware($ruta));
+        $this->assertCount(1, collect(Route::getRoutes())->filter(fn ($r) => $r->getName() === $nombre));
+    }
+
+    public static function rutasEnlace(): array
+    {
+        return [
+            ['turnos.asistencia.show', 'turnos/asistencia', ['GET', 'HEAD'], EnlaceAsistenciaTurnoController::class],
+            ['turnos.asistencia.decidir', 'turnos/asistencia/decidir', ['POST'], EnlaceAsistenciaTurnoController::class.'@decidir'],
+            ['turnos.asistencia.resultado', 'turnos/asistencia/resultado', ['GET', 'HEAD'], EnlaceAsistenciaTurnoController::class.'@resultado'],
+        ];
     }
 }

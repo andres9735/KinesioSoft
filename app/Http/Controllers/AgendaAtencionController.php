@@ -36,9 +36,12 @@ class AgendaAtencionController extends Controller
             $contexto['fecha'] ??= $detalle['inicio_at']->toDateString();
         }
 
-        return response()->view('turnos.agenda-atencion.show', [
+        $modal = $request->header('X-Agenda-Detalle') === 'modal';
+        $respuesta = response()->view($modal ? 'turnos.agenda-atencion.detalle' : 'turnos.agenda-atencion.show', [
             'turno' => $detalle, 'contexto' => $contexto,
-        ])->header('Cache-Control', 'private, no-store');
+        ])->header('Cache-Control', 'private, no-store')->header('Vary', 'X-Agenda-Detalle');
+
+        return $modal ? $respuesta->header('X-Agenda-Detalle', 'administrativo') : $respuesta;
     }
 
     public function index(

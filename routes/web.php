@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AgendaAtencionController;
 use App\Http\Controllers\AgendaController;
+use App\Http\Controllers\AlertasRecordatorioController;
 use App\Http\Controllers\AnulacionBloqueoAgendaController;
 use App\Http\Controllers\AnulacionConfiguracionAgendaController;
 use App\Http\Controllers\AuditoriaController;
@@ -257,6 +258,9 @@ Route::middleware([
     'admin.or.superadmin',
     'verified',
 ])->group(function () {
+
+    Route::get('/alertas/recordatorios', AlertasRecordatorioController::class)
+        ->name('turnos.recordatorios.alertas');
 
     /*
     |--------------------------------------------------------------------------

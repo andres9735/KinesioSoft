@@ -6,3 +6,249 @@
 .uc06-mis-turnos {
     font-family: ui-sans-serif, system-ui, sans-serif;
 }
+
+.uc05-consulta-jornada {
+    display: grid;
+    gap: 0.5rem;
+}
+
+/* UC-05 conserva el tema claro también en controles nativos y preferencias oscuras del SO. */
+.uc05-agenda input:not([type="hidden"]),
+.uc05-agenda select {
+    color-scheme: light;
+    color: #111827;
+    -webkit-text-fill-color: #111827;
+    background-color: #fff;
+}
+
+.uc05-agenda input::-webkit-datetime-edit {
+    color: #111827;
+}
+
+.uc05-agenda input::-webkit-calendar-picker-indicator {
+    opacity: 1;
+    filter: none;
+    cursor: pointer;
+}
+
+.uc05-campo-hora { position: relative; }
+.uc05-campo-hora input { padding-right: 2.75rem; }
+.uc05-campo-hora input::-webkit-calendar-picker-indicator {
+    position: absolute;
+    right: 0.75rem;
+    width: 1.25rem;
+    height: 1.25rem;
+    opacity: 0; /* El área del selector nativo sigue activa debajo del reloj decorativo. */
+}
+.uc05-reloj {
+    position: absolute;
+    top: 50%;
+    right: 0.875rem;
+    width: 1.125rem;
+    height: 1.125rem;
+    transform: translateY(-50%);
+    pointer-events: none;
+    color: #374151;
+}
+
+.uc05-agenda .uc05-consulta-boton,
+.uc05-detalle-modal .uc05-modal-cerrar {
+    background: #ddd6fe;
+    border: 1px solid #c4b5fd;
+    border-radius: 0.5rem;
+    color: #111827;
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: normal;
+    text-transform: none;
+}
+.uc05-agenda .uc05-consulta-boton:hover,
+.uc05-detalle-modal .uc05-modal-cerrar:hover { background: #c4b5fd; }
+.uc05-agenda .uc05-enlace {
+    color: #6d28d9;
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+    text-transform: none;
+    letter-spacing: normal;
+    font-size: 0.875rem;
+}
+.uc05-agenda .uc05-enlace:hover { background: #f5f3ff; }
+.uc05-estado {
+    display: inline-flex;
+    border-radius: 9999px;
+    padding: 0.25rem 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.25rem;
+    background: #f3f4f6;
+    color: #374151;
+}
+.uc05-estado--confirmado { background: #d1fae5; color: #065f46; }
+.uc05-estado--pendiente { background: #fef3c7; color: #78350f; }
+.uc05-estado--cancelado { background: #e5e7eb; color: #374151; }
+.uc05-estado--ausente { background: #fee2e2; color: #991b1b; }
+.uc05-estado--en_atencion { background: #e0e7ff; color: #3730a3; }
+
+.uc05-tabla {
+    table-layout: fixed;
+}
+
+.uc05-tabla th { font-weight: 700; color: #374151; }
+
+.uc05-tabla th,
+.uc05-tabla td {
+    padding: 0.75rem 1rem;
+    overflow-wrap: break-word;
+}
+
+.uc05-tabla th:nth-child(1) { width: 25%; }
+.uc05-tabla th:nth-child(2) { width: 32%; }
+.uc05-tabla th:nth-child(3) { width: 17%; }
+.uc05-tabla th:nth-child(4) { width: 26%; }
+
+@media (min-width: 640px) {
+    .uc05-consulta-jornada {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+}
+
+@media (max-width: 639px) {
+    .uc05-tabla,
+    .uc05-tabla thead,
+    .uc05-tabla tbody {
+        display: block;
+    }
+
+    .uc05-tabla tr {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.9fr) minmax(0, 0.95fr);
+    }
+
+    .uc05-tabla th,
+    .uc05-tabla td {
+        min-width: 0;
+        width: auto;
+        padding: 0.625rem 0.5rem;
+    }
+
+    .uc05-tabla thead th:last-child {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        overflow: hidden;
+        clip-path: inset(50%);
+    }
+
+    .uc05-tabla th:nth-child(3),
+    .uc05-tabla td:nth-child(3) {
+        padding-left: 0.25rem;
+        padding-right: 0.25rem;
+    }
+
+    .uc05-tabla td:nth-child(3) span {
+        max-width: 100%;
+        padding-inline: 0.5rem;
+        overflow-wrap: anywhere;
+    }
+
+    .uc05-tabla .uc05-accion {
+        grid-column: 1 / -1;
+        padding-top: 0;
+    }
+}
+
+/* SweetAlert crea el panel fuera de la agenda, directamente dentro del overlay.
+   Fijar el tema en ese popup evita heredar el fondo oscuro de la librería. */
+.swal2-container.uc05-detalle-overlay > .swal2-popup.uc05-detalle-modal {
+    --swal2-background: #fff;
+    --swal2-color: #111827;
+    position: relative;
+    display: flex !important;
+    flex-direction: column;
+    max-height: calc(100vh - 2rem);
+    max-height: calc(100dvh - 2rem);
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+    border-radius: 1rem;
+    background: #fff !important;
+    color: #111827;
+    color-scheme: light;
+    font-family: inherit;
+    box-shadow: 0 20px 60px rgb(15 23 42 / 18%);
+}
+
+.uc05-detalle-modal .swal2-title {
+    flex-shrink: 0;
+    margin: 0;
+    padding: 1rem 3.5rem 1rem 1.25rem;
+    border-bottom: 1px solid #e5e7eb;
+    color: #111827;
+    text-align: left;
+    font-size: 1.125rem;
+    line-height: 1.5;
+}
+
+.uc05-detalle-modal .swal2-html-container {
+    min-height: 0;
+    margin: 0;
+    padding: 1.25rem;
+    color: #111827;
+    text-align: left;
+    font-size: 1rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.uc05-detalle-modal .uc05-detalle-contenido {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+}
+.uc05-detalle-datos {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem 1.5rem;
+}
+.uc05-detalle-datos > div { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 419px) {
+    .uc05-detalle-datos { grid-template-columns: minmax(0, 1fr); }
+}
+
+.uc05-detalle-modal .swal2-close {
+    position: absolute;
+    top: 0.375rem;
+    right: 0.375rem;
+    width: 2.75rem;
+    height: 2.75rem;
+    margin: 0;
+    padding: 0;
+    color: #6d28d9;
+    background: transparent;
+    font-size: 2rem;
+    border-radius: 0.5rem;
+}
+
+.uc05-detalle-modal .swal2-actions {
+    flex-shrink: 0;
+    justify-content: flex-end;
+    align-self: stretch;
+    width: auto;
+    margin: 0;
+    padding: 0.875rem 1.25rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+.uc05-detalle-modal .swal2-confirm {
+    min-height: 2.75rem;
+    margin: 0;
+    padding: 0.625rem 1rem;
+}
+.uc05-detalle-modal .swal2-close:focus-visible,
+.uc05-detalle-modal .uc05-modal-cerrar:focus-visible {
+    outline: 3px solid #7c3aed;
+    outline-offset: 2px;
+}

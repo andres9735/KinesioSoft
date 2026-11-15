@@ -55,7 +55,9 @@ final class DespacharRecordatorioTurnoService
             if ($referencias['sobre_id'] === null) {
                 $resultado = $this->transporte->enviar(fn () => $this->contenido->construir($id));
                 $this->registros->registrarResultado((int) $intento->id, $resultado);
-                $this->reintentos->revisar($id);
+                if ($resultado !== Resultado::ACEPTADO) {
+                    $this->reintentos->revisar($id);
+                }
 
                 return $resultado;
             }
@@ -80,7 +82,11 @@ final class DespacharRecordatorioTurnoService
 
                     return $resultado;
                 });
-            $this->reintentos->revisar($id);
+            // ACEPTADO ya consolidó PROCESADO y cerró el sobre en la transacción.
+            // Releer su política de reintentos sólo devolvería null, sin efectos.
+            if ($resultado !== Resultado::ACEPTADO) {
+                $this->reintentos->revisar($id);
+            }
 
             return $resultado;
         } catch (Throwable) {

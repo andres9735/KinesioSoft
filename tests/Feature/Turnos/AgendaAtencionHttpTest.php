@@ -149,8 +149,7 @@ class AgendaAtencionHttpTest extends TestCase
             ->assertViewHas('fecha', fn ($fecha) => $fecha->toDateString() === '2026-11-05')
             ->assertViewHas('turnos', fn ($turnos) => array_column($turnos, 'id') === [$this->turno->id])
             ->assertSee('PacientePropio610')->assertSee('05/11/2026 06:30')
-            ->assertSee('05/11/2026 07:15')->assertSee('45 minutos')
-            ->assertSee(trim($this->propia->user->name.' '.$this->propia->user->apellido))
+            ->assertSee('datetime="2026-11-05T07:15:00"', false)->assertSee('07:15')->assertSee('45 minutos')
             ->assertSee('Primera consulta')->assertSee('Pendiente')
             ->assertSee('value="2026-11-05"', false)
             ->assertDontSee('PacienteAjeno610')->assertDontSee('Motivo clínico privado 610')
@@ -214,14 +213,14 @@ class AgendaAtencionHttpTest extends TestCase
             ]);
         }
         $antes = $this->contenidoBase();
-        $orden = ['05/11/2026 06:30', '05/11/2026 07:15', 'Primera consulta', 'Pendiente'];
+        $orden = ['datetime="2026-11-05T06:30:00"', 'datetime="2026-11-05T07:15:00"', 'Primera consulta', 'Pendiente'];
         foreach ($estados as $i => [, $etiqueta]) {
-            array_push($orden, '05/11/2026 '.(10 + $i).':10', '05/11/2026 '.(10 + $i).':35',
+            array_push($orden, 'datetime="2026-11-05T'.(10 + $i).':10:00"', 'datetime="2026-11-05T'.(10 + $i).':35:00"',
                 $i % 2 === 0 ? 'Primera consulta' : 'Seguimiento', $etiqueta);
         }
 
         $this->actingAs($this->propia->user)->get(route('turnos.agenda-atencion.index'))
-            ->assertOk()->assertSeeInOrder($orden)
+            ->assertOk()->assertSeeInOrder($orden, false)
             ->assertSee('25 minutos')->assertDontSee('PacienteAjeno610')
             ->assertDontSee('Motivo clínico privado 610')->assertDontSee('privado610@example.test');
 
@@ -236,7 +235,7 @@ class AgendaAtencionHttpTest extends TestCase
         ]);
 
         $this->actingAs($this->propia->user)->get(route('turnos.agenda-atencion.index'))
-            ->assertOk()->assertSeeInOrder(['05/11/2026 23:50', '06/11/2026 00:25', '35 minutos', 'Seguimiento'])
+            ->assertOk()->assertSeeInOrder(['datetime="2026-11-05T23:50:00"', 'datetime="2026-11-06T00:25:00"', '05/11/2026 al 06/11/2026', '35 minutos', 'Seguimiento'], false)
             ->assertSee('datetime="2026-11-05T23:50:00"', false)
             ->assertSee('datetime="2026-11-06T00:25:00"', false);
     }
@@ -406,7 +405,8 @@ class AgendaAtencionHttpTest extends TestCase
         ]))->assertOk()->assertViewHas('esPeriodo', true)
             ->assertViewHas('turnos', fn ($turnos) => array_column($turnos, 'id') === [$primero->id, $this->turno->id, $ultimo->id])
             ->assertSee('Período del')->assertSee('03/02/2001')->assertSee('31/12/2099')
-            ->assertSee('01/01/2100 00:05')->assertDontSee('PacienteAjeno610');
+            ->assertSee('datetime="2100-01-01T00:05:00"', false)->assertSee('00:05')
+            ->assertSee('31/12/2099 al 01/01/2100')->assertDontSee('PacienteAjeno610');
 
         $this->assertSame($antes, $this->contenidoBase());
     }
@@ -494,7 +494,7 @@ class AgendaAtencionHttpTest extends TestCase
         }
         $primera->assertOk()->assertViewHas('turnos', fn ($turnos) => array_column($turnos, 'id') === array_slice($ids, 0, 25))
             ->assertViewHas('paginacion', fn ($paginacion) => $paginacion->total() === 28 && $paginacion->lastPage() === 2)
-            ->assertSee('28 turnos encontrados. Página 1 de 2.')
+            ->assertSeeText('28 turnos encontrados. Página 1 de 2.')
             ->assertSee('aria-label="Páginas de resultados"', false)->assertSee('Página siguiente')
             ->assertDontSee('pagination.next')->assertDontSee('pagination.previous')
             ->assertDontSee('user_id=')->assertDontSee('PacienteAjeno610');
@@ -504,7 +504,7 @@ class AgendaAtencionHttpTest extends TestCase
         }
         $this->get(route('turnos.agenda-atencion.index', $criterios + ['page' => 2]))->assertOk()
             ->assertViewHas('turnos', fn ($turnos) => array_column($turnos, 'id') === array_slice($ids, 25))
-            ->assertSee('28 turnos encontrados. Página 2 de 2.');
+            ->assertSeeText('28 turnos encontrados. Página 2 de 2.');
         $fueraDeRango = $this->get(route('turnos.agenda-atencion.index', $criterios + ['page' => 999]))->assertStatus(302);
         $urlEsperada = route('turnos.agenda-atencion.index', $criterios + ['page' => 2]);
         $this->assertSame(parse_url($urlEsperada, PHP_URL_PATH), parse_url($fueraDeRango->headers->get('Location'), PHP_URL_PATH));
@@ -580,23 +580,86 @@ class AgendaAtencionHttpTest extends TestCase
         ];
     }
 
+    #[DataProvider('estadosDetalle')]
+    public function test_modal_reutiliza_los_campos_escapados_del_detalle_sin_layout_ni_escrituras(EstadoTurnoEnum $estado, TipoTurnoEnum $tipo, string $etiqueta): void
+    {
+        $nombre = '<script>detalle-modal</script>';
+        $this->paciente->user->update(['name' => $nombre]);
+        $turno = Turno::factory()->for($this->paciente)->for($this->propia)->create([
+            'estado' => $estado, 'tipo' => $tipo, 'inicio_at' => '2026-11-05 06:30:00', 'fin_at' => '2026-11-05 07:15:00',
+            'motivo_solicitud' => 'Motivo clínico privado 610',
+        ]);
+        $antes = $this->contenidoBase();
+        $this->actingAs($this->propia->user)->withHeader('X-Agenda-Detalle', 'modal');
+        $this->get(route('turnos.agenda-atencion.show', $turno->id))
+            ->assertOk()->assertViewIs('turnos.agenda-atencion.detalle')
+            ->assertHeader('X-Agenda-Detalle', 'administrativo')
+            ->assertHeader('Cache-Control', 'no-store, private')
+            ->assertHeader('Vary', 'X-Agenda-Detalle')
+            ->assertSee($nombre)->assertDontSee($nombre, false)->assertSee($etiqueta)
+            ->assertSee($tipo === TipoTurnoEnum::PRIMERA_CONSULTA ? 'Primera consulta' : 'Seguimiento')
+            ->assertSee('05/11/2026 06:30')->assertSee('05/11/2026 07:15')->assertSee('45 minutos')
+            ->assertSee($this->propia->user->name)
+            ->assertDontSee('<html', false)->assertDontSee('<nav', false)->assertDontSee('Volver a la agenda')
+            ->assertDontSee('Motivo clínico privado 610')->assertDontSee('privado610@example.test')
+            ->assertDontSee('PacienteAjeno610')->assertDontSee('/documentos-clinicos/');
+        $this->assertSame($antes, $this->contenidoBase());
+    }
+
+    #[DataProvider('estadosDetalle')]
+    public function test_listado_y_modal_comparten_distintivo_y_etiqueta_del_estado(EstadoTurnoEnum $estado, TipoTurnoEnum $tipo, string $etiqueta): void
+    {
+        $this->turno->forceFill(['estado' => $estado])->save();
+        $this->actingAs($this->propia->user);
+        $lista = $this->get(route('turnos.agenda-atencion.index', ['fecha' => '2026-11-05', 'estado' => $estado->value]))->assertOk();
+        $modal = $this->withHeader('X-Agenda-Detalle', 'modal')->get(route('turnos.agenda-atencion.show', $this->turno->id))->assertOk();
+        $distintivos = [];
+        foreach ([$lista, $modal] as $respuesta) {
+            $dom = new \DOMDocument;
+            @$dom->loadHTML('<?xml encoding="utf-8" ?>'.$respuesta->getContent(), LIBXML_NONET);
+            $nodos = (new \DOMXPath($dom))->query('//span[contains(concat(" ", normalize-space(@class), " "), " uc05-estado ")]');
+            $this->assertSame(1, $nodos->length);
+            $this->assertSame($etiqueta, trim($nodos->item(0)->textContent));
+            $distintivos[] = $nodos->item(0)->getAttribute('class');
+        }
+        $this->assertSame($distintivos[0], $distintivos[1]);
+        $this->assertStringContainsString('uc05-estado--'.strtolower($estado->value), $distintivos[0]);
+    }
+
+    public function test_controles_de_hora_siguen_siendo_nativos_con_relojes_decorativos_y_jornada_navegable(): void
+    {
+        $respuesta = $this->actingAs($this->propia->user)->get(route('turnos.agenda-atencion.index', [
+            'fecha' => '2026-11-05', 'hora_desde' => '08:00', 'hora_hasta' => '18:00',
+        ]))->assertOk();
+        $dom = new \DOMDocument;
+        @$dom->loadHTML('<?xml encoding="utf-8" ?>'.$respuesta->getContent(), LIBXML_NONET);
+        $xpath = new \DOMXPath($dom);
+        $this->assertSame(2, $xpath->query('//input[@type="time"]')->length);
+        $this->assertSame(2, $xpath->query('//div[contains(@class,"uc05-campo-hora")]/*[local-name()="svg" and @aria-hidden="true" and @focusable="false"]')->length);
+        $this->assertSame(1, $xpath->query('//input[@type="time" and @name="hora_desde" and @value="08:00"]')->length);
+        $this->assertSame(1, $xpath->query('//input[@type="time" and @name="hora_hasta" and @value="18:00"]')->length);
+        $this->assertSame(1, $xpath->query('//form[@aria-label="Consultar una jornada"]/following-sibling::nav[@aria-label="Navegación entre jornadas"]')->length);
+    }
+
     public function test_detalle_ajeno_e_inexistente_no_cargan_pacientes_y_no_revelan_identidad(): void
     {
         $ajeno = Turno::where('kinesiologa_id', $this->ajena->id)->value('id');
         $this->actingAs($this->propia->user);
         foreach ([$ajeno, 99999999] as $id) {
-            DB::enableQueryLog();
-            DB::flushQueryLog();
-            try {
-                $respuesta = $this->get(route('turnos.agenda-atencion.show', $id));
-                $consultas = DB::getQueryLog();
-            } finally {
-                DB::disableQueryLog();
+            foreach (['page', 'modal'] as $representacion) {
+                DB::enableQueryLog();
                 DB::flushQueryLog();
-            }
-            $respuesta->assertNotFound()->assertDontSee('PacienteAjeno610')->assertDontSee('PacientePropio610');
-            foreach ($consultas as $consulta) {
-                $this->assertDoesNotMatchRegularExpression('/\b(pacientes|documentos_clinicos)\b/i', $consulta['query']);
+                try {
+                    $respuesta = $this->withHeader('X-Agenda-Detalle', $representacion)->get(route('turnos.agenda-atencion.show', $id));
+                    $consultas = DB::getQueryLog();
+                } finally {
+                    DB::disableQueryLog();
+                    DB::flushQueryLog();
+                }
+                $respuesta->assertNotFound()->assertDontSee('PacienteAjeno610')->assertDontSee('PacientePropio610');
+                foreach ($consultas as $consulta) {
+                    $this->assertDoesNotMatchRegularExpression('/\b(pacientes|documentos_clinicos)\b/i', $consulta['query']);
+                }
             }
         }
     }
@@ -622,6 +685,9 @@ class AgendaAtencionHttpTest extends TestCase
         }
         $this->get(route('turnos.agenda-atencion.show', $this->turno->id))->assertStatus($codigo)
             ->assertDontSee('PacientePropio610')->assertDontSee('Motivo clínico privado 610');
+        $this->withHeader('X-Agenda-Detalle', 'modal')
+            ->get(route('turnos.agenda-atencion.show', $this->turno->id))->assertStatus($codigo)
+            ->assertDontSee('PacientePropio610')->assertDontSee('Motivo clínico privado 610');
     }
 
     public static function accesosDetalle(): array
@@ -644,6 +710,28 @@ class AgendaAtencionHttpTest extends TestCase
             ->assertSee('href="'.e(route('turnos.agenda-atencion.show', ['turno' => $this->turno->id, 'fecha' => '2026-11-05', 'page' => 1])).'"', false);
         $this->get(route('turnos.agenda-atencion.show', ['turno' => $this->turno->id, 'fecha' => 'ayer']))
             ->assertRedirect(route('turnos.agenda-atencion.index'))->assertSessionHasErrors('fecha');
+    }
+
+    public function test_listado_conserva_url_de_detalle_con_periodo_filtros_y_pagina_para_modal_y_sin_javascript(): void
+    {
+        Turno::factory()->count(26)->for($this->paciente)->for($this->propia)->create([
+            'tipo' => TipoTurnoEnum::PRIMERA_CONSULTA, 'estado' => EstadoTurnoEnum::PENDIENTE,
+            'inicio_at' => '2026-11-05 08:00:00', 'fin_at' => '2026-11-05 09:00:00',
+        ]);
+        $contexto = ['desde' => '2026-11-01', 'hasta' => '2026-11-30', 'paciente' => 'PacientePropio610',
+            'estado' => 'PENDIENTE', 'tipo' => 'PRIMERA_CONSULTA', 'hora_desde' => '08:00', 'hora_hasta' => '09:00', 'page' => 2];
+        $respuesta = $this->actingAs($this->propia->user)->get(route('turnos.agenda-atencion.index', $contexto))->assertOk();
+        $turnos = $respuesta->viewData('turnos');
+        $this->assertCount(1, $turnos);
+        $respuesta->assertSee('x-data="agendaAtencion"', false)
+            ->assertSee('x-on:click="abrirDetalle($event)" aria-haspopup="dialog"', false);
+        preg_match('/<a href="([^"]+)"\s+x-on:click="abrirDetalle/', $respuesta->getContent(), $enlace);
+        $url = html_entity_decode($enlace[1]);
+        $this->assertSame(route('turnos.agenda-atencion.show', $turnos[0]['id']), strtok($url, '?'));
+        parse_str(parse_url($url, PHP_URL_QUERY), $criterios);
+        $this->assertEquals($contexto, $criterios);
+        $this->get(route('turnos.agenda-atencion.show', ['turno' => $turnos[0]['id']] + $contexto))
+            ->assertOk()->assertViewIs('turnos.agenda-atencion.show')->assertHeaderMissing('X-Agenda-Detalle');
     }
 
     #[DataProvider('canalesExportacion')]
@@ -821,6 +909,60 @@ class AgendaAtencionHttpTest extends TestCase
         $this->get(route('turnos.agenda-atencion.imprimir'))->assertOk()
             ->assertSee('role="region" aria-labelledby="titulo-tabla-agenda" tabindex="0"', false)
             ->assertSee('scope="col"', false)->assertSee('Ctrl+P');
+    }
+
+    public function test_limpiar_fechas_es_un_boton_local_y_los_enlaces_conservan_la_consulta_vigente(): void
+    {
+        $criterios = ['desde' => '2026-11-05', 'hasta' => '2026-11-06', 'estado' => 'PENDIENTE'];
+        $respuesta = $this->actingAs($this->propia->user)->get(route('turnos.agenda-atencion.index', $criterios))->assertOk();
+        $respuesta->assertSee('x-on:click="limpiarFechas($event)"', false)->assertSee('Limpiar fechas');
+        $dom = new \DOMDocument;
+        @$dom->loadHTML('<?xml encoding="utf-8" ?>'.$respuesta->getContent());
+        $xpath = new \DOMXPath($dom);
+        $boton = $xpath->query('//form[@aria-label="Consultar un período"]//button[normalize-space(.)="Limpiar fechas"]');
+        $this->assertSame(1, $boton->length);
+        $this->assertSame('button', $boton->item(0)->getAttribute('type'));
+        $this->assertEnlaceConsulta($respuesta, $criterios + ['page' => 1]);
+        $respuesta->assertSee('href="'.e(route('turnos.agenda-atencion.pdf', $criterios)).'"', false)
+            ->assertSee('href="'.e(route('turnos.agenda-atencion.index', ['desde' => '2026-11-05', 'hasta' => '2026-11-06'])).'"', false);
+    }
+
+    public function test_tabla_compacta_separa_horario_paciente_estado_y_accion_sin_profesional_en_las_filas(): void
+    {
+        $respuesta = $this->actingAs($this->propia->user)->get(route('turnos.agenda-atencion.index'))->assertOk();
+        $dom = new \DOMDocument;
+        @$dom->loadHTML('<?xml encoding="utf-8" ?>'.$respuesta->getContent(), LIBXML_NONET);
+        $xpath = new \DOMXPath($dom);
+        $tabla = '//table[@aria-label="Turnos de la jornada"]';
+        $encabezados = $xpath->query($tabla.'/thead/tr/th');
+        $this->assertSame(['Horario', 'Paciente', 'Estado', 'Acciones'], array_map(fn ($nodo) => trim($nodo->textContent), iterator_to_array($encabezados)));
+        $this->assertSame(1, $xpath->query($tabla.'/thead/tr/th[4]/span[@class="sr-only"]')->length);
+        $celdas = $xpath->query($tabla.'/tbody/tr/td');
+        $this->assertSame(4, $celdas->length);
+        foreach (['06:30', '07:15', '05/11/2026', '45 minutos'] as $dato) {
+            $this->assertStringContainsString($dato, $celdas->item(0)->textContent);
+        }
+        $this->assertStringContainsString('PacientePropio610', $celdas->item(1)->textContent);
+        $this->assertStringContainsString('Primera consulta', $celdas->item(1)->textContent);
+        $this->assertSame('Pendiente', trim($celdas->item(2)->textContent));
+        $this->assertSame('Ver detalle de turno', trim($celdas->item(3)->textContent));
+        $this->assertStringNotContainsString(trim($this->propia->user->name.' '.$this->propia->user->apellido), $xpath->query($tabla.'/tbody')->item(0)->textContent);
+        $this->assertSame(1, $xpath->query('//p[@id="resumen-resultados"]/following-sibling::nav[@aria-label="Obtener agenda"]')->length);
+        $this->assertSame(1, $xpath->query('//p[@id="resumen-resultados"]/following::table')->length);
+    }
+
+    public function test_filtros_aplicados_se_conservan_aunque_el_panel_inicie_plegado(): void
+    {
+        $criterios = ['fecha' => '2026-11-05', 'estado' => 'PENDIENTE', 'paciente' => 'Propio610'];
+        $respuesta = $this->actingAs($this->propia->user)->get(route('turnos.agenda-atencion.index', $criterios))->assertOk();
+        $dom = new \DOMDocument;
+        @$dom->loadHTML('<?xml encoding="utf-8" ?>'.$respuesta->getContent(), LIBXML_NONET);
+        $xpath = new \DOMXPath($dom);
+        $this->assertSame(1, $xpath->query('//details')->length);
+        $this->assertSame(0, $xpath->query('//details[@open]')->length);
+        $this->assertSame(1, $xpath->query('//details//select[@name="estado"]/option[@value="PENDIENTE" and @selected]')->length);
+        $respuesta->assertViewHas('turnos', fn ($turnos) => array_column($turnos, 'id') === [$this->turno->id]);
+        $this->assertEnlaceConsulta($respuesta, $criterios + ['page' => 1]);
     }
 
     #[DataProvider('rutasDeLectura')]

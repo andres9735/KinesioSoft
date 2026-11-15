@@ -30,7 +30,15 @@ final class EnlaceAsistenciaTurnoController extends Controller
             default => 403,
         };
 
-        return response()->view('turnos.asistencia.show', ['acceso' => $acceso, 'csrf' => $request->attributes->get('uc28.csrf'), 'operaciones' => $request->attributes->get('uc28.operaciones', [])], $status);
+        $csrf = $request->attributes->get('uc28.csrf');
+        // El formulario necesita Origin sin divulgar la ruta ni la credencial en Referer.
+        $referrerPolicy = $status === 200 && is_string($csrf) && $csrf !== ''
+            && ($acceso->puedeConfirmar || $acceso->puedeCancelar) ? 'strict-origin' : 'no-referrer';
+
+        return response()->view('turnos.asistencia.show', [
+            'acceso' => $acceso, 'csrf' => $csrf, 'referrerPolicy' => $referrerPolicy,
+            'operaciones' => $request->attributes->get('uc28.operaciones', []),
+        ], $status)->header('Referrer-Policy', $referrerPolicy);
     }
 
     public function decidir(Request $request, ResolverAsistenciaEnlaceService $resolver, AutorizacionNavegadorEnlaceService $navegador): RedirectResponse

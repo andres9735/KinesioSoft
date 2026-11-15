@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="../../../vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="bootstrap.php" cacheResult="false"
+         failOnRisky="true" failOnWarning="true" failOnSkipped="true" failOnIncomplete="true">
+    <testsuites>
+        <testsuite name="Agenda Diaria MariaDB 6.39 exclusiva">
+            <file>ContratosMotorTest.php</file>
+            <file>IntegracionYVolumenTest.php</file>
+        </testsuite>
+    </testsuites>
+    <php>
+        <ini name="zend.exception_ignore_args" value="1"/>
+    </php>
+</phpunit>
