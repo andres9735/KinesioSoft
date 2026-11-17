@@ -141,8 +141,10 @@ final class ConfirmarPrimeraConsultaAction
                     ->lockForUpdate()->get();
                 $bloqueos = $this->agenda->bloqueosSuperpuestosCon($kinesiologa, $candidato['inicio_at'], $candidato['fin_at'])
                     ->lockForUpdate()->get();
+                $reservas = $this->agenda->reservasSuperpuestasCon($kinesiologa, $candidato['inicio_at'], $candidato['fin_at'])
+                    ->lockForUpdate()->get();
                 $disponibles = $this->disponibilidad->evaluarCandidatosDisponibles(
-                    [$candidato], $turnos, $bloqueos, $this->reloj->ahora(), $esElegible
+                    [$candidato], $turnos, $bloqueos, $this->reloj->ahora(), $esElegible, $reservas
                 );
 
                 if ($disponibles === []) {

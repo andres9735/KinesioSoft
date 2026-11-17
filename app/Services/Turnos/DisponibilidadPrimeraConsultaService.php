@@ -8,6 +8,7 @@ use App\Models\BloqueoAgenda;
 use App\Models\ConfiguracionAgenda;
 use App\Models\FranjaHorariaAgenda;
 use App\Models\Kinesiologa;
+use App\Models\OfertaAdelanto;
 use App\Models\Turno;
 use App\Services\Agenda\AgendaQueryService;
 use App\Services\Agenda\RelojAplicacion;
@@ -120,13 +121,14 @@ final class DisponibilidadPrimeraConsultaService
         $finVentana = $hasta->addDay();
         $turnos = $this->agenda->turnosAfectadosPorIntervalo($kinesiologa, $desde, $finVentana)->get();
         $bloqueos = $this->agenda->bloqueosSuperpuestosCon($kinesiologa, $desde, $finVentana)->get();
+        $reservas = $this->agenda->reservasSuperpuestasCon($kinesiologa, $desde, $finVentana)->get();
         $candidatos = [];
 
         for ($fecha = $desde; $fecha->lte($hasta); $fecha = $fecha->addDay()) {
             array_push($candidatos, ...$this->generarGrillaParaFecha($kinesiologa, $fecha));
         }
 
-        return $this->evaluarCandidatosDisponibles($candidatos, $turnos, $bloqueos, $this->reloj->ahora(), $esElegible);
+        return $this->evaluarCandidatosDisponibles($candidatos, $turnos, $bloqueos, $this->reloj->ahora(), $esElegible, $reservas);
     }
 
     /** @return array{inicio_at: CarbonImmutable, fin_at: CarbonImmutable}|null */
@@ -151,6 +153,7 @@ final class DisponibilidadPrimeraConsultaService
      * @param  list<array{inicio_at: CarbonImmutable, fin_at: CarbonImmutable}>  $candidatos
      * @param  iterable<Turno>  $turnosOcupantes
      * @param  iterable<BloqueoAgenda>  $bloqueosEfectivos
+     * @param  iterable<OfertaAdelanto>  $reservas
      * @return list<array{inicio_at: CarbonImmutable, fin_at: CarbonImmutable}>
      */
     public function evaluarCandidatosDisponibles(
@@ -159,9 +162,15 @@ final class DisponibilidadPrimeraConsultaService
         iterable $bloqueosEfectivos,
         CarbonInterface $ahora,
         bool $profesionalElegible,
+        iterable $reservas = [],
     ): array {
         $this->exigirElegibilidad($profesionalElegible);
         $ocupaciones = [...$turnosOcupantes, ...$bloqueosEfectivos];
+        foreach ($reservas as $reserva) {
+            if ($reserva->reservaVigenteEn($ahora)) {
+                $ocupaciones[] = $reserva;
+            }
+        }
         $disponibles = [];
 
         foreach ($candidatos as $candidato) {

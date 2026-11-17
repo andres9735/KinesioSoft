@@ -1,0 +1,27 @@
+# Subpaso 5: consumo y primera emisión
+
+El consumidor usa la intención existente y su auditoría de cancelación como identidad durable. `RegistrarIntencionEvaluacionCupoService` vuelve a comprobar ambos canales, los estados, tipos, programación y las doce horas respecto de `ocurrido_at`, concordante con `liberado_at`. No exige doce horas desde el worker. La cancelación permanece sin búsqueda ni transporte.
+
+`turnos:procesar-cupos` se programa cada minuto y sólo encola referencias en la conexión `database`, incluso si la conexión predeterminada fuera `sync`. Requiere Scheduler y un worker de esa conexión para operación real; este subpaso no los inicia. Los Jobs admiten una ejecución por entrega. El sondeo recupera intenciones sin procesar y despachos PENDIENTES si el proceso se interrumpe antes de encolarlos. Puede haber referencias duplicadas en la cola: la evaluación UNIQUE por intención, el despacho UNIQUE por oferta y las lecturas actuales bajo mutex impiden duplicar sus identidades lógicas.
+
+El procesamiento toma el mutex de la kinesióloga antes de evaluar. La activación reutiliza Kinesióloga → Paciente → Turno. Oferta, despacho cifrado, resultado y `procesado_at` se confirman juntos; un error en esa preparación revierte también la reserva. Las repeticiones recuperan el primer resultado, incluso sin candidatos o sin posibilidad de activar, sin iniciar ofertas sucesivas. Se admite recuperar una oferta previa del subpaso 4 sin renovar su vencimiento. La selección aplica el alcance Primera consulta y omite restricciones incompatibles; los errores de integridad no se convierten en ofertas.
+
+El despachador reclama la fila bajo el protocolo de agenda y verifica vigencia, programación, destinatario y destino. El correo se envía fuera de toda transacción. El estado INCIERTO se consolida inmediatamente antes del transporte: una caída desde esa frontera no habilita un reenvío automático, porque no permite distinguir entre correo aceptado y respuesta perdida. No se promete exactamente una entrega SMTP. El material cifrado y la identidad se conservan para resolver esa incertidumbre en el subpaso 6; los reintentos, el fallo definitivo y las ofertas sucesivas no se implementan aquí. Una interrupción anterior a esa frontera deja PENDIENTE recuperable. ENVIADO significa retorno satisfactorio del transporte, no entrega o lectura del buzón. Al enviar u omitir se elimina el material recuperable.
+
+El transporte simulado `array` sólo se admite en `testing`. La ejecución operativa exige `mail.default=smtp` y configuración SMTP explícita sin `MAIL_URL`; rechaza `log`, failover y otros destinos antes de reclamar el despacho. El Mailer SMTP transitorio no hereda dispatcher, destinatarios globales, BCC ni fallbacks, siguiendo el patrón de UC-27. No se modifica `.env` ni se certifica SMTP real en este subpaso.
+
+## Contrato pendiente del resolvedor del subpaso 6
+
+- URL HTTPS canónica: `/turnos/adelanto?token=<credencial opaca de 256 bits>`, bajo el prefijo de `app.url`. Todavía no hay ruta ni pantalla para esa URL.
+- Buscar por SHA-256 del token en `despachos_oferta_adelanto`; comprobar oferta, paciente destinatario, programación original, reserva vigente y `ahora < vence_at`. El token no concede acceso a otro turno ni a datos clínicos.
+- GET/HEAD sólo consultan. La decisión explícita y sus controles de navegador se implementarán después. No registrar tokens en logs, redirecciones, auditoría o mensajes de error; aplicar controles de privacidad y de origen antes de publicar el resolvedor.
+- Sólo el hash queda en claro. La URL y el destinatario se recuperan mediante `Crypt` autenticado, con propósito e identidad de oferta/paciente dentro del sobre. Los Jobs contienen sólo IDs. El Mailable es transitorio y rechaza serialización. Mantener las claves necesarias para recuperar sobres vigentes al rotar `APP_KEY`.
+- El correo incluye ambos intervalos, la profesional, zona horaria, vencimiento y el enlace; no incluye motivo, documentos, plan, sesión ni información clínica.
+
+Quedan pendientes el recorrido por navegador y las pruebas concurrentes en MariaDB aislada de dos consumidores y dos despachadores, así como la visibilidad REPEATABLE READ, las restricciones físicas y la coordinación con cambios de agenda. Las pruebas SQLite sólo acreditan comportamiento funcional y construcción de locks. CA-G15 se cubre exclusivamente para la búsqueda inicial sin candidatos.
+
+## Verificación local del 16/11/2026
+
+`storage/framework/testing/asignacion-emision-20261116-05/verificar.ps1 -Fase focalizadas`: 23 pruebas / 140 aserciones PASS, 35,188 segundos. `-Fase regresion`: 360 pruebas / 2525 aserciones PASS, 58,442 segundos, incluyendo el conjunto focalizado. Ambas salidas 0, sin errores, fallos ni omisiones. PHP 8.2.12 / PHPUnit 11.5.55; preflight SQLite `:memory:` efectivo sin archivo, único driver sqlite, PDO MySQL ausente incluso en hijos, correo/cache/sesión array, cola sync con Queue fake, NullHandler y storage exclusivo. Los commits ensayados son internos a SQLite efímero; no se ejecutaron migraciones operativas ni SMTP real.
+
+La regresión comprende cancelación UC–06, registro de intención, resolvedor UC–28 por servicio y HTTP, selector, validador, reserva y comando/Scheduler de recordatorios. Sintaxis y Pint de 12 PHP, y `git diff --check`, satisfactorios. Evidencias JUnit ignoradas junto al arnés. Los cuatro documentos aprobados del incremento permanecen intactos. El cierre local no certifica concurrencia MariaDB, rendimiento ni el recorrido de navegador pendiente.

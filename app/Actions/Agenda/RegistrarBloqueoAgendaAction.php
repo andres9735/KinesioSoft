@@ -10,6 +10,7 @@ use App\Services\Agenda\AgendaQueryService;
 use App\Services\Agenda\AgendaSnapshotService;
 use App\Services\Agenda\RelojAplicacion;
 use App\Services\AuditoriaService;
+use App\Services\Turnos\RevalidarOfertasPorCambioAgendaService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -22,7 +23,8 @@ final class RegistrarBloqueoAgendaAction
         private readonly AgendaQueryService $queryService,
         private readonly AgendaSnapshotService $snapshotService,
         private readonly RevisarBloqueoAgendaAction $revisarAction,
-        private readonly RelojAplicacion $reloj
+        private readonly RelojAplicacion $reloj,
+        private readonly RevalidarOfertasPorCambioAgendaService $ofertas,
     ) {}
 
     public function ejecutar(User $actor, array $data): BloqueoAgenda
@@ -93,6 +95,8 @@ final class RegistrarBloqueoAgendaAction
                 ],
                 actor: $actor
             );
+
+            $this->ofertas->ejecutar($kinesiologa, $actor);
 
             return $bloqueo;
         });

@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\Agenda\AgendaSnapshotService;
 use App\Services\Agenda\RelojAplicacion;
 use App\Services\AuditoriaService;
+use App\Services\Turnos\RevalidarOfertasPorCambioAgendaService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -22,7 +23,8 @@ final class AnularConfiguracionAgendaFuturaAction
     public function __construct(
         private readonly AuditoriaService $auditoriaService,
         private readonly AgendaSnapshotService $snapshotService,
-        private readonly RelojAplicacion $reloj
+        private readonly RelojAplicacion $reloj,
+        private readonly RevalidarOfertasPorCambioAgendaService $ofertas,
     ) {}
 
     public function ejecutar(
@@ -119,6 +121,8 @@ final class AnularConfiguracionAgendaFuturaAction
                     actor: $actor
                 );
             }
+
+            $this->ofertas->ejecutar($kinesiologa, $actor);
 
             return $target;
         });

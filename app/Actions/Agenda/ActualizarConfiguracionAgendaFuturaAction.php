@@ -12,6 +12,7 @@ use App\Services\Agenda\AgendaSnapshotService;
 use App\Services\Agenda\RelojAplicacion;
 use App\Services\Agenda\ValidadorMatrizAgenda;
 use App\Services\AuditoriaService;
+use App\Services\Turnos\RevalidarOfertasPorCambioAgendaService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -25,7 +26,8 @@ final class ActualizarConfiguracionAgendaFuturaAction
         private readonly AuditoriaService $auditoriaService,
         private readonly AgendaSnapshotService $snapshotService,
         private readonly ValidadorMatrizAgenda $validadorMatriz,
-        private readonly RelojAplicacion $reloj
+        private readonly RelojAplicacion $reloj,
+        private readonly RevalidarOfertasPorCambioAgendaService $ofertas,
     ) {}
 
     public function ejecutar(
@@ -176,6 +178,8 @@ final class ActualizarConfiguracionAgendaFuturaAction
             foreach ($reconciliaciones as [$vecina, $antes, $despues]) {
                 $this->auditarReconciliacion($actor, $vecina, $antes, $despues, $target->getKey());
             }
+
+            $this->ofertas->ejecutar($kinesiologa, $actor);
 
             return $target;
         });

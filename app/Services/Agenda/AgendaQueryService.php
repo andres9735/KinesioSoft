@@ -6,6 +6,7 @@ use App\Enums\EstadoTurnoEnum;
 use App\Models\BloqueoAgenda;
 use App\Models\ConfiguracionAgenda;
 use App\Models\Kinesiologa;
+use App\Models\OfertaAdelanto;
 use App\Models\Turno;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -14,6 +15,21 @@ use LogicException;
 
 final class AgendaQueryService
 {
+    /**
+     * Reservas potenciales, incluso vencidas: el caller evalúa reservaVigenteEn()
+     * con su reloj final después de las lecturas bloqueantes. Intervalos semiabiertos.
+     *
+     * @return Builder<OfertaAdelanto>
+     */
+    public function reservasSuperpuestasCon(Kinesiologa $kinesiologa, CarbonInterface $inicio, CarbonInterface $fin): Builder
+    {
+        return OfertaAdelanto::query()->where('kinesiologa_id', $kinesiologa->getKey())
+            ->where('estado', OfertaAdelanto::ACTIVA)->whereNull('cerrada_at')
+            ->where('inicio_at', '<', $fin->format('Y-m-d H:i:s.u'))
+            ->where('fin_at', '>', $inicio->format('Y-m-d H:i:s.u'))
+            ->orderBy('id');
+    }
+
     public function configuracionAplicableEn(
         Kinesiologa $kinesiologa,
         CarbonInterface $fecha
@@ -173,6 +189,22 @@ final class AgendaQueryService
     ): Builder {
         return Turno::query()
             ->where('kinesiologa_id', $kinesiologa->getKey())
+            ->whereIn('estado', EstadoTurnoEnum::estadosQueReservanAgenda())
+            ->where('inicio_at', '<', $fin)
+            ->where('fin_at', '>', $inicio)
+            ->orderBy('inicio_at')
+            ->orderBy('fin_at')
+            ->orderBy('id');
+    }
+
+    /** Cruces del paciente en cualquier profesional y tipo de consulta. */
+    public function turnosDePacienteAfectadosPorIntervalo(
+        int $pacienteId,
+        CarbonInterface $inicio,
+        CarbonInterface $fin
+    ): Builder {
+        return Turno::query()
+            ->where('paciente_id', $pacienteId)
             ->whereIn('estado', EstadoTurnoEnum::estadosQueReservanAgenda())
             ->where('inicio_at', '<', $fin)
             ->where('fin_at', '>', $inicio)

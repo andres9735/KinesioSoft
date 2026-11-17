@@ -23,6 +23,7 @@ use App\Http\Controllers\HistorialConfiguracionAgendaController;
 use App\Http\Controllers\JurisdiccionController;
 use App\Http\Controllers\MisMatriculasProfesionalesController;
 use App\Http\Controllers\MisTurnosController;
+use App\Http\Controllers\OfertaAdelantoController;
 use App\Http\Controllers\PerfilKinesiologaController;
 use App\Http\Controllers\PerfilPacienteController;
 use App\Http\Controllers\ProfileController;
@@ -33,11 +34,19 @@ use App\Http\Controllers\TipoEquipoTerapeuticoController;
 use App\Http\Controllers\TituloProfesionalController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\ProtegerAccesoEnlaceAsistencia;
+use App\Http\Middleware\ProtegerAccesoOfertaAdelanto;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
 });
+
+Route::get('/turnos/adelanto', [OfertaAdelantoController::class, 'mostrar'])
+    ->withoutMiddleware('web')->middleware(ProtegerAccesoOfertaAdelanto::class)->name('turnos.adelanto.show');
+Route::post('/turnos/adelanto/rechazar', [OfertaAdelantoController::class, 'rechazar'])
+    ->withoutMiddleware('web')->middleware(ProtegerAccesoOfertaAdelanto::class)->name('turnos.adelanto.rechazar');
+Route::post('/turnos/adelanto/aceptar', [OfertaAdelantoController::class, 'aceptar'])
+    ->withoutMiddleware('web')->middleware(ProtegerAccesoOfertaAdelanto::class)->name('turnos.adelanto.aceptar');
 
 // Canal específico por credencial: sin sesión, cookies ni autorización del portal.
 Route::get('/turnos/asistencia', EnlaceAsistenciaTurnoController::class)

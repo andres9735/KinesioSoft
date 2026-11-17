@@ -18,3 +18,9 @@ Schedule::command('turnos:preparar-recordatorios')
     ->timezone(config('app.timezone'))
     ->name('uc27:seleccion-recordatorios')
     ->withoutOverlapping(5);
+
+Schedule::command('turnos:procesar-cupos')
+    ->everyMinute()
+    ->timezone(config('app.timezone'))
+    ->name('adelantos:primeras-ofertas')
+    ->withoutOverlapping(5);

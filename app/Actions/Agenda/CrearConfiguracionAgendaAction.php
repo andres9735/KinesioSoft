@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\Agenda\RelojAplicacion;
 use App\Services\Agenda\ValidadorMatrizAgenda;
 use App\Services\AuditoriaService;
+use App\Services\Turnos\RevalidarOfertasPorCambioAgendaService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -22,7 +23,8 @@ final class CrearConfiguracionAgendaAction
     public function __construct(
         private readonly AuditoriaService $auditoriaService,
         private readonly ValidadorMatrizAgenda $validadorMatriz,
-        private readonly RelojAplicacion $reloj
+        private readonly RelojAplicacion $reloj,
+        private readonly RevalidarOfertasPorCambioAgendaService $ofertas,
     ) {}
 
     public function ejecutar(User $actor, array $data): ConfiguracionAgenda
@@ -131,6 +133,8 @@ final class CrearConfiguracionAgendaAction
                     $configuracion->getKey()
                 );
             }
+
+            $this->ofertas->ejecutar($kinesiologa, $actor);
 
             return $configuracion;
         });
