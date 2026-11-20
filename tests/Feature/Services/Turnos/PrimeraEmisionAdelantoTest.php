@@ -290,10 +290,13 @@ class PrimeraEmisionAdelantoTest extends TestCase
         $mail = $fake->mensaje;
         $this->assertNotNull($mail);
         $html = $mail->render();
-        foreach (['23/11/2026 10:00:00', '16/11/2026 10:00:00', '10:30:00', 'Profesional De prueba', '16/11/2026 08:00:00.000000', $datos['url']] as $texto) {
+        foreach (['Lunes 23/11/2026', 'Lunes 16/11/2026', '<strong>10:00</strong>', 'Profesional De prueba',
+            '16/11/2026 a las 08:00 hs.', $this->candidato->paciente->user->name, $datos['url']] as $texto) {
             $this->assertStringContainsString($texto, $html);
         }
         $this->assertStringNotContainsString('10:45:00', $html);
+        $this->assertStringNotContainsString('10:30', $html);
+        $this->assertStringNotContainsString('08:00:00.000000', $html);
         $this->assertStringNotContainsString('MOTIVO CLINICO', $html);
         $this->assertStringNotContainsString($datos['url'], json_encode($mail));
         $this->assertSame($this->candidato->paciente->user->email, $mail->to[0]['address']);

@@ -166,12 +166,14 @@ class ConfirmacionAdelantoTest extends TestCase
         $this->assertSame([OfertaAdelanto::ACEPTADA], $fake->resultadosObservados);
         Mail::assertSent(ConfirmacionAdelantoMail::class, function ($mail) use ($etiqueta): bool {
             $html = $mail->render();
-            foreach (['Se confirmó el cambio de horario', '16/11/2026 10:15:00', '10:45:00', $etiqueta,
-                $this->profesional->user->name, config('app.timezone')] as $texto) {
+            foreach (['Cambio de horario confirmado', 'Lunes 16/11/2026', '<strong>10:15</strong>', $etiqueta,
+                $this->profesional->user->name, $this->candidato->paciente->user->name, '/turnos/mis-turnos'] as $texto) {
                 $this->assertStringContainsString($texto, $html);
             }
             $this->assertStringNotContainsString('MOTIVO PRIVADO', $html);
             $this->assertStringNotContainsString('?token=', $html);
+            $this->assertStringNotContainsString('10:45', $html);
+            $this->assertStringNotContainsString('10:15:00', $html);
             $mail->build();
             $this->assertSame('Cambio de horario confirmado — KinesioSoft', $mail->subject);
             $this->assertCount(1, $mail->to);

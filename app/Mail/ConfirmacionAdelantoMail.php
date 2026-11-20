@@ -16,7 +16,10 @@ final class ConfirmacionAdelantoMail extends Mailable implements JsonSerializabl
     public function build(): self
     {
         return $this->to($this->contenido['destinatario'])->subject('Cambio de horario confirmado — KinesioSoft')
-            ->view('emails.turnos.confirmacion-adelanto', $this->contenido);
+            ->view('emails.turnos.confirmacion-adelanto', array_merge($this->contenido,
+                PresentacionTurno::horario($this->contenido['horario'], $this->contenido['zona']), [
+                    'urlMisTurnos' => rtrim(config('app.url'), '/').route('turnos.mis-turnos.index', [], false),
+                ]));
     }
 
     public function render(): string

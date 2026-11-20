@@ -84,6 +84,7 @@ class PrepararContenidoRecordatorioTurnoServiceTest extends TestCase
             'fin_at' => CarbonImmutable::now()->addHours($horas)->addMinutes(30)->format('Y-m-d H:i:s'),
         ]);
         $this->turno->kinesiologa->user->update(['name' => '<script>NO-EJECUTAR</script>', 'apellido' => 'Profesional']);
+        $this->turno->paciente->user->update(['name' => 'Mateo <script>PACIENTE</script>']);
         $antes = $this->turno->fresh()->getAttributes();
         $html = $this->render($this->id());
         $this->assertSame($confirmar, str_contains($html, '>Confirmar asistencia<'));
@@ -92,6 +93,7 @@ class PrepararContenidoRecordatorioTurnoServiceTest extends TestCase
         $this->assertStringContainsString($tipo === TipoTurnoEnum::PRIMERA_CONSULTA ? 'Primera consulta' : 'Seguimiento', $html);
         $this->assertStringContainsString('Profesional', $html);
         $this->assertStringContainsString('&lt;script&gt;NO-EJECUTAR&lt;/script&gt;', $html);
+        $this->assertStringContainsString('Hola, Mateo &lt;script&gt;PACIENTE&lt;/script&gt;.', $html);
         $this->assertStringNotContainsString('<script>', $html);
         $this->assertStringNotContainsString('CLINICO-NO-EXPONER', $html);
         $this->assertStringNotContainsString($this->turno->paciente->user->email, $html);
@@ -278,7 +280,8 @@ class PrepararContenidoRecordatorioTurnoServiceTest extends TestCase
         CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-11-06 10:00:00', 'Pacific/Auckland')->utc());
         $html = $this->render($this->id());
         $this->assertStringContainsString('07/11/2026', $html);
-        $this->assertStringContainsString('10:00–10:30', $html);
+        $this->assertStringContainsString('<strong>10:00</strong>', $html);
+        $this->assertStringNotContainsString('10:30', $html);
         $this->assertStringNotContainsString('CLINICO-NO-EXPONER', $html);
     }
 

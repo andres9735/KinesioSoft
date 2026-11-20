@@ -16,8 +16,10 @@ final class RecordatorioTurnoMail extends Mailable implements JsonSerializable
 
     public function build(): self
     {
+        $horario = PresentacionTurno::horario($this->contenido['fecha'].' '.explode('–', $this->contenido['horario'], 2)[0]);
+
         return $this->to($this->contenido['destinatario'])->subject('Recordatorio de turno — KinesioSoft')
-            ->view('emails.turnos.recordatorio', $this->contenido);
+            ->view('emails.turnos.recordatorio', array_merge($this->contenido, $horario));
     }
 
     public function render(): string

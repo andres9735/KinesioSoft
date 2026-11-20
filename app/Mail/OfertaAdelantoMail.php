@@ -17,7 +17,11 @@ final class OfertaAdelantoMail extends Mailable implements JsonSerializable
     public function build(): self
     {
         return $this->to($this->contenido['destinatario'])->subject('Oferta de adelanto de turno — KinesioSoft')
-            ->view('emails.turnos.oferta-adelanto', $this->contenido);
+            ->view('emails.turnos.oferta-adelanto', array_merge($this->contenido, [
+                'actual' => PresentacionTurno::horario($this->contenido['actual'], $this->contenido['zona']),
+                'ofrecido' => PresentacionTurno::horario($this->contenido['ofrecido'], $this->contenido['zona']),
+                'vencimiento' => PresentacionTurno::vencimiento($this->contenido['vencimiento']),
+            ]));
     }
 
     public function render(): string

@@ -114,6 +114,7 @@ final class DespacharOfertaAdelantoService
 
             return new OfertaAdelantoMail($id, [
                 'destinatario' => $usuario->email, 'url' => $url,
+                'paciente' => $usuario->name,
                 'profesional' => trim($profesional->name.' '.$profesional->apellido),
                 'actual' => $oferta->origen_inicio_at->format('d/m/Y H:i:s').'–'.$oferta->origen_fin_at->format('H:i:s'),
                 'ofrecido' => $oferta->inicio_at->format('d/m/Y H:i:s').'–'.$oferta->destino_fin_at->format('H:i:s'),

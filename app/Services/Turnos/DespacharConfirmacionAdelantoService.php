@@ -66,7 +66,10 @@ final class DespacharConfirmacionAdelantoService
             $registro->saveOrFail();
             $this->auditar($registro, 'confirmacion_adelanto_reclamada', 'inicio');
 
-            return new ConfirmacionAdelantoMail($id, $datos);
+            // El nombre es transitorio: no cambia el contrato cifrado de despachos anteriores.
+            return new ConfirmacionAdelantoMail($id, array_merge($datos, [
+                'paciente' => $paciente->user()->value('name'),
+            ]));
         });
         if ($correo === null) {
             return;

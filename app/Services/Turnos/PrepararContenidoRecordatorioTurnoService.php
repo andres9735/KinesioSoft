@@ -108,6 +108,7 @@ final class PrepararContenidoRecordatorioTurnoService
 
             return new RecordatorioTurnoMail((int) $registro->id, [
                 'destinatario' => $registro->destinatario,
+                'paciente' => $turno->paciente->user()->value('name'),
                 'tipo' => $turno->tipo->value === 'PRIMERA_CONSULTA' ? 'Primera consulta' : 'Seguimiento',
                 'fecha' => $inicio->format('d/m/Y'), 'horario' => $inicio->format('H:i').'–'.$fin->format('H:i'),
                 'profesional' => trim(($profesional?->name ?? '').' '.($profesional?->apellido ?? '')),
