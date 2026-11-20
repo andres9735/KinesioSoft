@@ -22,12 +22,22 @@
             </div>
         @endif
 
+        @if (session('aviso_apertura'))
+            <p role="status" class="rounded-xl border border-indigo-200 bg-indigo-50 p-4">{{ session('aviso_apertura') }}</p>
+        @endif
+        @if ($versionBase)
+            @include('historia-clinica.version-base', ['version' => $versionBase])
+        @endif
+
         <div class="space-y-3 rounded-2xl bg-white p-6 text-gray-800 shadow-sm">
             <h2 class="text-lg font-semibold">Recorrido siguiente</h2>
             @switch($recorrido)
                 @case('apertura_a')
                     <p>Sin historia clínica ni declaración previa. Corresponde registrar los datos mínimos de apertura mediante la carga profesional.</p>
                     <p>La historia se creará activa al confirmar los datos mínimos de apertura.</p>
+                    @can('abrirHistoriaClinica', [\App\Models\Turno::class, (int) $turno->id])
+                        <a href="{{ route('historia-clinica.apertura.create', $turno->id) }}" class="inline-flex min-h-11 items-center rounded-lg bg-indigo-700 px-4 py-2 font-semibold text-white">Registrar apertura profesional</a>
+                    @endcan
                     @break
                 @case('revision_c')
                     <p>Sin historia clínica y con declaración pendiente. Corresponde revisar la declaración de salud e incorporar los datos admitidos por la profesional.</p>

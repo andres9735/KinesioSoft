@@ -8,6 +8,7 @@ use App\Models\Turno;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Schema;
 
 final class ConsultarExpedienteDesdeTurnoService
 {
@@ -29,15 +30,18 @@ final class ConsultarExpedienteDesdeTurnoService
             ->where('paciente_id', $paciente->id)->pluck('estado');
         $declaracionPendiente = $estados->contains(DeclaracionSaludPaciente::ESTADO_PENDIENTE_REVISION);
 
-        // El esquema actual solo acredita la cabecera: no hay una versión clínica
-        // validada ni evidencia de acceso al expediente histórico en papel.
-        // Una declaración (incluso Revisada) no demuestra esa disponibilidad.
-        $datosBaseDisponibles = null;
+        // Una cabecera histórica sigue sin acreditar disponibilidad. La tabla
+        // puede no estar desplegada todavía; su ausencia no rompe la consulta.
+        $versionBase = $historia && Schema::hasTable('versiones_datos_clinicos_base')
+            ? $historia->versionesDatosBase()->useWritePdo()->with('items', 'integrantes')->orderByDesc('numero_version')->first()
+            : null;
+        $datosBaseDisponibles = $versionBase ? true : null;
 
         return [
             'turno' => $turno,
             'paciente' => $paciente,
             'historia' => $historia,
+            'versionBase' => $versionBase,
             'declaracionPendiente' => $declaracionPendiente,
             'datosBaseDisponibles' => $datosBaseDisponibles,
             'recorrido' => $this->recorridos->resolver(

@@ -10,6 +10,15 @@ class TurnoPolicy
 {
     public const PERMISO_CONSULTAR_HISTORIA_CLINICA = 'historias-clinicas.consultar';
 
+    public const PERMISO_ABRIR_HISTORIA_CLINICA = 'historias-clinicas.abrir';
+
+    public function abrirHistoriaClinica(User $user, int $turnoId): bool
+    {
+        return $this->consultarHistoriaClinica($user, $turnoId)
+            && User::query()->useWritePdo()->find($user->getAuthIdentifier())
+                ?->checkPermissionTo(self::PERMISO_ABRIR_HISTORIA_CLINICA, 'web') === true;
+    }
+
     public function consultarHistoriaClinica(User $user, int $turnoId): bool
     {
         if (! $user->exists) {

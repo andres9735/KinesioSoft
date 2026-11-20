@@ -261,7 +261,8 @@ class AccesoDesdeAgendaTest extends TestCase
         $otra = $this->profesionalUc07();
         $this->seed(PermisoHistoriaClinicaSeeder::class);
         $this->assertFalse($otra->user->checkPermissionTo(TurnoPolicy::PERMISO_CONSULTAR_HISTORIA_CLINICA, 'web'));
-        $this->assertDatabaseCount('permissions', 1);
+        $this->assertFalse($otra->user->checkPermissionTo(TurnoPolicy::PERMISO_ABRIR_HISTORIA_CLINICA, 'web'));
+        $this->assertDatabaseCount('permissions', 2);
     }
 
     private function url(): string

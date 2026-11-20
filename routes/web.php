@@ -5,6 +5,7 @@ use App\Http\Controllers\AgendaController;
 use App\Http\Controllers\AlertasRecordatorioController;
 use App\Http\Controllers\AnulacionBloqueoAgendaController;
 use App\Http\Controllers\AnulacionConfiguracionAgendaController;
+use App\Http\Controllers\AperturaHistoriaClinicaController;
 use App\Http\Controllers\AuditoriaController;
 use App\Http\Controllers\BloqueoAgendaController;
 use App\Http\Controllers\CambioDuracionAgendaController;
@@ -94,6 +95,15 @@ Route::get('/turnos/agenda-atencion/turnos/{turno}/historia-clinica', HistoriaCl
     ->whereNumber('turno')
     ->middleware(['auth', 'perfil.kinesiologo', 'verified', 'perfil.completo'])
     ->name('historia-clinica.desde-turno');
+
+Route::get('/turnos/agenda-atencion/turnos/{turno}/historia-clinica/apertura', [AperturaHistoriaClinicaController::class, 'create'])
+    ->whereNumber('turno')
+    ->middleware(['auth', 'perfil.kinesiologo', 'verified', 'perfil.completo'])
+    ->name('historia-clinica.apertura.create');
+Route::post('/turnos/agenda-atencion/turnos/{turno}/historia-clinica/apertura', [AperturaHistoriaClinicaController::class, 'store'])
+    ->whereNumber('turno')
+    ->middleware(['auth', 'perfil.kinesiologo', 'verified', 'perfil.completo'])
+    ->name('historia-clinica.apertura.store');
 
 Route::get('/turnos/mis-turnos', [MisTurnosController::class, 'index'])
     ->middleware(['auth', 'verified', 'perfil.completo', 'perfil.paciente'])
