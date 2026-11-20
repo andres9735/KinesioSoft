@@ -19,6 +19,7 @@ use App\Http\Controllers\EjercicioDomiciliarioController;
 use App\Http\Controllers\EnlaceAsistenciaTurnoController;
 use App\Http\Controllers\EspecialidadKinesiologiaController;
 use App\Http\Controllers\GeografiaController;
+use App\Http\Controllers\HistoriaClinicaDesdeTurnoController;
 use App\Http\Controllers\HistorialConfiguracionAgendaController;
 use App\Http\Controllers\JurisdiccionController;
 use App\Http\Controllers\MisMatriculasProfesionalesController;
@@ -88,6 +89,11 @@ Route::get('/turnos/agenda-atencion/pdf', [AgendaAtencionController::class, 'pdf
 Route::get('/documentos-clinicos/{documento}/descargar', DescargarDocumentoClinicoController::class)
     ->middleware(['auth', 'verified', 'perfil.completo'])
     ->name('documentos-clinicos.download');
+
+Route::get('/turnos/agenda-atencion/turnos/{turno}/historia-clinica', HistoriaClinicaDesdeTurnoController::class)
+    ->whereNumber('turno')
+    ->middleware(['auth', 'perfil.kinesiologo', 'verified', 'perfil.completo'])
+    ->name('historia-clinica.desde-turno');
 
 Route::get('/turnos/mis-turnos', [MisTurnosController::class, 'index'])
     ->middleware(['auth', 'verified', 'perfil.completo', 'perfil.paciente'])

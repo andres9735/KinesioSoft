@@ -15,6 +15,8 @@ class DeclaracionSaludPaciente extends Model
 
     public const ESTADO_PENDIENTE_REVISION = 'PENDIENTE_REVISION';
 
+    public const ESTADO_REVISADA = 'REVISADA';
+
     protected $table = 'declaraciones_salud_paciente';
 
     protected $fillable = [

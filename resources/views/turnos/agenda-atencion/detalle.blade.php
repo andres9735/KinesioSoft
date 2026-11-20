@@ -9,4 +9,8 @@
         <div><dt class="text-xs font-medium text-gray-500">Tipo de consulta</dt><dd class="mt-1 font-medium text-gray-900">{{ $turno['tipo']->value === 'PRIMERA_CONSULTA' ? 'Primera consulta' : 'Seguimiento' }}</dd></div>
         <div><dt class="text-xs font-medium text-gray-500">Profesional</dt><dd class="mt-1 break-words font-medium text-gray-900">{{ $turno['kinesiologa']['nombre'] ?? 'Profesional sin nombre registrado' }}</dd></div>
     </dl>
+    @can('consultarHistoriaClinica', [\App\Models\Turno::class, $turno['id']])
+        <a href="{{ route('historia-clinica.desde-turno', ['turno' => $turno['id']]) }}"
+           class="mt-6 inline-flex min-h-11 items-center rounded-lg px-4 py-2 font-semibold text-indigo-700 underline focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Acceder a la historia clínica</a>
+    @endcan
 </div>

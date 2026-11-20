@@ -8,6 +8,25 @@ use Illuminate\Database\Eloquent\Builder;
 
 class TurnoPolicy
 {
+    public const PERMISO_CONSULTAR_HISTORIA_CLINICA = 'historias-clinicas.consultar';
+
+    public function consultarHistoriaClinica(User $user, int $turnoId): bool
+    {
+        if (! $user->exists) {
+            return false;
+        }
+
+        // El guard puede conservar atributos y relaciones anteriores a una revocación.
+        $actual = User::query()->useWritePdo()->find($user->getAuthIdentifier());
+
+        return $actual !== null
+            && $actual->puedeAtenderComoKinesiologo()
+            && $actual->checkPermissionTo(self::PERMISO_CONSULTAR_HISTORIA_CLINICA, 'web')
+            && Turno::query()->useWritePdo()->whereKey($turnoId)
+                ->whereHas('kinesiologa', fn (Builder $query) => $query->where('user_id', $actual->getKey()))
+                ->exists();
+    }
+
     public function view(User $user, Turno $turno): bool
     {
         return $this->esPropietario($user, $turno);
