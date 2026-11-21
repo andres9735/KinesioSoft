@@ -30,11 +30,35 @@ final class ValidarDatosAperturaHistoriaClinica
 
     public function validar(array $entrada): array
     {
+        return $this->validarDatos($entrada, true);
+    }
+
+    /** Valida un resultado propuesto; no representa confirmación ni escritura. */
+    public function validarResultadoProfesional(array $entrada): array
+    {
+        return $this->validarDatos($entrada, false);
+    }
+
+    /** Reutiliza las reglas del bloque sin fabricar respuestas para los demás. */
+    public function validarBloque(string $tipo, array $entrada): array
+    {
+        if (! array_key_exists($tipo, self::TIPOS)) {
+            throw new \InvalidArgumentException('Tipo de antecedente no reconocido.');
+        }
+        $datos = $this->normalizar(['bloques' => [$tipo => $entrada]]);
+        $prefijo = 'bloques.'.$tipo;
+        $validador = Validator::make($datos, $this->reglasBloque($prefijo));
+        $validador->after(fn (Validador $v) => $this->coherenciaBloque($v, $datos['bloques'][$tipo], $tipo));
+
+        return $validador->validate()['bloques'][$tipo];
+    }
+
+    private function validarDatos(array $entrada, bool $confirmacionRequerida): array
+    {
         $datos = $this->normalizar($entrada);
         $reglas = [
             'especialidad_id' => ['required', 'integer', 'min:1'],
             'procedencia_relevamiento' => ['required', Rule::in(array_keys(self::PROCEDENCIAS))],
-            'confirmar' => ['accepted'],
             'bloques' => ['required', 'array:'.implode(',', array_keys(self::TIPOS))],
             'familia' => ['required', 'array:resultado,motivo,integrantes,incluir_contacto,vinculo_contacto'],
             'familia.resultado' => ['required', Rule::in(array_keys(self::FAMILIA))],
@@ -46,36 +70,22 @@ final class ValidarDatosAperturaHistoriaClinica
             'familia.incluir_contacto' => ['required', 'boolean'],
             'familia.vinculo_contacto' => ['nullable', 'string', 'max:100'],
             'objetivo_salud' => ['nullable', 'string', 'max:5000'],
-            'peso_kg' => ['nullable', 'numeric', 'between:1,500'],
-            'altura_cm' => ['nullable', 'integer', 'between:30,250'],
+            'peso_kg' => ['nullable', 'numeric', 'decimal:0,2', 'between:1,500'],
+            'altura_cm' => ['nullable', 'numeric', 'decimal:0,2', 'between:30,250'],
             'ocupacion' => ['nullable', 'string', 'max:255'],
             'nivel_actividad_fisica' => ['nullable', Rule::in(['SEDENTARIO', 'MODERADO', 'ACTIVO'])],
             'detalle_actividad_fisica' => ['nullable', 'string', 'max:5000'],
         ];
+        if ($confirmacionRequerida) {
+            $reglas['confirmar'] = ['accepted'];
+        }
         foreach (self::TIPOS as $tipo => $nombre) {
-            $prefijo = 'bloques.'.$tipo;
-            $reglas[$prefijo] = ['required', 'array:resultado,items'];
-            $reglas[$prefijo.'.resultado'] = ['required', Rule::in(array_keys(self::RELEVAMIENTOS))];
-            $reglas[$prefijo.'.items'] = ['present', 'array', 'max:30'];
-            $reglas[$prefijo.'.items.*'] = ['array:descripcion,procedencia,estado_codificacion'];
-            $reglas[$prefijo.'.items.*.descripcion'] = ['required', 'string', 'max:5000'];
-            $reglas[$prefijo.'.items.*.procedencia'] = ['required', Rule::in(array_keys(self::PROCEDENCIAS))];
-            // Los cinco tipos admiten diferir. Sin nomenclatura aprobada no se puede
-            // validar una equivalencia ni habilitar "Solo descriptivo" por omisión.
-            $reglas[$prefijo.'.items.*.estado_codificacion'] = ['required', Rule::in(['PENDIENTE_CODIFICACION'])];
+            $reglas += $this->reglasBloque('bloques.'.$tipo);
         }
         $validador = Validator::make($datos, $reglas);
         $validador->after(function (Validador $v) use ($datos): void {
             foreach (self::TIPOS as $tipo => $nombre) {
-                $bloque = $datos['bloques'][$tipo] ?? [];
-                $resultado = $bloque['resultado'] ?? null;
-                $items = $bloque['items'] ?? [];
-                if ($resultado === 'NO_RELEVADO') {
-                    $v->errors()->add('bloques.'.$tipo.'.resultado', $nombre.': completá el relevamiento antes de abrir la historia.');
-                }
-                if (($resultado === 'INFORMADO' && $items === []) || ($resultado !== 'INFORMADO' && $items !== [])) {
-                    $v->errors()->add('bloques.'.$tipo.'.items', $nombre.': los antecedentes deben corresponder al resultado informado.');
-                }
+                $this->coherenciaBloque($v, $datos['bloques'][$tipo] ?? [], $tipo);
             }
             $familia = $datos['familia'] ?? [];
             $resultado = $familia['resultado'] ?? null;
@@ -92,6 +102,35 @@ final class ValidarDatosAperturaHistoriaClinica
         });
 
         return $validador->validate();
+    }
+
+    private function reglasBloque(string $prefijo): array
+    {
+        return [
+            $prefijo => ['required', 'array:resultado,items'],
+            $prefijo.'.resultado' => ['required', Rule::in(array_keys(self::RELEVAMIENTOS))],
+            $prefijo.'.items' => ['present', 'array', 'max:30'],
+            $prefijo.'.items.*' => ['array:descripcion,procedencia,estado_codificacion'],
+            $prefijo.'.items.*.descripcion' => ['required', 'string', 'max:5000'],
+            $prefijo.'.items.*.procedencia' => ['required', Rule::in(array_keys(self::PROCEDENCIAS))],
+            // Los cinco tipos admiten diferir. No se inventa una nomenclatura ni una regla descriptiva.
+            $prefijo.'.items.*.estado_codificacion' => ['required', Rule::in(['PENDIENTE_CODIFICACION'])],
+        ];
+    }
+
+    private function coherenciaBloque(Validador $v, mixed $bloque, string $tipo): void
+    {
+        if (! is_array($bloque)) {
+            return;
+        }
+        $resultado = $bloque['resultado'] ?? null;
+        $items = $bloque['items'] ?? [];
+        if ($resultado === 'NO_RELEVADO') {
+            $v->errors()->add('bloques.'.$tipo.'.resultado', self::TIPOS[$tipo].': completá el relevamiento antes de abrir la historia.');
+        }
+        if (($resultado === 'INFORMADO' && $items === []) || ($resultado !== 'INFORMADO' && $items !== [])) {
+            $v->errors()->add('bloques.'.$tipo.'.items', self::TIPOS[$tipo].': los antecedentes deben corresponder al resultado informado.');
+        }
     }
 
     private function normalizar(array $entrada): array

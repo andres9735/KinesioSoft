@@ -2,17 +2,22 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\EsRegistroClinicoInmutable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ItemDeclaracionSalud extends Model
 {
+    use EsRegistroClinicoInmutable;
     use HasFactory;
 
     public const TIPO_ANTECEDENTE = 'ANTECEDENTE';
+
     public const TIPO_CIRUGIA = 'CIRUGIA';
+
     public const TIPO_ALERGIA = 'ALERGIA';
+
     public const TIPO_MEDICACION = 'MEDICACION';
 
     public $timestamps = false;

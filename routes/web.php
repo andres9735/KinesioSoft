@@ -30,6 +30,7 @@ use App\Http\Controllers\PerfilKinesiologaController;
 use App\Http\Controllers\PerfilPacienteController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PruebaFuncionalController;
+use App\Http\Controllers\RevisionDeclaracionSaludController;
 use App\Http\Controllers\SolicitarTurnoController;
 use App\Http\Controllers\TecnicaTerapeuticaController;
 use App\Http\Controllers\TipoEquipoTerapeuticoController;
@@ -104,6 +105,19 @@ Route::post('/turnos/agenda-atencion/turnos/{turno}/historia-clinica/apertura', 
     ->whereNumber('turno')
     ->middleware(['auth', 'perfil.kinesiologo', 'verified', 'perfil.completo'])
     ->name('historia-clinica.apertura.store');
+
+Route::get('/turnos/agenda-atencion/turnos/{turno}/historia-clinica/declaraciones/{declaracion}/revision', [RevisionDeclaracionSaludController::class, 'create'])
+    ->whereNumber(['turno', 'declaracion'])
+    ->middleware(['auth', 'perfil.kinesiologo', 'verified', 'perfil.completo'])
+    ->name('historia-clinica.revision.create');
+Route::post('/turnos/agenda-atencion/turnos/{turno}/historia-clinica/declaraciones/{declaracion}/revision/vista-previa', [RevisionDeclaracionSaludController::class, 'preview'])
+    ->whereNumber(['turno', 'declaracion'])
+    ->middleware(['auth', 'perfil.kinesiologo', 'verified', 'perfil.completo'])
+    ->name('historia-clinica.revision.preview');
+Route::post('/turnos/agenda-atencion/turnos/{turno}/historia-clinica/declaraciones/{declaracion}/revision/confirmar', [RevisionDeclaracionSaludController::class, 'confirmar'])
+    ->whereNumber(['turno', 'declaracion'])
+    ->middleware(['auth', 'perfil.kinesiologo', 'verified', 'perfil.completo'])
+    ->name('historia-clinica.revision.confirmar');
 
 Route::get('/turnos/mis-turnos', [MisTurnosController::class, 'index'])
     ->middleware(['auth', 'verified', 'perfil.completo', 'perfil.paciente'])

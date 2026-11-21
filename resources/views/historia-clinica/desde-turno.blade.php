@@ -19,6 +19,15 @@
             <div role="alert" class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950">
                 <h2 class="font-semibold">Declaración de salud pendiente de revisión</h2>
                 <p class="mt-2">La información declarada todavía no fue incorporada como datos clínicos profesionales. Esta declaración requiere revisión antes de incorporar sus datos al expediente.</p>
+                @if (!in_array($recorrido, ['historia_inactiva', 'declaracion_revisada_sin_historia'], true))
+                    @can('revisarDeclaracionSalud', [\App\Models\Turno::class, (int) $turno->id])
+                        <ul class="mt-3 space-y-2">
+                            @foreach ($declaracionesPendientes as $pendiente)
+                                <li><a class="inline-flex min-h-11 items-center font-semibold underline" href="{{ route('historia-clinica.revision.create', ['turno' => $turno->id, 'declaracion' => $pendiente->id]) }}">Revisar declaración #{{ $pendiente->id }} del {{ $pendiente->created_at->format('d/m/Y H:i') }}</a></li>
+                            @endforeach
+                        </ul>
+                    @endcan
+                @endif
             </div>
         @endif
 

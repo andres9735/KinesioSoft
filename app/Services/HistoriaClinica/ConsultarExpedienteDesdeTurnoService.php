@@ -26,8 +26,9 @@ final class ConsultarExpedienteDesdeTurnoService
             ->firstOrFail();
         $paciente = $turno->paciente()->with('user:id,name,apellido')->firstOrFail();
         $historia = HistoriaClinica::query()->useWritePdo()->where('paciente_id', $paciente->id)->first();
-        $estados = DeclaracionSaludPaciente::query()->useWritePdo()
-            ->where('paciente_id', $paciente->id)->pluck('estado');
+        $declaraciones = DeclaracionSaludPaciente::query()->useWritePdo()
+            ->where('paciente_id', $paciente->id)->orderBy('id')->get(['id', 'estado', 'created_at']);
+        $estados = $declaraciones->pluck('estado');
         $declaracionPendiente = $estados->contains(DeclaracionSaludPaciente::ESTADO_PENDIENTE_REVISION);
 
         // Una cabecera histórica sigue sin acreditar disponibilidad. La tabla
@@ -43,6 +44,7 @@ final class ConsultarExpedienteDesdeTurnoService
             'historia' => $historia,
             'versionBase' => $versionBase,
             'declaracionPendiente' => $declaracionPendiente,
+            'declaracionesPendientes' => $declaraciones->where('estado', DeclaracionSaludPaciente::ESTADO_PENDIENTE_REVISION),
             'datosBaseDisponibles' => $datosBaseDisponibles,
             'recorrido' => $this->recorridos->resolver(
                 $historia?->activa,

@@ -1,7 +1,7 @@
 <article class="space-y-4 rounded-2xl bg-white p-6 shadow-sm" aria-labelledby="version-base">
     <h2 id="version-base" class="text-lg font-semibold">Datos de base disponibles — versión {{ $version->numero_version }}</h2>
     <p class="text-sm">{{ $version->autor_nombre_snapshot }} · {{ $version->especialidad_nombre_snapshot }} · {{ $version->created_at->format('d/m/Y H:i') }} ({{ config('app.timezone') }})</p>
-    <p class="text-sm">Carga profesional directa. Procedencia del relevamiento: {{ \App\Services\HistoriaClinica\ValidarDatosAperturaHistoriaClinica::PROCEDENCIAS[$version->procedencia_relevamiento] ?? $version->procedencia_relevamiento }}.</p>
+    <p class="text-sm">{{ match ($version->origen) { 'CARGA_PROFESIONAL_DIRECTA' => 'Carga profesional directa', 'REVISION_DECLARACION' => 'Revisión de declaración de salud', default => 'Origen: '.$version->origen } }}. Procedencia del relevamiento: {{ \App\Services\HistoriaClinica\ValidarDatosAperturaHistoriaClinica::PROCEDENCIAS[$version->procedencia_relevamiento] ?? $version->procedencia_relevamiento }}.</p>
     @foreach (\App\Services\HistoriaClinica\ValidarDatosAperturaHistoriaClinica::TIPOS as $tipo => $titulo)
         <section class="space-y-2 border-t border-gray-200 pt-3">
             <h3 class="font-semibold">{{ $titulo }}</h3>

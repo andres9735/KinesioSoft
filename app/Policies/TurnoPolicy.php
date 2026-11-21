@@ -12,6 +12,15 @@ class TurnoPolicy
 
     public const PERMISO_ABRIR_HISTORIA_CLINICA = 'historias-clinicas.abrir';
 
+    public const PERMISO_REVISAR_DECLARACION = 'historias-clinicas.revisar';
+
+    public function revisarDeclaracionSalud(User $user, int $turnoId): bool
+    {
+        return $this->consultarHistoriaClinica($user, $turnoId)
+            && User::query()->useWritePdo()->find($user->getAuthIdentifier())
+                ?->checkPermissionTo(self::PERMISO_REVISAR_DECLARACION, 'web') === true;
+    }
+
     public function abrirHistoriaClinica(User $user, int $turnoId): bool
     {
         return $this->consultarHistoriaClinica($user, $turnoId)

@@ -13,5 +13,6 @@ class PermisoHistoriaClinicaSeeder extends Seeder
         // Registrar la capacidad no otorga acceso clínico a ningún rol o cuenta.
         Permission::findOrCreate(TurnoPolicy::PERMISO_CONSULTAR_HISTORIA_CLINICA, 'web');
         Permission::findOrCreate(TurnoPolicy::PERMISO_ABRIR_HISTORIA_CLINICA, 'web');
+        Permission::findOrCreate(TurnoPolicy::PERMISO_REVISAR_DECLARACION, 'web');
     }
 }

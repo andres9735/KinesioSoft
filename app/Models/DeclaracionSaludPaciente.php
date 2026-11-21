@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use LogicException;
 
 class DeclaracionSaludPaciente extends Model
 {
@@ -37,6 +39,35 @@ class DeclaracionSaludPaciente extends Model
             'altura_cm' => 'decimal:2',
             'created_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::updating(function (self $declaracion): void {
+            if (array_diff(array_keys($declaracion->getDirty()), ['estado']) !== []) {
+                throw new LogicException('La declaración original se conserva; las correcciones pertenecen a la revisión profesional.');
+            }
+            if ($declaracion->isDirty('estado') && ($declaracion->getRawOriginal('estado') !== self::ESTADO_PENDIENTE_REVISION
+                || $declaracion->estado !== self::ESTADO_REVISADA || ! $declaracion->incorporacion()->exists())) {
+                throw new LogicException('La transición a Revisada requiere una incorporación registrada.');
+            }
+        });
+        static::deleting(fn () => throw new LogicException('La declaración original no se elimina.'));
+    }
+
+    public function confirmacion(): HasOne
+    {
+        return $this->hasOne(ConfirmacionRevisionDeclaracion::class, 'declaracion_salud_id');
+    }
+
+    public function revisiones(): HasMany
+    {
+        return $this->hasMany(RevisionDeclaracionSalud::class, 'declaracion_salud_id');
+    }
+
+    public function incorporacion(): HasOne
+    {
+        return $this->hasOne(IncorporacionDeclaracionSalud::class, 'declaracion_salud_id');
     }
 
     public function paciente(): BelongsTo
