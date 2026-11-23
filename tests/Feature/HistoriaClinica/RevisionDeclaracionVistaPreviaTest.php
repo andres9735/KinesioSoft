@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\HistoriaClinica;
 
+use App\Data\HistoriaClinica\FuenteDeclaracionParaRevision;
 use App\Models\DeclaracionSaludPaciente;
 use App\Models\HistoriaClinica;
 use App\Models\Kinesiologa;
@@ -9,6 +10,7 @@ use App\Models\Paciente;
 use App\Models\Turno;
 use App\Models\VersionDatosClinicosBase;
 use App\Policies\TurnoPolicy;
+use App\Services\HistoriaClinica\ComprobanteVistaPreviaRevision;
 use App\Services\HistoriaClinica\ConsultarRevisionDeclaracion;
 use App\Services\HistoriaClinica\ValidarDatosAperturaHistoriaClinica as Minimo;
 use Database\Seeders\PermisoHistoriaClinicaSeeder;
@@ -78,9 +80,17 @@ class RevisionDeclaracionVistaPreviaTest extends TestCase
         }
         $respuesta = $this->post($this->previewUrl(), $this->postData($form->viewData('contexto'), $entrada))->assertOk()
             ->assertSee('Propuesta sin confirmar')->assertSee('Revisión de declaración de salud')
-            ->assertSee('Resultado completo propuesto')->assertSee('Pendiente de codificación')
-            ->assertSee('Se conservaría')->assertSee('Se sustituiría')->assertSee('Volver a editar esta propuesta')
+            ->assertSee('Resultado clínico propuesto')->assertSee('Pendiente de codificación')
+            ->assertSee('Comparaciones detalladas y trazabilidad')->assertSee('Volver a editar esta propuesta')
             ->assertDontSee('Progreso de la revisión')->assertDontSee('data-seccion=', false);
+        $documento = new \DOMDocument;
+        @$documento->loadHTML('<?xml encoding="UTF-8">'.$respuesta->getContent(), LIBXML_NOERROR | LIBXML_NOWARNING);
+        $xpath = new \DOMXPath($documento);
+        $this->assertSame($base ? count(array_filter($respuesta->viewData('secciones'), fn ($s) => $s['antes'] !== [])) : 0,
+            $xpath->query('//*[@data-fuente="anterior"]')->length);
+        if (! $base) {
+            $respuesta->assertSee('Sin información clínica previa.')->assertDontSee('Dato clínico previo conservado');
+        }
         $this->assertSame('no-referrer', $respuesta->headers->get('Referrer-Policy'));
         $this->assertStringContainsString('no-store', $respuesta->headers->get('Cache-Control'));
         $this->assertNull($this->app['session']->getOldInput('propuesta'));
@@ -94,6 +104,156 @@ class RevisionDeclaracionVistaPreviaTest extends TestCase
     public static function expedientes(): array
     {
         return [['sin historia'], ['cabecera'], ['version']];
+    }
+
+    #[DataProvider('expedientes')]
+    public function test_dux06_prioriza_el_resultado_y_conserva_confirmacion_retorno_y_fuentes_reales(string $situacion): void
+    {
+        $base = $situacion === 'version' ? $this->base() : null;
+        if ($situacion === 'cabecera') {
+            $this->historia();
+        }
+        $entrada = $this->entrada();
+        if ($base) {
+            unset($entrada['complemento_profesional']['familia']);
+        }
+        $contexto = $this->contexto();
+        $antes = $this->snapshot();
+        $respuesta = $this->post($this->previewUrl(), $this->postData($contexto, $entrada))->assertOk()
+            ->assertSee('Propuesta sin confirmar — los datos clínicos todavía no fueron incorporados')
+            ->assertSee('Antecedentes y relevamientos complementarios')->assertSee('Núcleo familiar')
+            ->assertDontSee('Sin datos en este apartado')->assertDontSee('<script>alert("dato")</script>', false);
+        $documento = new \DOMDocument;
+        @$documento->loadHTML('<?xml encoding="UTF-8">'.$respuesta->getContent(), LIBXML_NOERROR | LIBXML_NOWARNING);
+        $xpath = new \DOMXPath($documento);
+        $html = $respuesta->getContent();
+        $this->assertLessThan(strpos($html, 'id="previa-comparaciones"'), strpos($html, 'id="previa-resultado"'));
+        foreach (['resultado', 'comparaciones', 'excluidos', 'confirmacion'] as $destino) {
+            $this->assertSame(1, $xpath->query('//*[@id="previa-'.$destino.'"]')->length);
+            $this->assertSame(1, $xpath->query('//aside//a[@href="#previa-'.$destino.'"]')->length);
+        }
+        $this->assertSame(1, $xpath->query('//details[@id="previa-comparaciones" and not(@open)]/summary')->length);
+        $this->assertSame(10, $xpath->query('//details[@data-dictamen-detalle and not(@open)]/summary')->length);
+        $this->assertSame($base ? '2' : '1', trim($xpath->query('//*[@data-version-propuesta]')->item(0)->textContent));
+        foreach (['VALIDAR' => 10, 'CORREGIR' => 0, 'OBSERVAR' => 0, 'DESCARTAR' => 0] as $dictamen => $cantidad) {
+            $this->assertSame((string) $cantidad, trim($xpath->query('//*[@data-resumen-dictamen="'.$dictamen.'"]/*[@data-cantidad]')->item(0)->textContent));
+        }
+        $urlConfirmar = route('historia-clinica.revision.confirmar', ['turno' => $this->turno->id, 'declaracion' => $this->declaracion->id]);
+        $formulario = $xpath->query('//form[@action="'.$urlConfirmar.'"]');
+        $this->assertSame(1, $formulario->length);
+        $this->assertSame('POST', $formulario->item(0)->getAttribute('method'));
+        $nombres = [];
+        foreach ($xpath->query('.//*[@name]', $formulario->item(0)) as $control) {
+            $nombres[] = $control->getAttribute('name');
+        }
+        $this->assertSame(['_token', 'confirmacion', 'confirmar'], $nombres);
+        $this->assertSame($respuesta->viewData('comprobante'), $xpath->query('.//input[@name="confirmacion"]', $formulario->item(0))->item(0)->getAttribute('value'));
+        $this->assertSame(1, $xpath->query('.//input[@name="confirmar" and @value="1" and @required and not(@checked)]', $formulario->item(0))->length);
+        $this->assertSame(1, $xpath->query('.//button[@type="submit"]', $formulario->item(0))->length);
+        $this->assertSame('propuestaEditada', $xpath->query('.//fieldset', $formulario->item(0))->item(0)->getAttribute(':disabled'));
+        $retorno = $xpath->query('//details[@data-retorno-edicion]')->item(0);
+        // libxml no conserva el prefijo @ de Alpine en atributos HTML.
+        $this->assertStringContainsString('@input="propuestaEditada = true" @change="propuestaEditada = true"', $html);
+        $this->assertSame(1, $xpath->query('.//form[@action="'.$this->previewUrl().'"]', $retorno)->length);
+        $this->assertSame($contexto, $xpath->query('.//input[@name="contexto"]', $retorno)->item(0)->getAttribute('value'));
+        $this->assertSame('JSON.stringify(contrato())', $xpath->query('.//input[@name="propuesta"]', $retorno)->item(0)->getAttribute(':value'));
+        $sobre = app(ComprobanteVistaPreviaRevision::class)->leer(
+            $respuesta->viewData('comprobante'), $this->profesional->user, $this->turno->id, $this->declaracion->id);
+        $this->assertSame($entrada, $sobre['entrada']);
+        $this->assertSame($entrada, $respuesta->viewData('entrada'));
+        $this->assertSame($respuesta->viewData('resultado')->huellaResultado, $sobre['huella_resultado']);
+        $this->assertSame($antes, $this->snapshot());
+        foreach ($xpath->query('//*[@data-fuentes-comparacion]') as $grilla) {
+            $this->assertSame('grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr))', $grilla->getAttribute('style'));
+        }
+        $this->assertStringContainsString('xl:grid-cols-[minmax(0,1fr)_20rem]', $html);
+        $this->assertSame(0, $xpath->query('//*[@id="previa-resultado"]//table')->length);
+    }
+
+    public function test_dux06_distingue_exclusion_declarada_de_datos_previos_conservados(): void
+    {
+        $base = $this->base();
+        $entrada = $this->entrada();
+        unset($entrada['complemento_profesional']['familia']);
+        $nota = trim("Requiere aclaración profesional.\n".str_repeat('Justificación íntegra y disponible. ', 30));
+        $entrada['dictamenes']['ocupacion'] = ['dictamen' => 'OBSERVAR', 'justificacion' => $nota];
+        $entrada['dictamenes']['alergias'] = ['dictamen' => 'DESCARTAR', 'justificacion' => 'No se admite la alergia declarada.'];
+        $entrada['dictamenes']['altura_cm'] = ['dictamen' => 'CORREGIR', 'correccion' => ['valor' => '171.75']];
+        $entrada['sustituciones_base'] = ['altura_cm'];
+        $antes = $this->snapshot();
+        $respuesta = $this->post($this->previewUrl(), $this->postData($this->contexto(), $entrada))->assertOk()
+            ->assertSee('Corrección profesional')->assertSee($nota)->assertSee('Alergia oficial previa')->assertSee('Se sustituiría');
+        $documento = new \DOMDocument;
+        @$documento->loadHTML('<?xml encoding="UTF-8">'.$respuesta->getContent(), LIBXML_NOERROR | LIBXML_NOWARNING);
+        $xpath = new \DOMXPath($documento);
+        $ocupacion = $xpath->query('//*[@data-resultado-campo="ocupacion"]')->item(0)->textContent;
+        $this->assertStringContainsString('Docente', $ocupacion);
+        $this->assertStringContainsString('Dato clínico previo conservado', $ocupacion);
+        $this->assertStringContainsString($nota, $xpath->query('//*[@data-exclusion="ocupacion"]')->item(0)->textContent);
+        $alergias = $xpath->query('//*[@data-resultado-categoria="Alergias"]')->item(0)->textContent;
+        $this->assertStringContainsString('Alergia oficial previa', $alergias);
+        $this->assertStringNotContainsString('<script>alert("dato")</script>', $alergias);
+        $altura = $xpath->query('//*[@data-resultado-campo="altura_cm"]')->item(0)->textContent;
+        $this->assertStringContainsString('170.00', $altura);
+        $this->assertStringContainsString('171.75', $altura);
+        foreach (['VALIDAR' => 7, 'CORREGIR' => 1, 'OBSERVAR' => 1, 'DESCARTAR' => 1] as $dictamen => $cantidad) {
+            $this->assertSame((string) $cantidad, trim($xpath->query('//*[@data-resumen-dictamen="'.$dictamen.'"]/*[@data-cantidad]')->item(0)->textContent));
+        }
+        $this->assertSame('170.00', $base->fresh()->altura_cm);
+        $this->assertSame($antes, $this->snapshot());
+    }
+
+    public function test_dux06_no_inventa_datos_para_valores_vacios_y_distingue_las_fuentes_disponibles(): void
+    {
+        $entrada = $this->entrada();
+        foreach (FuenteDeclaracionParaRevision::CAMPOS as $campo) {
+            $entrada['dictamenes'][$campo] = ['dictamen' => 'DESCARTAR', 'justificacion' => 'Dato no admitido en esta revisión.'];
+        }
+        $respuesta = $this->post($this->previewUrl(), $this->postData($this->contexto(), $entrada))->assertOk()
+            ->assertSee('Sin datos propuestos para incorporar en esta categoría.')->assertSee('Sin información clínica previa.');
+        $documento = new \DOMDocument;
+        @$documento->loadHTML('<?xml encoding="UTF-8">'.$respuesta->getContent(), LIBXML_NOERROR | LIBXML_NOWARNING);
+        $xpath = new \DOMXPath($documento);
+        $this->assertSame(0, $xpath->query('//*[@data-resultado-campo]')->length);
+        $this->assertSame(0, $xpath->query('//*[@data-fuente="anterior"]')->length);
+        $this->assertSame(6, $xpath->query('//*[@data-exclusion]')->length);
+        $familiares = $xpath->query('//*[@data-resultado-categoria="Antecedentes familiares"]')->item(0)->textContent;
+        $this->assertStringContainsString('Se desconoce', $familiares);
+        $this->assertStringNotContainsString('No presenta', $familiares);
+        $this->assertStringContainsString('Información no disponible', $xpath->query('//*[@data-resultado-categoria="Núcleo familiar"]')->item(0)->textContent);
+    }
+
+    #[DataProvider('expedientes')]
+    public function test_av01_solo_menciona_conservacion_clinica_anterior_si_existe_version_oficial(string $situacion): void
+    {
+        $base = $situacion === 'version' ? $this->base() : null;
+        if ($situacion === 'cabecera') {
+            $this->historia();
+        }
+        $entrada = $this->entrada();
+        if ($base) {
+            unset($entrada['complemento_profesional']['familia']);
+        }
+        $entrada['dictamenes']['ocupacion'] = ['dictamen' => 'OBSERVAR', 'justificacion' => 'Requiere aclaración durante la entrevista.'];
+        $entrada['dictamenes']['detalle_actividad_fisica'] = ['dictamen' => 'DESCARTAR', 'justificacion' => 'No se admite el detalle declarado.'];
+        $contexto = $this->contexto();
+        $antes = $this->snapshot();
+        $respuesta = $this->post($this->previewUrl(), $this->postData($contexto, $entrada))->assertOk()
+            ->assertSee('Declaración original conservada')->assertSee('Requiere aclaración durante la entrevista.')
+            ->assertSee('No se admite el detalle declarado.')->assertSee('Declaración del paciente')
+            ->assertSee('Observar')->assertSee('Descartar');
+        if ($base) {
+            $respuesta->assertSee('Los datos clínicos previos se conservan salvo sustitución explícita')
+                ->assertSee('el historial permanece conservado')->assertSee('Alergia oficial previa')
+                ->assertSee('Dato clínico previo conservado')->assertDontSee('Sin información clínica previa.');
+        } else {
+            $respuesta->assertDontSee('Los datos clínicos previos se conservan')
+                ->assertDontSee('el historial permanece conservado')
+                ->assertDontSee('la versión clínica anterior y la versión propuesta son fuentes diferentes')
+                ->assertSee('La declaración original permanece preservada.')->assertSee('Sin información clínica previa.');
+        }
+        $this->assertSame($entrada, $respuesta->viewData('entrada'));
+        $this->assertSame($antes, $this->snapshot());
     }
 
     #[DataProvider('expedientes')]
@@ -331,6 +491,7 @@ class RevisionDeclaracionVistaPreviaTest extends TestCase
         $entrada['dictamenes']['detalle_actividad_fisica'] = ['dictamen' => 'DESCARTAR', 'justificacion' => 'No corresponde admitirlo'];
         $respuesta = $this->post($this->previewUrl(), $this->postData($this->contexto(), $entrada))->assertOk()
             ->assertSee('Alergia precisada')->assertSee('Relevamiento profesional')->assertSee('171.75')
+            ->assertSee('Incluye correcciones profesionales')
             ->assertSee('Requiere aclaración')->assertSee('Dato declarado excluido')->assertSee('No corresponde admitirlo');
         $resultado = $respuesta->viewData('resultado');
         $this->assertNull($resultado->datosClinicos['ocupacion']);
