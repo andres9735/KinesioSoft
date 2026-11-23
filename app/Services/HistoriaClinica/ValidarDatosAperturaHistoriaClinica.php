@@ -4,6 +4,7 @@ namespace App\Services\HistoriaClinica;
 
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Validator as Validador;
 
 final class ValidarDatosAperturaHistoriaClinica
@@ -33,29 +34,37 @@ final class ValidarDatosAperturaHistoriaClinica
         return $this->validarDatos($entrada, true);
     }
 
-    /** Valida un resultado propuesto; no representa confirmación ni escritura. */
-    public function validarResultadoProfesional(array $entrada): array
+    /** Valida sin escrituras; un mapa no nulo solicita errores por índice recibido sólo para UC-14 C. */
+    public function validarResultadoProfesional(array $entrada, ?array &$indicesEntrada = null): array
     {
-        return $this->validarDatos($entrada, false);
+        return $this->validarDatos($entrada, false, $indicesEntrada);
     }
 
-    /** Reutiliza las reglas del bloque sin fabricar respuestas para los demás. */
-    public function validarBloque(string $tipo, array $entrada): array
+    /** Reutiliza las reglas; el mapa optativo devuelve posiciones originales sin cambiar el resultado. */
+    public function validarBloque(string $tipo, array $entrada, ?array &$indicesEntrada = null): array
     {
         if (! array_key_exists($tipo, self::TIPOS)) {
             throw new \InvalidArgumentException('Tipo de antecedente no reconocido.');
         }
-        $datos = $this->normalizar(['bloques' => [$tipo => $entrada]]);
+        $localizar = $indicesEntrada !== null;
+        $datos = $this->normalizar(['bloques' => [$tipo => $entrada]], $indices);
+        if ($localizar) {
+            $indicesEntrada = $indices;
+        }
         $prefijo = 'bloques.'.$tipo;
         $validador = Validator::make($datos, $this->reglasBloque($prefijo));
         $validador->after(fn (Validador $v) => $this->coherenciaBloque($v, $datos['bloques'][$tipo], $tipo));
 
-        return $validador->validate()['bloques'][$tipo];
+        return $this->validarConIndices($validador, $localizar ? $indices : [])['bloques'][$tipo];
     }
 
-    private function validarDatos(array $entrada, bool $confirmacionRequerida): array
+    private function validarDatos(array $entrada, bool $confirmacionRequerida, ?array &$indicesEntrada = null): array
     {
-        $datos = $this->normalizar($entrada);
+        $localizar = $indicesEntrada !== null;
+        $datos = $this->normalizar($entrada, $indices);
+        if ($localizar) {
+            $indicesEntrada = $indices;
+        }
         $reglas = [
             'especialidad_id' => ['required', 'integer', 'min:1'],
             'procedencia_relevamiento' => ['required', Rule::in(array_keys(self::PROCEDENCIAS))],
@@ -101,7 +110,7 @@ final class ValidarDatosAperturaHistoriaClinica
             }
         });
 
-        return $validador->validate();
+        return $this->validarConIndices($validador, $localizar ? $indices : []);
     }
 
     private function reglasBloque(string $prefijo): array
@@ -133,8 +142,33 @@ final class ValidarDatosAperturaHistoriaClinica
         }
     }
 
-    private function normalizar(array $entrada): array
+    /** Sin mapa se conserva íntegramente la excepción del consumidor anterior. */
+    private function validarConIndices(Validador $validador, array $indices): array
     {
+        try {
+            return $validador->validate();
+        } catch (ValidationException $e) {
+            if ($indices === []) {
+                throw $e;
+            }
+            $errores = [];
+            foreach ($e->errors() as $campo => $mensajes) {
+                foreach ($indices as $coleccion => $mapa) {
+                    if (preg_match('/^'.preg_quote($coleccion, '/').'\.(\d+)(\..*)?$/', $campo, $partes)
+                        && array_key_exists((int) $partes[1], $mapa)) {
+                        $campo = $coleccion.'.'.$mapa[(int) $partes[1]].($partes[2] ?? '');
+                        break;
+                    }
+                }
+                $errores[$campo] = array_merge($errores[$campo] ?? [], $mensajes);
+            }
+            throw ValidationException::withMessages($errores);
+        }
+    }
+
+    private function normalizar(array $entrada, ?array &$indices = null): array
+    {
+        $indices = [];
         $limpiar = function ($valor) use (&$limpiar) {
             if (is_array($valor)) {
                 return array_map($limpiar, $valor);
@@ -147,7 +181,9 @@ final class ValidarDatosAperturaHistoriaClinica
             if (isset($datos['bloques'][$tipo]) && is_array($datos['bloques'][$tipo])) {
                 $items = $datos['bloques'][$tipo]['items'] ?? [];
                 if (is_array($items)) {
-                    $datos['bloques'][$tipo]['items'] = array_values(array_filter($items, fn ($item) => ! is_array($item) || ! empty($item['descripcion'])));
+                    $filtrados = array_filter($items, fn ($item) => ! is_array($item) || ! empty($item['descripcion']));
+                    $indices['bloques.'.$tipo.'.items'] = array_keys($filtrados);
+                    $datos['bloques'][$tipo]['items'] = array_values($filtrados);
                 }
             }
         }
@@ -155,7 +191,9 @@ final class ValidarDatosAperturaHistoriaClinica
             $datos['familia']['incluir_contacto'] ??= false;
             $datos['familia']['integrantes'] ??= [];
             if (is_array($datos['familia']['integrantes'])) {
-                $datos['familia']['integrantes'] = array_values(array_filter($datos['familia']['integrantes'], fn ($i) => ! is_array($i) || ! empty($i['nombre_apellido']) || ! empty($i['vinculo'])));
+                $filtrados = array_filter($datos['familia']['integrantes'], fn ($i) => ! is_array($i) || ! empty($i['nombre_apellido']) || ! empty($i['vinculo']));
+                $indices['familia.integrantes'] = array_keys($filtrados);
+                $datos['familia']['integrantes'] = array_values($filtrados);
             }
         }
         // Orden y tipos estables para comparar el doble envío, no el orden JSON del cliente.

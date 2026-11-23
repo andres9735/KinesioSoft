@@ -50,6 +50,78 @@ class ValidarDatosAperturaHistoriaClinicaTest extends TestCase
         app(ValidarDatosAperturaHistoriaClinica::class)->validar($datos);
     }
 
+    #[DataProvider('coleccionesConFilasVacias')]
+    public function test_los_indices_de_diagnostico_son_optativos_y_no_cambian_uc14_a(string $coleccion, string $atributo): void
+    {
+        $datos = $this->datos();
+        if ($coleccion === 'familia.integrantes') {
+            $datos['familia'] = ['resultado' => 'INFORMADO', 'integrantes' => [
+                ['nombre_apellido' => '  ', 'vinculo' => ''], ['nombre_apellido' => 'Integrante', 'vinculo' => ''],
+            ]];
+        } else {
+            $datos['bloques']['alergias'] = ['resultado' => 'INFORMADO', 'items' => [
+                ['descripcion' => ' '], ['descripcion' => 'Antecedente', 'procedencia' => '', 'estado_codificacion' => 'PENDIENTE_CODIFICACION'],
+            ]];
+        }
+        $antes = $datos;
+        $validador = app(ValidarDatosAperturaHistoriaClinica::class);
+        try {
+            $validador->validar($datos);
+            $this->fail('UC-14 A debe seguir rechazando la fila inválida.');
+        } catch (ValidationException $e) {
+            $this->assertSame([$coleccion.'.0.'.$atributo], array_keys($e->errors()));
+            $mensajes = $e->errors()[$coleccion.'.0.'.$atributo];
+        }
+        $indices = [];
+        try {
+            $validador->validarResultadoProfesional($datos, $indices);
+            $this->fail('UC-14 C debe rechazar exactamente el mismo dato.');
+        } catch (ValidationException $e) {
+            $this->assertSame([$coleccion.'.1.'.$atributo => $mensajes], $e->errors());
+        }
+        $this->assertSame([1], $indices[$coleccion]);
+        $this->assertSame($antes, $datos);
+        if ($coleccion === 'familia.integrantes') {
+            $datos['familia']['integrantes'][1]['vinculo'] = ' Hermana ';
+        } else {
+            $datos['bloques']['alergias']['items'][1]['procedencia'] = 'REFERIDO_PACIENTE';
+        }
+        $normalizado = $validador->validarResultadoProfesional($datos);
+        $this->assertSame($normalizado, $validador->validarResultadoProfesional($datos, $indices));
+        $this->assertArrayNotHasKey('indices', $normalizado);
+    }
+
+    public static function coleccionesConFilasVacias(): array
+    {
+        return [['bloques.alergias.items', 'procedencia'], ['familia.integrantes', 'vinculo']];
+    }
+
+    public function test_el_diagnostico_de_bloque_conserva_el_resultado_y_los_errores_del_consumidor_anterior(): void
+    {
+        $validador = app(ValidarDatosAperturaHistoriaClinica::class);
+        $bloque = ['resultado' => 'INFORMADO', 'items' => [[], [
+            'descripcion' => ' Dato ', 'procedencia' => '', 'estado_codificacion' => 'PENDIENTE_CODIFICACION',
+        ]]];
+        try {
+            $validador->validarBloque('alergias', $bloque);
+            $this->fail('Se esperaba el error de procedencia.');
+        } catch (ValidationException $e) {
+            $this->assertSame(['bloques.alergias.items.0.procedencia'], array_keys($e->errors()));
+            $mensajes = array_values($e->errors());
+        }
+        $indices = [];
+        try {
+            $validador->validarBloque('alergias', $bloque, $indices);
+            $this->fail('Se esperaba el mismo error con su índice de entrada.');
+        } catch (ValidationException $e) {
+            $this->assertSame(['bloques.alergias.items.1.procedencia'], array_keys($e->errors()));
+            $this->assertSame($mensajes, array_values($e->errors()));
+        }
+        $bloque['items'][1]['procedencia'] = 'REFERIDO_PACIENTE';
+        $this->assertSame($validador->validarBloque('alergias', $bloque), $validador->validarBloque('alergias', $bloque, $indices));
+        $this->assertSame([1], $indices['bloques.alergias.items']);
+    }
+
     private function datos(): array
     {
         $bloques = [];

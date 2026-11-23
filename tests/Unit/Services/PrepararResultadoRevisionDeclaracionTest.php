@@ -160,7 +160,7 @@ class PrepararResultadoRevisionDeclaracionTest extends TestCase
             app(PrepararResultadoRevisionDeclaracion::class)->preparar($fuente, $entrada, $base);
             $this->fail('Se esperaba consentimiento explícito de la sustitución.');
         } catch (ValidationException $e) {
-            $this->assertArrayHasKey('sustituciones_base', $e->errors());
+            $this->assertArrayHasKey('sustituciones_base.altura_cm', $e->errors());
         }
         $entrada['sustituciones_base'] = ['altura_cm'];
         $resultado = app(PrepararResultadoRevisionDeclaracion::class)->preparar($fuente, $entrada, $base);
@@ -252,7 +252,7 @@ class PrepararResultadoRevisionDeclaracionTest extends TestCase
             app(PrepararResultadoRevisionDeclaracion::class)->preparar($fuente, $entrada, $base);
             $this->fail('El núcleo familiar previo no debe sustituirse silenciosamente.');
         } catch (ValidationException $e) {
-            $this->assertArrayHasKey('sustituciones_base', $e->errors());
+            $this->assertArrayHasKey('sustituciones_base.familia', $e->errors());
         }
         $entrada['sustituciones_base'] = ['familia', 'alergias'];
         $resultado = app(PrepararResultadoRevisionDeclaracion::class)->preparar($fuente, $entrada, $base);
@@ -261,6 +261,117 @@ class PrepararResultadoRevisionDeclaracionTest extends TestCase
         $this->assertSame('Alergia profesional previa', $resultado->linaje['items_base'][0]['descripcion']);
         $this->assertSame('Contacto de emergencia familiar', $resultado->linaje['integrantes_base'][0]['nombre_apellido']);
         $this->assertSame('Alergia profesional previa', $base->items->first()->descripcion);
+    }
+
+    #[DataProvider('listasCorregidas')]
+    public function test_cada_lista_contextualiza_todos_los_atributos_de_su_misma_fila_cero(string $bloque): void
+    {
+        $fuente = $this->fuente();
+        $entrada = $this->entrada($fuente);
+        $entrada['dictamenes'][$bloque] = ['dictamen' => 'CORREGIR', 'correccion' => ['items' => [[
+            'item_origen_id' => 999, 'tipo_destino' => 'invalido', 'descripcion' => '', 'procedencia' => '',
+        ]]]];
+        $antes = $entrada;
+        try {
+            app(PrepararResultadoRevisionDeclaracion::class)->preparar($fuente, $entrada);
+            $this->fail('Se esperaban los errores de la corrección.');
+        } catch (ValidationException $e) {
+            $esperadas = array_map(fn ($campo) => 'dictamenes.'.$bloque.'.correccion.items.0.'.$campo,
+                ['item_origen_id', 'tipo_destino', 'descripcion', 'procedencia']);
+            $this->assertSame($esperadas, array_keys($e->errors()));
+        }
+        $this->assertSame($antes, $entrada);
+    }
+
+    public static function listasCorregidas(): array
+    {
+        return [['antecedentes'], ['cirugias'], ['alergias'], ['medicacion']];
+    }
+
+    public function test_localiza_la_clasificacion_por_id_original_y_no_por_posicion(): void
+    {
+        $fuente = $this->fuente();
+        $entrada = $this->entrada($fuente);
+        unset($entrada['dictamenes']['antecedentes']['clasificacion'][101]);
+        try {
+            app(PrepararResultadoRevisionDeclaracion::class)->preparar($fuente, $entrada);
+            $this->fail('Se esperaba la clasificación del ítem 101.');
+        } catch (ValidationException $e) {
+            $this->assertSame(['dictamenes.antecedentes.clasificacion.101'], array_keys($e->errors()));
+        }
+    }
+
+    public function test_conserva_la_fila_de_aporte_y_de_familia_despues_de_normalizar(): void
+    {
+        $fuente = $this->fuente();
+        $entrada = $this->entrada($fuente);
+        $entrada['complemento_profesional']['bloques']['alergias'] = ['resultado' => 'INFORMADO', 'items' => [[], [
+            'descripcion' => 'Aporte nuevo', 'procedencia' => '', 'estado_codificacion' => 'PENDIENTE_CODIFICACION',
+        ]]];
+        try {
+            app(PrepararResultadoRevisionDeclaracion::class)->preparar($fuente, $entrada);
+            $this->fail('Se esperaba la fila 1 del aporte.');
+        } catch (ValidationException $e) {
+            $this->assertSame(['bloques.alergias.items.1.procedencia'], array_keys($e->errors()));
+        }
+        $entrada['complemento_profesional']['bloques']['alergias']['items'][1]['procedencia'] = 'REFERIDO_PACIENTE';
+        $entrada['complemento_profesional']['familia'] = ['resultado' => 'INFORMADO', 'integrantes' => [[], ['nombre_apellido' => 'Integrante', 'vinculo' => '']]];
+        try {
+            app(PrepararResultadoRevisionDeclaracion::class)->preparar($fuente, $entrada);
+            $this->fail('Se esperaba la fila 1 del núcleo familiar.');
+        } catch (ValidationException $e) {
+            $this->assertSame(['familia.integrantes.1.vinculo'], array_keys($e->errors()));
+        }
+        $entrada['complemento_profesional']['familia']['integrantes'][1]['vinculo'] = ' Hermana ';
+        $resultado = app(PrepararResultadoRevisionDeclaracion::class)->preparar($fuente, $entrada);
+        $this->assertSame('Hermana', $resultado->datosClinicos['familia']['integrantes'][0]['vinculo']);
+        $this->assertSame('Alergia declarada', $resultado->datosClinicos['bloques']['alergias']['items'][0]['descripcion']);
+        $this->assertSame('Aporte nuevo', $resultado->datosClinicos['bloques']['alergias']['items'][1]['descripcion']);
+        $this->assertSame([[], ['nombre_apellido' => 'Integrante', 'vinculo' => ' Hermana ']], $resultado->linaje['complemento_profesional']['familia']['integrantes']);
+        $this->assertArrayNotHasKey('indices', $resultado->datosClinicos);
+        $this->assertArrayNotHasKey('origenes', $resultado->linaje);
+        $this->assertSame(Fuente::huellaDe(['declaracion' => $fuente->huella, 'datos' => $resultado->datosClinicos,
+            'dictamenes' => $resultado->dictamenes, 'linaje' => $resultado->linaje]), $resultado->huellaResultado);
+    }
+
+    public function test_no_atribuye_errores_historicos_a_aportes_con_el_mismo_indice(): void
+    {
+        $fuente = $this->fuente();
+        $base = $this->base();
+        $base->items->first()->procedencia = 'INVALIDA';
+        $entrada = $this->entrada($fuente);
+        unset($entrada['complemento_profesional']['familia']);
+        $entrada['complemento_profesional']['bloques']['alergias'] = ['resultado' => 'INFORMADO', 'items' => [[
+            'descripcion' => 'Aporte válido', 'procedencia' => 'REFERIDO_PACIENTE', 'estado_codificacion' => 'PENDIENTE_CODIFICACION',
+        ]]];
+        try {
+            app(PrepararResultadoRevisionDeclaracion::class)->preparar($fuente, $entrada, $base);
+            $this->fail('Se esperaba el error histórico general.');
+        } catch (ValidationException $e) {
+            $this->assertSame(['version_base'], array_keys($e->errors()));
+        }
+        $this->assertSame('INVALIDA', $base->items->first()->procedencia);
+    }
+
+    public function test_el_limite_del_conjunto_combinado_no_se_asigna_a_una_fila_del_formulario(): void
+    {
+        $fuente = $this->fuente();
+        $base = $this->base();
+        $base->setRelation('items', new Collection(array_map(function ($i) use ($base) {
+            $item = clone $base->items->first();
+            $item->descripcion = 'Previo '.$i;
+
+            return $item;
+        }, range(1, 30))));
+        $entrada = $this->entrada($fuente);
+        unset($entrada['complemento_profesional']['familia']);
+        try {
+            app(PrepararResultadoRevisionDeclaracion::class)->preparar($fuente, $entrada, $base);
+            $this->fail('El conjunto de 31 antecedentes debe seguir rechazándose.');
+        } catch (ValidationException $e) {
+            $this->assertSame(['propuesta'], array_keys($e->errors()));
+        }
+        $this->assertCount(30, $base->items);
     }
 
     private function fuente(bool $conItems = true): Fuente

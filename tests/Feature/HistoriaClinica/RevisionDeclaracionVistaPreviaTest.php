@@ -68,7 +68,7 @@ class RevisionDeclaracionVistaPreviaTest extends TestCase
             }
         });
         $this->get(route('historia-clinica.desde-turno', $this->turno->id))->assertOk()->assertSee($this->url(), false);
-        $form = $this->get($this->url())->assertOk()->assertSee('Declaración original del paciente')
+        $form = $this->get($this->url())->assertOk()->assertSee('Declarado por el paciente')
             ->assertSee('Antecedente declarado sensible')->assertSee('<script>alert("dato")</script>')
             ->assertDontSee('<script>alert("dato")</script>', false);
         $this->head($this->url())->assertOk();
@@ -79,7 +79,8 @@ class RevisionDeclaracionVistaPreviaTest extends TestCase
         $respuesta = $this->post($this->previewUrl(), $this->postData($form->viewData('contexto'), $entrada))->assertOk()
             ->assertSee('Propuesta sin confirmar')->assertSee('Revisión de declaración de salud')
             ->assertSee('Resultado completo propuesto')->assertSee('Pendiente de codificación')
-            ->assertSee('Se conservaría')->assertSee('Se sustituiría')->assertSee('Volver a editar esta propuesta');
+            ->assertSee('Se conservaría')->assertSee('Se sustituiría')->assertSee('Volver a editar esta propuesta')
+            ->assertDontSee('Progreso de la revisión')->assertDontSee('data-seccion=', false);
         $this->assertSame('no-referrer', $respuesta->headers->get('Referrer-Policy'));
         $this->assertStringContainsString('no-store', $respuesta->headers->get('Cache-Control'));
         $this->assertNull($this->app['session']->getOldInput('propuesta'));
@@ -93,6 +94,107 @@ class RevisionDeclaracionVistaPreviaTest extends TestCase
     public static function expedientes(): array
     {
         return [['sin historia'], ['cabecera'], ['version']];
+    }
+
+    #[DataProvider('expedientes')]
+    public function test_el_redisenio_tiene_cuatro_secciones_accesibles_y_conserva_el_contrato_http(string $situacion): void
+    {
+        if ($situacion === 'version') {
+            $this->base();
+        } elseif ($situacion === 'cabecera') {
+            $this->historia();
+        }
+        $antes = $this->snapshot();
+        $respuesta = $this->get($this->url())->assertOk()->assertSee('Progreso de la revisión')
+            ->assertSee('Sin información declarada')->assertSee('Sin aporte complementario');
+        $documento = new \DOMDocument;
+        @$documento->loadHTML('<?xml encoding="UTF-8">'.$respuesta->getContent(), LIBXML_NOERROR | LIBXML_NOWARNING);
+        $xpath = new \DOMXPath($documento);
+        $this->assertSame(4, $xpath->query('//section[@data-seccion]')->length);
+        foreach (['salud', 'declarados', 'complementos', 'familia'] as $seccion) {
+            $this->assertSame(1, $xpath->query('//*[@id="revision-panel-'.$seccion.'" and @role="region"]')->length);
+            $this->assertSame(1, $xpath->query('//button[@aria-controls="revision-panel-'.$seccion.'" and @type="button"]')->length);
+        }
+        $this->assertSame(1, $xpath->query('//form[@id="revision-formulario"]')->length);
+        $nombres = [];
+        foreach ($xpath->query('//form[@id="revision-formulario"]//*[@name]') as $control) {
+            $nombres[] = $control->getAttribute('name');
+        }
+        $this->assertSame(['_token', 'contexto', 'propuesta'], $nombres);
+        foreach (array_keys(ConsultarRevisionDeclaracion::ETIQUETAS) as $bloque) {
+            $this->assertSame(1, $xpath->query('//select[@x-model="dictamenes.'.$bloque.'.dictamen"]')->length);
+        }
+        $this->assertSame(10, $xpath->query('//h3[text()="Declarado por el paciente"]')->length);
+        $this->assertSame(10, $xpath->query('//option[text()="Elegí un dictamen"]')->length);
+        foreach ($xpath->query('//*[@data-tarjetas-revision]') as $grilla) {
+            $this->assertSame('grid-template-columns: repeat(auto-fit, minmax(min(100%, 28rem), 1fr))', $grilla->getAttribute('style'));
+        }
+        foreach ($xpath->query('//*[@data-comparacion-declaracion]') as $comparacion) {
+            $this->assertSame('grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr))', $comparacion->getAttribute('style'));
+        }
+        $escritorio = $xpath->query('//form[@id="revision-formulario"]//button[@data-acceso-previa="escritorio"]');
+        $estrecho = $xpath->query('//form[@id="revision-formulario"]//button[@data-acceso-previa="estrecho"]');
+        $this->assertSame(1, $escritorio->length);
+        $this->assertSame(1, $estrecho->length);
+        $this->assertStringContainsString('hidden', $escritorio->item(0)->getAttribute('class'));
+        $this->assertStringContainsString('xl:block', $escritorio->item(0)->getAttribute('class'));
+        $this->assertStringContainsString('xl:hidden', $estrecho->item(0)->getAttribute('class'));
+        // El acceso de escritorio sigue visible aunque se cierre el detalle de progreso.
+        $this->assertSame(0, $xpath->query('//details//button[@data-acceso-previa="escritorio"]')->length);
+        $this->assertSame($antes, $this->snapshot());
+    }
+
+    public function test_el_redisenio_recupera_errores_contextualizados_sin_cambiar_propuesta_o_persistir(): void
+    {
+        $contexto = $this->contexto();
+        $entrada = $this->entrada();
+        $entrada['dictamenes']['alergias'] = ['dictamen' => 'CORREGIR', 'correccion' => ['items' => [[
+            'item_origen_id' => null, 'tipo_destino' => 'alergias', 'descripcion' => 'Corrección conservada', 'procedencia' => '',
+        ]]]];
+        $antes = $this->snapshot();
+        $respuesta = $this->post($this->previewUrl(), $this->postData($contexto, $entrada))->assertStatus(422)
+            ->assertSee('Revisá el resultado profesional')->assertSee('dictamenes.alergias.correccion.items.0.procedencia')
+            ->assertSee('Hay errores generales sin ubicación inequívoca');
+        $this->assertSame($entrada, $respuesta->viewData('entrada'));
+        $this->assertSame(['dictamenes.alergias.correccion.items.0.procedencia'], $respuesta->viewData('erroresRevision')->keys());
+        $this->assertSame($antes, $this->snapshot());
+        $entrada = $this->entrada();
+        $entrada['dictamenes']['ocupacion'] = ['dictamen' => 'OBSERVAR', 'justificacion' => ''];
+        $this->post($this->previewUrl(), $this->postData($contexto, $entrada))->assertStatus(422)
+            ->assertViewHas('erroresRevision', fn ($errores) => $errores->has('dictamenes.ocupacion.justificacion'));
+        $this->assertSame($antes, $this->snapshot());
+    }
+
+    public function test_la_respuesta_422_conserva_categorias_filas_y_valores_al_editar_desde_la_vista_previa(): void
+    {
+        $contexto = $this->contexto();
+        $entrada = $this->entrada();
+        $antes = $this->snapshot();
+        $this->post($this->previewUrl(), $this->postData($contexto, $entrada))->assertOk()->assertSee('Volver a editar esta propuesta');
+        foreach (['alergias', 'cirugias'] as $tipo) {
+            $editada = $entrada;
+            $editada['dictamenes'][$tipo] = ['dictamen' => 'CORREGIR', 'correccion' => ['items' => [[
+                'item_origen_id' => null, 'tipo_destino' => $tipo, 'descripcion' => 'Corrección '.$tipo, 'procedencia' => '',
+            ]]]];
+            $respuesta = $this->post($this->previewUrl(), $this->postData($contexto, $editada))->assertStatus(422);
+            $this->assertSame(['dictamenes.'.$tipo.'.correccion.items.0.procedencia'], $respuesta->viewData('erroresRevision')->keys());
+            $this->assertSame($editada, $respuesta->viewData('entrada'));
+        }
+        $editada = $entrada;
+        $editada['complemento_profesional']['bloques']['alergias'] = ['resultado' => 'INFORMADO', 'items' => [[], [
+            'descripcion' => 'Aporte conservado', 'procedencia' => '', 'estado_codificacion' => 'PENDIENTE_CODIFICACION',
+        ]]];
+        $respuesta = $this->post($this->previewUrl(), $this->postData($contexto, $editada))->assertStatus(422);
+        $this->assertSame(['bloques.alergias.items.1.procedencia'], $respuesta->viewData('erroresRevision')->keys());
+        $this->assertSame($editada, $respuesta->viewData('entrada'));
+        $editada['complemento_profesional']['bloques']['alergias']['items'][1]['procedencia'] = 'REFERIDO_PACIENTE';
+        $editada['complemento_profesional']['familia'] = ['resultado' => 'INFORMADO', 'integrantes' => [[], ['nombre_apellido' => 'Integrante', 'vinculo' => '']]];
+        $respuesta = $this->post($this->previewUrl(), $this->postData($contexto, $editada))->assertStatus(422);
+        $this->assertSame(['familia.integrantes.1.vinculo'], $respuesta->viewData('erroresRevision')->keys());
+        $this->assertSame($editada, $respuesta->viewData('entrada'));
+        $this->assertSame($antes, $this->snapshot());
+        Mail::assertNothingSent();
+        Queue::assertNothingPushed();
     }
 
     public function test_el_permiso_de_apertura_no_habilita_revision_y_sin_consulta_tampoco(): void

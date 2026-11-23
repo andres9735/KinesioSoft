@@ -40,12 +40,27 @@ final class PrepararResultadoRevisionDeclaracion
             $reglas['dictamenes.'.$bloque.'.clasificacion.*'] = [Rule::in(['personales', 'familiares'])];
             $reglas['dictamenes.'.$bloque.'.correccion'] = ['sometimes', 'array'];
         }
-        $entrada = Validator::make($entrada, $reglas)->validate();
+        $entrada = $this->conErroresContextuales(fn () => Validator::make($entrada, $reglas)->validate(),
+            function (string $campo) use ($entrada, $base, $destinos): string {
+                if ($base && preg_match('/^sustituciones_base\.(\d+)$/', $campo, $partes)) {
+                    $valor = $entrada['sustituciones_base'][$partes[1]] ?? null;
+                    if (in_array($valor, [...$destinos, ...Fuente::CAMPOS, 'familia'], true)) {
+                        return 'sustituciones_base.'.$valor;
+                    }
+                }
+
+                return $campo;
+            });
         $sustituciones = $entrada['sustituciones_base'] ?? [];
         if ($sustituciones !== [] && ! $base) {
             $this->error('sustituciones_base', 'No hay una versión previa para sustituir.');
         }
         $datos = $this->datosBase($fuente, $base);
+        // Sólo diagnóstico: estos destinos nunca integran el resultado, linaje ni huellas.
+        $origenes = [];
+        foreach ($destinos as $tipo) {
+            $origenes[$tipo] = array_fill(0, count($datos['bloques'][$tipo]['items']), null);
+        }
         $linaje = ['version_base_id' => $base?->id, 'sustituciones_explicitas' => $sustituciones,
             'items_base' => $base?->items->map->getAttributes()->all() ?? [],
             'integrantes_base' => $base?->integrantes->map->getAttributes()->all() ?? [], 'admitidos' => [],
@@ -53,6 +68,7 @@ final class PrepararResultadoRevisionDeclaracion
         foreach ($destinos as $tipo) {
             if (in_array($tipo, $sustituciones, true)) {
                 $datos['bloques'][$tipo] = ['resultado' => 'NO_RELEVADO', 'items' => []];
+                $origenes[$tipo] = [];
             }
         }
         $dictamenes = [];
@@ -74,11 +90,12 @@ final class PrepararResultadoRevisionDeclaracion
             if ($dictamen === Dictamen::VALIDAR || $esCorreccion) {
                 if (array_key_exists($bloque, Fuente::LISTAS)) {
                     $admitidos = $this->itemsAdmitidos($fuente, $bloque, $decision, $esCorreccion);
-                    foreach ($admitidos as $item) {
+                    foreach ($admitidos as $indice => $item) {
                         $tipo = $item['tipo_destino'];
                         $clinico = ['descripcion' => trim($item['descripcion']), 'procedencia' => $item['procedencia'], 'estado_codificacion' => 'PENDIENTE_CODIFICACION'];
                         if (! in_array($clinico, $datos['bloques'][$tipo]['items'], true)) {
                             $datos['bloques'][$tipo]['items'][] = $clinico;
+                            $origenes[$tipo][] = $esCorreccion ? 'dictamenes.'.$bloque.'.correccion.items.'.$indice : false;
                         }
                         $datos['bloques'][$tipo]['resultado'] = 'INFORMADO';
                     }
@@ -89,7 +106,7 @@ final class PrepararResultadoRevisionDeclaracion
                     }
                     $previo = $datos[$bloque] ?? null;
                     if ($base && $previo !== null && ! $this->equivalentes($bloque, $previo, $valor) && ! in_array($bloque, $sustituciones, true)) {
-                        $this->error('sustituciones_base', 'La sustitución de '.$bloque.' debe ser explícita para conservar la trazabilidad del dato previo.');
+                        $this->error('sustituciones_base.'.$bloque, 'La sustitución de '.$bloque.' debe ser explícita para conservar la trazabilidad del dato previo.');
                     }
                     $datos[$bloque] = $valor;
                     $admitidos = ['valor' => $valor];
@@ -104,11 +121,13 @@ final class PrepararResultadoRevisionDeclaracion
         }
         foreach ($entrada['complemento_profesional']['bloques'] ?? [] as $tipo => $bloque) {
             // El validador común verifica también los estados y la codificación de este aporte.
-            $bloqueValidado = $this->minimo->validarBloque($tipo, $bloque);
+            $indicesBloque = [];
+            $bloqueValidado = $this->minimo->validarBloque($tipo, $bloque, $indicesBloque);
             if ($bloqueValidado['resultado'] === 'INFORMADO') {
-                foreach ($bloqueValidado['items'] as $item) {
+                foreach ($bloqueValidado['items'] as $indice => $item) {
                     if (! in_array($item, $datos['bloques'][$tipo]['items'], true)) {
                         $datos['bloques'][$tipo]['items'][] = $item;
+                        $origenes[$tipo][] = 'complemento_profesional.bloques.'.$tipo.'.items.'.$indicesBloque['bloques.'.$tipo.'.items'][$indice];
                     }
                 }
                 $datos['bloques'][$tipo]['resultado'] = 'INFORMADO';
@@ -121,13 +140,37 @@ final class PrepararResultadoRevisionDeclaracion
         if (isset($entrada['complemento_profesional']['familia'])) {
             $familia = $entrada['complemento_profesional']['familia'];
             if ($base && $familia !== $datos['familia'] && ! in_array('familia', $sustituciones, true)) {
-                $this->error('sustituciones_base', 'La modificación del núcleo familiar previo debe ser explícita.');
+                $this->error('sustituciones_base.familia', 'La modificación del núcleo familiar previo debe ser explícita.');
             }
             $datos['familia'] = $familia;
         }
         $datos['especialidad_id'] = $entrada['especialidad_id'];
         $datos['procedencia_relevamiento'] = $entrada['procedencia_relevamiento'];
-        $validados = $this->minimo->validarResultadoProfesional($datos);
+        $validados = $this->conErroresContextuales(function () use ($datos): array {
+            $indices = [];
+
+            return $this->minimo->validarResultadoProfesional($datos, $indices);
+        }, function (string $campo) use ($origenes, $entrada, $base): string {
+            if (preg_match('/^bloques\.([^\.]+)\.items\.(\d+)(\..*)?$/', $campo, $partes)) {
+                $origen = $origenes[$partes[1]][(int) $partes[2]] ?? null;
+
+                return is_string($origen) ? $origen.($partes[3] ?? '') : ($origen === false ? 'propuesta' : 'version_base');
+            }
+            if (preg_match('/^bloques\.([^\.]+)\.items$/', $campo, $partes)
+                && ($origenes[$partes[1]] ?? []) !== []) {
+                // El límite/coherencia corresponde al conjunto, no a una fila supuesta.
+                return 'propuesta';
+            }
+            if ($base && str_starts_with($campo, 'familia') && ! isset($entrada['complemento_profesional']['familia'])) {
+                return 'version_base';
+            }
+            if ($base && in_array($campo, Fuente::CAMPOS, true)
+                && ! in_array($entrada['dictamenes'][$campo]['dictamen'], [Dictamen::VALIDAR->value, Dictamen::CORREGIR->value], true)) {
+                return 'version_base';
+            }
+
+            return $campo;
+        });
         $huella = Fuente::huellaDe(['declaracion' => $fuente->huella, 'datos' => $validados, 'dictamenes' => $dictamenes, 'linaje' => $linaje]);
 
         return new ResultadoProfesionalRevision($fuente->declaracionId, $fuente->pacienteId, $base?->id,
@@ -141,19 +184,21 @@ final class PrepararResultadoRevisionDeclaracion
             if (array_keys($decision['correccion']) !== ['items']) {
                 $this->error('dictamenes.'.$bloque.'.correccion', 'La corrección de una lista debe contener únicamente items.');
             }
-            $correccion = Validator::make($decision['correccion'], [
+            $correccion = $this->conErroresContextuales(fn () => Validator::make($decision['correccion'], [
                 'items' => ['present', 'array', 'max:30'], 'items.*' => ['array:item_origen_id,tipo_destino,descripcion,procedencia'],
                 'items.*.item_origen_id' => ['nullable', 'integer', Rule::in(array_column($originales, 'item_origen_id'))],
                 'items.*.tipo_destino' => ['required', Rule::in($bloque === 'antecedentes' ? ['personales', 'familiares'] : [$bloque])],
                 'items.*.descripcion' => ['required', 'string', 'max:5000'],
                 'items.*.procedencia' => ['required', Rule::in(array_keys(ValidarDatosAperturaHistoriaClinica::PROCEDENCIAS))],
-            ])->validate();
+            ])->validate(), fn (string $campo) => 'dictamenes.'.$bloque.'.correccion.'.$campo);
 
             return $correccion['items'];
         }
         $clasificacion = $decision['clasificacion'] ?? [];
         if ($bloque === 'antecedentes' && array_diff(array_column($originales, 'item_origen_id'), array_keys($clasificacion)) !== []) {
-            $this->error('dictamenes.antecedentes.clasificacion', 'Clasificá cada antecedente declarado como personal o familiar; no se infiere su tipo.');
+            $faltantes = array_diff(array_column($originales, 'item_origen_id'), array_keys($clasificacion));
+            throw ValidationException::withMessages(array_fill_keys(array_map(fn ($id) => 'dictamenes.antecedentes.clasificacion.'.$id, $faltantes),
+                'Clasificá cada antecedente declarado como personal o familiar; no se infiere su tipo.'));
         }
         if ($bloque === 'antecedentes' && array_diff(array_keys($clasificacion), array_column($originales, 'item_origen_id')) !== []) {
             $this->error('dictamenes.antecedentes.clasificacion', 'La clasificación referencia un ítem ajeno a la declaración.');
@@ -213,5 +258,19 @@ final class PrepararResultadoRevisionDeclaracion
     private function error(string $campo, string $mensaje): never
     {
         throw ValidationException::withMessages([$campo => $mensaje]);
+    }
+
+    private function conErroresContextuales(callable $validar, callable $destino): array
+    {
+        try {
+            return $validar();
+        } catch (ValidationException $e) {
+            $errores = [];
+            foreach ($e->errors() as $campo => $mensajes) {
+                $clave = $destino($campo);
+                $errores[$clave] = array_merge($errores[$clave] ?? [], $mensajes);
+            }
+            throw ValidationException::withMessages($errores);
+        }
     }
 }
