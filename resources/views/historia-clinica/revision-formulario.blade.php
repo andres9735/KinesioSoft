@@ -4,6 +4,7 @@
             <input type="hidden" name="contexto" value="{{ $contexto }}">
             <input type="hidden" name="propuesta" :value="JSON.stringify(contrato())">
             <div class="space-y-4 rounded-2xl bg-white p-6 shadow-sm">
+                <p class="text-sm text-slate-600" data-guia-revision>Revisá lo declarado por el paciente y completá el relevamiento profesional que aún falte, considerando los datos admitidos y la versión clínica previa. Validar un «No» conserva esa declaración; no registra por sí mismo «No presenta».</p>
                 <label class="block">Especialidad de la profesional
                     <select x-model="especialidad_id" required class="mt-1 w-full rounded-lg border-gray-300"><option value="">Seleccioná tu especialidad</option>@foreach ($especialidades as $especialidad)<option value="{{ $especialidad->id }}">{{ $especialidad->nombre }}</option>@endforeach</select>
                 </label>
@@ -20,7 +21,6 @@
                         @if ($esLista)
                             @php($respuestaOriginal = $fuente->bloques[$bloque]['respuesta'] ?? null)
                             <p>{{ $respuestaOriginal === 'no' ? 'El paciente declaró No' : ($respuestaOriginal === 'si' ? 'El paciente declaró Sí' : 'Sin respuesta original disponible') }}</p>
-                            @if ($respuestaOriginal === 'no')<p class="text-sm">Validar esta declaración no registra automáticamente «No presenta». El relevamiento profesional complementario es independiente.</p>@endif
                             @if ($fuente->bloques[$bloque]['items'] !== [] || $respuestaOriginal !== 'no')
                                 <ul class="space-y-2">@forelse ($fuente->bloques[$bloque]['items'] as $item)<li class="whitespace-pre-line">Ítem #{{ $item['item_origen_id'] }}: {{ $item['descripcion'] }}</li>@empty<li>Sin ítems declarados. Esta lista vacía no acredita «No presenta».</li>@endforelse</ul>
                             @endif
@@ -70,7 +70,7 @@
                     <label class="block">Justificación clínica (obligatoria al observar o descartar)
                         <textarea x-model="dictamenes.{{ $bloque }}.justificacion" :required="['OBSERVAR', 'DESCARTAR'].includes(dictamenes.{{ $bloque }}.dictamen)" maxlength="5000" class="mt-1 w-full rounded-lg border-gray-300"></textarea>
                     </label>
-                    <p x-show="['OBSERVAR', 'DESCARTAR'].includes(dictamenes.{{ $bloque }}.dictamen)" class="text-sm text-amber-900">El dato declarado quedará excluido de la futura versión. Si afecta un bloque obligatorio, completá su relevamiento profesional.</p>
+                    <p x-show="['OBSERVAR', 'DESCARTAR'].includes(dictamenes.{{ $bloque }}.dictamen)" class="text-sm text-amber-900">Este dato declarado no se incorporará a la futura versión.</p>
                 </fieldset>
             @endforeach
             @include('historia-clinica.revision-complementos')
@@ -107,6 +107,7 @@
                 <div class="min-w-0"><dt class="text-slate-600">Profesional</dt><dd class="break-words font-semibold">{{ trim($turno->kinesiologa->user->name.' '.$turno->kinesiologa->user->apellido) }}</dd></div>
             </dl>
             <p class="text-sm text-slate-600">La declaración se revisa antes de incorporar los datos clínicos al expediente. Salir no guarda cambios. Origen de la futura versión: <strong>Revisión de declaración de salud</strong>.</p>
+            <p class="text-sm text-slate-600" data-guia-revision>En la Sección 2 revisás lo declarado por el paciente. En la Sección 3 completás el relevamiento profesional que aún falte, considerando los datos admitidos y la versión clínica previa. Validar un «No» conserva esa declaración; no registra por sí mismo «No presenta».</p>
             <div class="grid gap-4 border-t border-slate-100 pt-4 sm:grid-cols-2">
                 <label class="block text-sm font-medium">Especialidad de la profesional<select x-model="especialidad_id" required class="mt-1 w-full rounded-lg border-gray-300" data-campo="especialidad_id" :id="idCampo('especialidad_id')" :aria-invalid="mensajes('especialidad_id').length ? 'true' : 'false'" :aria-describedby="mensajes('especialidad_id').length ? idCampo('especialidad_id') + '-error' : null"><option value="">Seleccioná tu especialidad</option>@foreach ($especialidades as $especialidad)<option value="{{ $especialidad->id }}">{{ $especialidad->nombre }}</option>@endforeach</select><span class="mt-1 block text-sm text-red-800" role="alert" :id="idCampo('especialidad_id') + '-error'" x-show="mensajes('especialidad_id').length" x-text="mensajes('especialidad_id').join(' ')"></span></label>
                 <label class="block text-sm font-medium">Procedencia del relevamiento complementario y familiar<select x-model="procedencia_relevamiento" required class="mt-1 w-full rounded-lg border-gray-300" data-campo="procedencia_relevamiento" :id="idCampo('procedencia_relevamiento')" :aria-invalid="mensajes('procedencia_relevamiento').length ? 'true' : 'false'" :aria-describedby="mensajes('procedencia_relevamiento').length ? idCampo('procedencia_relevamiento') + '-error' : null"><option value="">Seleccioná la procedencia</option>@foreach (\App\Services\HistoriaClinica\ValidarDatosAperturaHistoriaClinica::PROCEDENCIAS as $valor => $etiqueta)<option value="{{ $valor }}">{{ $etiqueta }}</option>@endforeach</select><span class="mt-1 block text-sm text-red-800" role="alert" :id="idCampo('procedencia_relevamiento') + '-error'" x-show="mensajes('procedencia_relevamiento').length" x-text="mensajes('procedencia_relevamiento').join(' ')"></span></label>
@@ -136,7 +137,6 @@
                         @if ($esLista)
                             @php($respuestaOriginal = $fuente->bloques[$bloque]['respuesta'] ?? null)
                             <p>{{ $respuestaOriginal === 'no' ? 'El paciente declaró No' : ($respuestaOriginal === 'si' ? 'El paciente declaró Sí' : 'Sin respuesta original disponible') }}</p>
-                            @if ($respuestaOriginal === 'no')<p class="text-sm">Validar esta declaración no registra automáticamente «No presenta». El relevamiento profesional complementario es independiente.</p>@endif
                             @if ($fuente->bloques[$bloque]['items'] !== [] || $respuestaOriginal !== 'no')
                                 <ul class="space-y-2">@forelse ($fuente->bloques[$bloque]['items'] as $item)<li class="whitespace-pre-line">Ítem #{{ $item['item_origen_id'] }}: {{ $item['descripcion'] }}</li>@empty<li>Sin información declarada. No acredita «No presenta».</li>@endforelse</ul>
                             @endif
@@ -186,7 +186,7 @@
                     <label class="block" x-show="['OBSERVAR', 'DESCARTAR'].includes(dictamenes.{{ $bloque }}.dictamen) || mensajes('dictamenes.{{ $bloque }}.justificacion').length">Justificación clínica (obligatoria al observar o descartar)
                         <textarea x-model="dictamenes.{{ $bloque }}.justificacion" :required="['OBSERVAR', 'DESCARTAR'].includes(dictamenes.{{ $bloque }}.dictamen)" maxlength="5000" class="mt-1 w-full rounded-lg border-gray-300" data-campo="dictamenes.{{ $bloque }}.justificacion" :id="idCampo('dictamenes.{{ $bloque }}.justificacion')" :aria-invalid="mensajes('dictamenes.{{ $bloque }}.justificacion').length ? 'true' : 'false'" :aria-describedby="mensajes('dictamenes.{{ $bloque }}.justificacion').length ? idCampo('dictamenes.{{ $bloque }}.justificacion') + '-error' : null"></textarea><span class="mt-1 block text-sm text-red-800" role="alert" :id="idCampo('dictamenes.{{ $bloque }}.justificacion') + '-error'" x-show="mensajes('dictamenes.{{ $bloque }}.justificacion').length" x-text="mensajes('dictamenes.{{ $bloque }}.justificacion').join(' ')"></span>
                     </label>
-                    <p x-show="['OBSERVAR', 'DESCARTAR'].includes(dictamenes.{{ $bloque }}.dictamen)" class="text-sm text-amber-900">El dato declarado quedará excluido de la futura versión. Si afecta un bloque obligatorio, completá su relevamiento profesional.</p>
+                    <p x-show="['OBSERVAR', 'DESCARTAR'].includes(dictamenes.{{ $bloque }}.dictamen)" class="text-sm text-amber-900">Este dato declarado no se incorporará a la futura versión.</p>
 </div></div>                </fieldset>
 
 @endforeach
@@ -212,7 +212,6 @@
                         @if ($esLista)
                             @php($respuestaOriginal = $fuente->bloques[$bloque]['respuesta'] ?? null)
                             <p>{{ $respuestaOriginal === 'no' ? 'El paciente declaró No' : ($respuestaOriginal === 'si' ? 'El paciente declaró Sí' : 'Sin respuesta original disponible') }}</p>
-                            @if ($respuestaOriginal === 'no')<p class="text-sm">Validar esta declaración no registra automáticamente «No presenta». El relevamiento profesional complementario es independiente.</p>@endif
                             @if ($fuente->bloques[$bloque]['items'] !== [] || $respuestaOriginal !== 'no')
                                 <ul class="space-y-2">@forelse ($fuente->bloques[$bloque]['items'] as $item)<li class="whitespace-pre-line">Ítem #{{ $item['item_origen_id'] }}: {{ $item['descripcion'] }}</li>@empty<li>Sin información declarada. No acredita «No presenta».</li>@endforelse</ul>
                             @endif
@@ -262,7 +261,7 @@
                     <label class="block" x-show="['OBSERVAR', 'DESCARTAR'].includes(dictamenes.{{ $bloque }}.dictamen) || mensajes('dictamenes.{{ $bloque }}.justificacion').length">Justificación clínica (obligatoria al observar o descartar)
                         <textarea x-model="dictamenes.{{ $bloque }}.justificacion" :required="['OBSERVAR', 'DESCARTAR'].includes(dictamenes.{{ $bloque }}.dictamen)" maxlength="5000" class="mt-1 w-full rounded-lg border-gray-300" data-campo="dictamenes.{{ $bloque }}.justificacion" :id="idCampo('dictamenes.{{ $bloque }}.justificacion')" :aria-invalid="mensajes('dictamenes.{{ $bloque }}.justificacion').length ? 'true' : 'false'" :aria-describedby="mensajes('dictamenes.{{ $bloque }}.justificacion').length ? idCampo('dictamenes.{{ $bloque }}.justificacion') + '-error' : null"></textarea><span class="mt-1 block text-sm text-red-800" role="alert" :id="idCampo('dictamenes.{{ $bloque }}.justificacion') + '-error'" x-show="mensajes('dictamenes.{{ $bloque }}.justificacion').length" x-text="mensajes('dictamenes.{{ $bloque }}.justificacion').join(' ')"></span>
                     </label>
-                    <p x-show="['OBSERVAR', 'DESCARTAR'].includes(dictamenes.{{ $bloque }}.dictamen)" class="text-sm text-amber-900">El dato declarado quedará excluido de la futura versión. Si afecta un bloque obligatorio, completá su relevamiento profesional.</p>
+                    <p x-show="['OBSERVAR', 'DESCARTAR'].includes(dictamenes.{{ $bloque }}.dictamen)" class="text-sm text-amber-900">Este dato declarado no se incorporará a la futura versión.</p>
 </div></div>                </fieldset>
 
 @endforeach

@@ -1,7 +1,7 @@
 @if (!($redisenioRevision ?? false))
 <section class="space-y-6 rounded-2xl bg-white p-6 shadow-sm">
     <h2 class="text-xl font-semibold">Relevamientos complementarios profesionales</h2>
-    <p>Completá los bloques que no queden resueltos con los datos admitidos o la versión previa. Una respuesta vacía no declara ausencia. Los aportes se suman a los antecedentes conservados; para reemplazarlos debés indicarlo expresamente.</p>
+    <p>Una lista vacía no declara ausencia. Los aportes se suman a la información admitida o previa; para sustituir datos previos, indicá el reemplazo expresamente.</p>
     @foreach (\App\Services\HistoriaClinica\ValidarDatosAperturaHistoriaClinica::TIPOS as $tipo => $titulo)
         <fieldset class="space-y-3 border-t border-gray-200 pt-4">
             <legend class="px-2 font-semibold">{{ $titulo }}</legend>
@@ -66,7 +66,7 @@
         <span class="rounded-full px-3 py-1 text-xs font-medium" :class="progreso().secciones[2].estado === 'Completa' ? 'bg-green-100 text-green-900' : progreso().secciones[2].estado === 'Requiere atención' ? 'bg-red-100 text-red-900' : 'bg-amber-100 text-amber-900'" x-text="progreso().secciones[2].estado"></span>
     </button></h2>
     <div id="revision-panel-complementos" role="region" aria-labelledby="revision-titulo-complementos" x-show="abiertas.complementos" style="display:none" class="min-w-0 space-y-4 p-3">
-<p class="text-sm text-slate-600">Completá los bloques no resueltos por los datos admitidos o la versión previa. Sin aporte se conserva el resultado existente; una lista vacía no declara ausencia.</p><div class="grid min-w-0 gap-3 md:grid-cols-2">    @foreach (\App\Services\HistoriaClinica\ValidarDatosAperturaHistoriaClinica::TIPOS as $tipo => $titulo)
+<p class="text-sm text-slate-600">Una lista vacía no declara ausencia. Los aportes se suman a la información admitida o previa; para sustituir datos previos, indicá el reemplazo expresamente.</p><div class="grid min-w-0 gap-3 md:grid-cols-2">    @foreach (\App\Services\HistoriaClinica\ValidarDatosAperturaHistoriaClinica::TIPOS as $tipo => $titulo)
         <fieldset class="space-y-3 rounded-xl border border-indigo-100 bg-slate-50 p-4">
             <legend class="px-2 font-semibold">{{ $titulo }}</legend><p class="text-sm text-red-800" role="alert" x-show="mensajes('bloques.{{ $tipo }}').length" x-text="mensajes('bloques.{{ $tipo }}').join(' ')"></p>
             <label class="block">Resultado del relevamiento complementario

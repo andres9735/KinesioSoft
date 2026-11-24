@@ -129,10 +129,14 @@ class RevisionDeclaracionVistaPreviaTest extends TestCase
         $antes = $this->snapshot();
         $form = $this->get($this->url())->assertOk()->assertSee('El paciente declaró No')
             ->assertDontSee('Sin respuesta original disponible')->assertDontSee('Sin información declarada. No acredita');
+        $this->assertSame(1, substr_count($form->getContent(), 'data-guia-revision'));
+        $form->assertDontSee('Validar esta declaración no registra automáticamente');
         $this->head($this->url())->assertOk();
         $previa = $this->post($this->previewUrl(), $this->postData($form->viewData('contexto'), $entrada))->assertOk()
             ->assertSee('El paciente declaró No')->assertSee('La negativa se admite como declaración del paciente.')
-            ->assertSee('El relevamiento profesional complementario es independiente.');
+            ->assertSee('Validar un «No» conserva esa declaración; no registra por sí mismo «No presenta».');
+        $this->assertSame(1, substr_count($previa->getContent(), 'data-guia-revision'));
+        $previa->assertDontSee('Validar esta declaración no registra automáticamente');
         $documento = new \DOMDocument;
         @$documento->loadHTML('<?xml encoding="UTF-8">'.$previa->getContent(), LIBXML_NOERROR | LIBXML_NOWARNING);
         $xpath = new \DOMXPath($documento);
@@ -166,9 +170,14 @@ class RevisionDeclaracionVistaPreviaTest extends TestCase
         $form = $this->get($this->url())->assertOk()->assertSee('El paciente declaró Sí')->assertSee('El paciente declaró No')
             ->assertSee('Sin respuesta original disponible')->assertSee('Antecedente declarado sensible')
             ->assertSee('<script>alert("dato")</script>')->assertDontSee('<script>alert("dato")</script>', false);
-        $this->post($this->previewUrl(), $this->postData($form->viewData('contexto')))->assertOk()
+        $this->assertSame(1, substr_count($form->getContent(), 'data-guia-revision'));
+        $entrada = $this->entrada();
+        $previa = $this->post($this->previewUrl(), $this->postData($form->viewData('contexto'), $entrada))->assertOk()
             ->assertSee('El paciente declaró Sí')->assertSee('El paciente declaró No')
-            ->assertSee('Sin respuesta original disponible')->assertSee('Volver a editar esta propuesta');
+            ->assertSee('Sin respuesta original disponible')->assertSee('Volver a editar esta propuesta')
+            ->assertSee('Revisá lo declarado por el paciente y completá el relevamiento profesional que aún falte, considerando los datos admitidos y la versión clínica previa.');
+        $this->assertSame(1, substr_count($previa->getContent(), 'data-guia-revision'));
+        $this->assertSame($entrada, $previa->viewData('entrada'));
         $this->assertSame($antes, $this->snapshot());
     }
 
@@ -346,6 +355,17 @@ class RevisionDeclaracionVistaPreviaTest extends TestCase
         @$documento->loadHTML('<?xml encoding="UTF-8">'.$respuesta->getContent(), LIBXML_NOERROR | LIBXML_NOWARNING);
         $xpath = new \DOMXPath($documento);
         $this->assertSame(4, $xpath->query('//section[@data-seccion]')->length);
+        $guia = $xpath->query('//*[@data-guia-revision]');
+        $this->assertSame(1, $guia->length);
+        $this->assertSame('En la Sección 2 revisás lo declarado por el paciente. En la Sección 3 completás el relevamiento profesional que aún falte, considerando los datos admitidos y la versión clínica previa. Validar un «No» conserva esa declaración; no registra por sí mismo «No presenta».', trim($guia->item(0)->textContent));
+        $this->assertSame(0, $xpath->query('ancestor::*[@x-show or @hidden or @x-cloak or self::details]', $guia->item(0))->length);
+        $this->assertSame(0, $xpath->query('ancestor::section[@data-seccion]', $guia->item(0))->length);
+        $respuesta->assertSee('Este dato declarado no se incorporará a la futura versión.')
+            ->assertSee('Corrección profesional — conserva el original')
+            ->assertSee('Justificación clínica (obligatoria al observar o descartar)')
+            ->assertSee('Los antecedentes admitidos quedan Pendientes de codificación.')
+            ->assertSee('Una lista vacía no declara ausencia. Los aportes se suman a la información admitida o previa; para sustituir datos previos, indicá el reemplazo expresamente.')
+            ->assertDontSee('Validar esta declaración no registra automáticamente');
         foreach (['salud', 'declarados', 'complementos', 'familia'] as $seccion) {
             $this->assertSame(1, $xpath->query('//*[@id="revision-panel-'.$seccion.'" and @role="region"]')->length);
             $this->assertSame(1, $xpath->query('//button[@aria-controls="revision-panel-'.$seccion.'" and @type="button"]')->length);
