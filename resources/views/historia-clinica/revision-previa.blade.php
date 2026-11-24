@@ -125,7 +125,7 @@
                         @php
                             $bloqueFuente = array_search($seccion['titulo'], $etiquetas, true);
                             $original = $bloqueFuente !== false ? $resultado->dictamenes[$bloqueFuente]['datos_originales'] : null;
-                            $hayOriginal = $original && (!empty($original['items']) || (isset($original['valor']) && $original['valor'] !== ''));
+                            $hayOriginal = $original && (isset($original['respuesta']) || !empty($original['items']) || (isset($original['valor']) && $original['valor'] !== ''));
                         @endphp
                         @if ($hayOriginal || $seccion['antes'] !== [] || $seccion['despues'] !== [])
                         <section class="min-w-0 space-y-3 border-t border-indigo-100 pt-4" data-comparacion="{{ $seccion['titulo'] }}">
@@ -134,7 +134,9 @@
                                 @if ($hayOriginal)
                                     <div class="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3" data-fuente="declaracion">
                                         <h4 class="mb-2 text-sm font-semibold text-slate-600">Declaración original</h4>
-                                        @if (isset($original['items']))<ul class="space-y-2">@foreach ($original['items'] as $item)<li class="whitespace-pre-line break-words">Ítem #{{ $item['item_origen_id'] }}: {{ $item['descripcion'] }}</li>@endforeach</ul>
+                                        @if (isset($original['items']))
+                                            <p>{{ ($original['respuesta'] ?? null) === 'no' ? 'El paciente declaró No' : (($original['respuesta'] ?? null) === 'si' ? 'El paciente declaró Sí' : 'Sin respuesta original disponible') }}</p>
+                                            <ul class="space-y-2">@foreach ($original['items'] as $item)<li class="whitespace-pre-line break-words">Ítem #{{ $item['item_origen_id'] }}: {{ $item['descripcion'] }}</li>@endforeach</ul>
                                         @else<p class="whitespace-pre-line break-words">{{ $original['valor'] }}</p>@endif
                                     </div>
                                 @endif
@@ -160,7 +162,12 @@
                     <p class="text-sm">Origen: {{ $dictamen['procedencias']['origen'] === 'CORRECCION_PROFESIONAL' ? 'Corrección profesional de la declaración' : 'Declaración del paciente' }}.</p>
                     <h4 class="font-semibold">Declaración original conservada</h4>
                     @if (isset($dictamen['datos_originales']['items']))
-                        <ul>@forelse ($dictamen['datos_originales']['items'] as $item)<li class="whitespace-pre-line">Ítem #{{ $item['item_origen_id'] }}: {{ $item['descripcion'] }}</li>@empty<li>Sin información declarada; no acredita ausencia.</li>@endforelse</ul>
+                        @php($respuestaOriginal = $dictamen['datos_originales']['respuesta'] ?? null)
+                        <p>{{ $respuestaOriginal === 'no' ? 'El paciente declaró No' : ($respuestaOriginal === 'si' ? 'El paciente declaró Sí' : 'Sin respuesta original disponible') }}</p>
+                        @if ($respuestaOriginal === 'no' && $dictamen['dictamen'] === 'VALIDAR')<p class="text-sm">La negativa se admite como declaración del paciente. No genera automáticamente «No presenta»; el resultado clínico depende del relevamiento profesional.</p>@endif
+                        @if ($dictamen['datos_originales']['items'] !== [] || $respuestaOriginal !== 'no')
+                            <ul>@forelse ($dictamen['datos_originales']['items'] as $item)<li class="whitespace-pre-line">Ítem #{{ $item['item_origen_id'] }}: {{ $item['descripcion'] }}</li>@empty<li>Sin información declarada; no acredita ausencia.</li>@endforelse</ul>
+                        @endif
                     @else
                         <p class="whitespace-pre-line">{{ $dictamen['datos_originales']['valor'] ?? 'Sin información declarada' }}</p>
                     @endif

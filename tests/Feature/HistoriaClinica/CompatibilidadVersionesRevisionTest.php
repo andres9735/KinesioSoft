@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\HistoriaClinica;
 
+use App\Data\HistoriaClinica\FuenteDeclaracionParaRevision;
+use App\Models\DeclaracionSaludPaciente;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -9,6 +11,69 @@ use Tests\TestCase;
 
 class CompatibilidadVersionesRevisionTest extends TestCase
 {
+    public function test_respuestas_aditivas_conservan_originales_items_y_huellas_historicas_sin_inferencias(): void
+    {
+        $anterior = DB::getDefaultConnection();
+        config(['database.connections.uc15_compatibilidad' => [
+            'driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => true,
+        ]]);
+        DB::setDefaultConnection('uc15_compatibilidad');
+        try {
+            $db = DB::connection();
+            $this->assertSame('sqlite', $db->getDriverName());
+            $this->assertSame(':memory:', $db->getConfig('database'));
+            foreach ($db->select('PRAGMA database_list') as $archivo) {
+                $this->assertSame('', $archivo->file);
+            }
+            $db->getSchemaBuilder()->create('pacientes', fn (Blueprint $table) => $table->id());
+            $db->table('pacientes')->insert(['id' => 1]);
+            (require database_path('migrations/2026_09_08_155141_create_declaraciones_salud_paciente_table.php'))->up();
+            (require database_path('migrations/2026_09_08_155312_create_items_declaracion_salud_table.php'))->up();
+            foreach (['PENDIENTE_REVISION', 'REVISADA'] as $indice => $estado) {
+                $db->table('declaraciones_salud_paciente')->insert([
+                    'id' => $indice + 1, 'paciente_id' => 1, 'objetivo_salud' => 'Original histórico',
+                    'peso_kg' => 70, 'altura_cm' => '170.25', 'ocupacion' => 'Empleado',
+                    'nivel_actividad_fisica' => 'MODERADO', 'detalle_actividad_fisica' => 'Caminata',
+                    'estado' => $estado, 'created_at' => '2026-11-20 10:00:00',
+                ]);
+            }
+            $db->table('items_declaracion_salud')->insert([
+                'declaracion_salud_id' => 2, 'tipo' => 'ANTECEDENTE', 'descripcion' => 'Descripción histórica',
+            ]);
+            $originales = $db->table('declaraciones_salud_paciente')->orderBy('id')->get()->map(fn ($fila) => (array) $fila)->all();
+            $items = $db->table('items_declaracion_salud')->get()->all();
+            $capturar = fn () => DeclaracionSaludPaciente::with('items')->orderBy('id')->get()->map(
+                fn ($declaracion) => $declaracion->estado === 'REVISADA'
+                    ? FuenteDeclaracionParaRevision::desdeRevisada($declaracion)
+                    : FuenteDeclaracionParaRevision::desde($declaracion)
+            )->all();
+            $fuentesAnteriores = $capturar();
+            $migracion = require database_path('migrations/2026_11_24_000001_add_respuestas_declaradas_to_declaraciones_salud_paciente_table.php');
+            $migracion->up();
+            foreach ($db->table('declaraciones_salud_paciente')->orderBy('id')->get() as $indice => $fila) {
+                $atributos = (array) $fila;
+                foreach (['antecedentes', 'cirugias', 'alergias', 'medicacion'] as $categoria) {
+                    $this->assertNull($atributos[$categoria.'_respuesta']);
+                    unset($atributos[$categoria.'_respuesta']);
+                }
+                $this->assertSame($originales[$indice], $atributos);
+                $fuente = $capturar()[$indice];
+                $this->assertSame($fuentesAnteriores[$indice]->bloques, $fuente->bloques);
+                $this->assertSame($fuentesAnteriores[$indice]->huella, $fuente->huella);
+                foreach (FuenteDeclaracionParaRevision::LISTAS as $bloque => $tipo) {
+                    $this->assertArrayNotHasKey('respuesta', $fuente->bloques[$bloque]);
+                }
+            }
+            $this->assertEquals($items, $db->table('items_declaracion_salud')->get()->all());
+            $migracion->down();
+            $this->assertSame($originales, $db->table('declaraciones_salud_paciente')->orderBy('id')->get()->map(fn ($fila) => (array) $fila)->all());
+        } finally {
+            DB::purge('uc15_compatibilidad');
+            DB::setDefaultConnection($anterior);
+            config(['database.connections.uc15_compatibilidad' => null]);
+        }
+    }
+
     public function test_la_migracion_aditiva_conserva_la_apertura_anterior_y_amplia_altura_y_versiones_sin_clave(): void
     {
         // Segundo SQLite :memory: exclusivo. No usa una base ni un archivo preexistente.

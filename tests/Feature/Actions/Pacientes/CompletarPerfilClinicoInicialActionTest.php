@@ -14,6 +14,7 @@ use DomainException;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use LogicException;
 use Tests\TestCase;
 
 class CompletarPerfilClinicoInicialActionTest extends TestCase
@@ -57,6 +58,10 @@ class CompletarPerfilClinicoInicialActionTest extends TestCase
         $user->refresh();
         $paciente->refresh();
         $declaracion->refresh();
+
+        foreach (['antecedentes', 'cirugias', 'alergias', 'medicacion'] as $categoria) {
+            $this->assertSame('si', $declaracion->getRawOriginal($categoria.'_respuesta'));
+        }
 
         $this->assertSame('43122015', $user->dni);
         $this->assertSame(
@@ -262,6 +267,10 @@ class CompletarPerfilClinicoInicialActionTest extends TestCase
             $datos
         );
 
+        foreach (['antecedentes', 'cirugias', 'alergias', 'medicacion'] as $categoria) {
+            $this->assertSame('no', $declaracion->fresh()->getRawOriginal($categoria.'_respuesta'));
+        }
+
         $this->assertDatabaseHas(
             'declaraciones_salud_paciente',
             [
@@ -353,6 +362,42 @@ class CompletarPerfilClinicoInicialActionTest extends TestCase
             'historias_clinicas',
             0
         );
+    }
+
+    public function test_respuestas_originales_no_admiten_actualizaciones_del_modelo(): void
+    {
+        [$user] = $this->crearContextoPaciente();
+        $declaracion = app(CompletarPerfilClinicoInicialAction::class)->ejecutar($user, $this->datosValidos());
+        foreach (['antecedentes', 'cirugias', 'alergias', 'medicacion'] as $categoria) {
+            try {
+                $declaracion->update([$categoria.'_respuesta' => 'no']);
+                $this->fail('La respuesta original debe conservarse.');
+            } catch (LogicException) {
+                $this->assertSame('si', $declaracion->fresh()->getRawOriginal($categoria.'_respuesta'));
+            }
+            $declaracion->refresh();
+        }
+    }
+
+    public function test_el_dominio_sql_rechaza_valores_no_canonicos_y_admite_null_historico(): void
+    {
+        [$user] = $this->crearContextoPaciente();
+        $declaracion = app(CompletarPerfilClinicoInicialAction::class)->ejecutar($user, $this->datosValidos());
+        foreach (['antecedentes', 'cirugias', 'alergias', 'medicacion'] as $categoria) {
+            $campo = $categoria.'_respuesta';
+            foreach (['SI', 'NO', 'Si', 'si ', 'no ', 'si  ', 'no   ', 'sixxx', ' si', '', '0', 0, false, true, 'sí', "si\0", 'six'] as $invalida) {
+                try {
+                    DB::table('declaraciones_salud_paciente')->where('id', $declaracion->id)->update([$campo => $invalida]);
+                    $this->fail('El dominio SQL debe rechazar respuestas no canónicas.');
+                } catch (QueryException) {
+                    $this->assertSame('si', $declaracion->fresh()->getRawOriginal($campo));
+                }
+            }
+            foreach (['no', null, 'si'] as $valida) {
+                DB::table('declaraciones_salud_paciente')->where('id', $declaracion->id)->update([$campo => $valida]);
+                $this->assertSame($valida, $declaracion->fresh()->getRawOriginal($campo));
+            }
+        }
     }
 
     public function test_preserves_historical_direccion_while_updating_structured_address(): void

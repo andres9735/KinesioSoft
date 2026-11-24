@@ -75,6 +75,78 @@ class PrepararResultadoRevisionDeclaracionTest extends TestCase
         app(PrepararResultadoRevisionDeclaracion::class)->preparar($fuente, $entrada);
     }
 
+    public function test_validar_negativas_conserva_original_y_procedencia_sin_resolver_el_minimo_profesional(): void
+    {
+        $declaracion = $this->declaracion(false);
+        foreach (array_keys(Fuente::LISTAS) as $bloque) {
+            $declaracion->forceFill([$bloque.'_respuesta' => 'no']);
+        }
+        $declaracion->syncOriginal();
+        $fuente = Fuente::desde($declaracion);
+        $entrada = $this->entrada($fuente);
+        try {
+            app(PrepararResultadoRevisionDeclaracion::class)->preparar($fuente, $entrada);
+            $this->fail('La negativa declarada no reemplaza el relevamiento profesional.');
+        } catch (ValidationException $error) {
+            foreach (array_keys(Minimo::TIPOS) as $tipo) {
+                $this->assertArrayHasKey('bloques.'.$tipo.'.resultado', $error->errors());
+            }
+        }
+        foreach (array_keys(Minimo::TIPOS) as $tipo) {
+            $entrada['complemento_profesional']['bloques'][$tipo] = ['resultado' => 'DESCONOCIDO', 'items' => []];
+        }
+        $resultado = app(PrepararResultadoRevisionDeclaracion::class)->preparar($fuente, $entrada);
+        foreach (array_keys(Fuente::LISTAS) as $bloque) {
+            $dictamen = $resultado->dictamenes[$bloque];
+            $this->assertSame(['items' => [], 'respuesta' => 'no'], $dictamen['datos_originales']);
+            $this->assertSame('VALIDAR', $dictamen['dictamen']);
+            $this->assertSame([], $dictamen['datos_admitidos']);
+            $this->assertSame('DECLARACION_PACIENTE', $dictamen['procedencias']['origen']);
+            $this->assertSame(10, $dictamen['procedencias']['declaracion_salud_id']);
+        }
+        foreach ($resultado->datosClinicos['bloques'] as $bloque) {
+            $this->assertSame('DESCONOCIDO', $bloque['resultado']);
+            $this->assertSame([], $bloque['items']);
+        }
+        $entradaConBase = $this->entrada($fuente);
+        unset($entradaConBase['complemento_profesional']['familia']);
+        $conBase = app(PrepararResultadoRevisionDeclaracion::class)->preparar($fuente, $entradaConBase, $this->base());
+        $this->assertSame('INFORMADO', $conBase->datosClinicos['bloques']['alergias']['resultado']);
+        $this->assertSame('Alergia profesional previa', $conBase->datosClinicos['bloques']['alergias']['items'][0]['descripcion']);
+    }
+
+    public function test_las_respuestas_explicitas_participan_en_la_huella_sin_inferir_las_historicas(): void
+    {
+        $declaracion = $this->declaracion(false);
+        $historica = Fuente::desde($declaracion);
+        foreach (array_keys(Fuente::LISTAS) as $bloque) {
+            $this->assertArrayNotHasKey('respuesta', $historica->bloques[$bloque]);
+            $copia = clone $declaracion;
+            $copia->forceFill([$bloque.'_respuesta' => 'no'])->syncOriginal();
+            $negativa = Fuente::desde($copia);
+            $this->assertSame('no', $negativa->bloques[$bloque]['respuesta']);
+            $this->assertNotSame($historica->huella, $negativa->huella);
+            $copia->forceFill(['estado' => 'REVISADA'])->syncOriginal();
+            $this->assertSame($negativa->huella, Fuente::desdeRevisada($copia)->huella);
+        }
+        $conItems = $this->declaracion();
+        $itemsHistoricos = Fuente::desde($conItems);
+        foreach (array_keys(Fuente::LISTAS) as $bloque) {
+            $this->assertArrayNotHasKey('respuesta', $itemsHistoricos->bloques[$bloque]);
+            $conItems->forceFill([$bloque.'_respuesta' => 'si']);
+        }
+        $conItems->syncOriginal();
+        $afirmativa = Fuente::desde($conItems);
+        foreach (array_keys(Fuente::LISTAS) as $bloque) {
+            $this->assertSame('si', $afirmativa->bloques[$bloque]['respuesta']);
+            $this->assertSame($itemsHistoricos->bloques[$bloque]['items'], $afirmativa->bloques[$bloque]['items']);
+        }
+        $entrada = $this->entrada($afirmativa);
+        unset($entrada['dictamenes']['antecedentes']['clasificacion']);
+        $this->expectException(ValidationException::class);
+        app(PrepararResultadoRevisionDeclaracion::class)->preparar($afirmativa, $entrada);
+    }
+
     public function test_corrige_valores_y_descripciones_sin_sobrescribir_originales_y_conserva_procedencia(): void
     {
         $fuente = $this->fuente();

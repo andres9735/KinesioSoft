@@ -896,6 +896,10 @@ class PerfilPacienteControllerTest extends TestCase
             ->where('paciente_id', $paciente->id)
             ->sole();
 
+        foreach (['antecedentes' => 'si', 'cirugias' => 'no', 'alergias' => 'no', 'medicacion' => 'si'] as $categoria => $respuesta) {
+            $this->assertSame($respuesta, $declaracion->getRawOriginal($categoria.'_respuesta'));
+        }
+
         $this->assertSame(
             DeclaracionSaludPaciente::ESTADO_PENDIENTE_REVISION,
             $declaracion->estado

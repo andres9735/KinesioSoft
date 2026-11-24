@@ -76,6 +76,10 @@ final class CompletarPerfilClinicoInicialAction
                 'ocupacion' => $data['ocupacion'],
                 'nivel_actividad_fisica' => $data['nivel_actividad_fisica'],
                 'detalle_actividad_fisica' => $data['detalle_actividad_fisica'],
+                'antecedentes_respuesta' => $data['antecedentes_respuesta'],
+                'cirugias_respuesta' => $data['cirugias_respuesta'],
+                'alergias_respuesta' => $data['alergias_respuesta'],
+                'medicacion_respuesta' => $data['medicacion_respuesta'],
                 'estado' => DeclaracionSaludPaciente::ESTADO_PENDIENTE_REVISION,
             ]);
 

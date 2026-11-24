@@ -18,7 +18,12 @@
                     <div class="space-y-2 rounded-xl border border-gray-200 bg-gray-50 p-4">
                         <h3 class="font-semibold">Declaración original del paciente — sin modificaciones</h3>
                         @if ($esLista)
-                            <ul class="space-y-2">@forelse ($fuente->bloques[$bloque]['items'] as $item)<li class="whitespace-pre-line">Ítem #{{ $item['item_origen_id'] }}: {{ $item['descripcion'] }}</li>@empty<li>Sin ítems declarados. Esta lista vacía no acredita «No presenta».</li>@endforelse</ul>
+                            @php($respuestaOriginal = $fuente->bloques[$bloque]['respuesta'] ?? null)
+                            <p>{{ $respuestaOriginal === 'no' ? 'El paciente declaró No' : ($respuestaOriginal === 'si' ? 'El paciente declaró Sí' : 'Sin respuesta original disponible') }}</p>
+                            @if ($respuestaOriginal === 'no')<p class="text-sm">Validar esta declaración no registra automáticamente «No presenta». El relevamiento profesional complementario es independiente.</p>@endif
+                            @if ($fuente->bloques[$bloque]['items'] !== [] || $respuestaOriginal !== 'no')
+                                <ul class="space-y-2">@forelse ($fuente->bloques[$bloque]['items'] as $item)<li class="whitespace-pre-line">Ítem #{{ $item['item_origen_id'] }}: {{ $item['descripcion'] }}</li>@empty<li>Sin ítems declarados. Esta lista vacía no acredita «No presenta».</li>@endforelse</ul>
+                            @endif
                         @else
                             <p class="whitespace-pre-line">{{ $fuente->bloques[$bloque]['valor'] ?? 'Sin dato declarado' }}</p>
                         @endif
@@ -129,7 +134,12 @@
                     <div class="space-y-2 rounded-xl border border-gray-200 bg-gray-50 p-4">
                         <h3 class="text-xs font-medium text-slate-600">Declarado por el paciente</h3>
                         @if ($esLista)
-                            <ul class="space-y-2">@forelse ($fuente->bloques[$bloque]['items'] as $item)<li class="whitespace-pre-line">Ítem #{{ $item['item_origen_id'] }}: {{ $item['descripcion'] }}</li>@empty<li>Sin información declarada. No acredita «No presenta».</li>@endforelse</ul>
+                            @php($respuestaOriginal = $fuente->bloques[$bloque]['respuesta'] ?? null)
+                            <p>{{ $respuestaOriginal === 'no' ? 'El paciente declaró No' : ($respuestaOriginal === 'si' ? 'El paciente declaró Sí' : 'Sin respuesta original disponible') }}</p>
+                            @if ($respuestaOriginal === 'no')<p class="text-sm">Validar esta declaración no registra automáticamente «No presenta». El relevamiento profesional complementario es independiente.</p>@endif
+                            @if ($fuente->bloques[$bloque]['items'] !== [] || $respuestaOriginal !== 'no')
+                                <ul class="space-y-2">@forelse ($fuente->bloques[$bloque]['items'] as $item)<li class="whitespace-pre-line">Ítem #{{ $item['item_origen_id'] }}: {{ $item['descripcion'] }}</li>@empty<li>Sin información declarada. No acredita «No presenta».</li>@endforelse</ul>
+                            @endif
                         @else
                             <p class="whitespace-pre-line">{{ $fuente->bloques[$bloque]['valor'] ?? 'Sin información declarada' }}</p>
                         @endif
@@ -200,7 +210,12 @@
                     <div class="space-y-2 rounded-xl border border-gray-200 bg-gray-50 p-4">
                         <h3 class="text-xs font-medium text-slate-600">Declarado por el paciente</h3>
                         @if ($esLista)
-                            <ul class="space-y-2">@forelse ($fuente->bloques[$bloque]['items'] as $item)<li class="whitespace-pre-line">Ítem #{{ $item['item_origen_id'] }}: {{ $item['descripcion'] }}</li>@empty<li>Sin información declarada. No acredita «No presenta».</li>@endforelse</ul>
+                            @php($respuestaOriginal = $fuente->bloques[$bloque]['respuesta'] ?? null)
+                            <p>{{ $respuestaOriginal === 'no' ? 'El paciente declaró No' : ($respuestaOriginal === 'si' ? 'El paciente declaró Sí' : 'Sin respuesta original disponible') }}</p>
+                            @if ($respuestaOriginal === 'no')<p class="text-sm">Validar esta declaración no registra automáticamente «No presenta». El relevamiento profesional complementario es independiente.</p>@endif
+                            @if ($fuente->bloques[$bloque]['items'] !== [] || $respuestaOriginal !== 'no')
+                                <ul class="space-y-2">@forelse ($fuente->bloques[$bloque]['items'] as $item)<li class="whitespace-pre-line">Ítem #{{ $item['item_origen_id'] }}: {{ $item['descripcion'] }}</li>@empty<li>Sin información declarada. No acredita «No presenta».</li>@endforelse</ul>
+                            @endif
                         @else
                             <p class="whitespace-pre-line">{{ $fuente->bloques[$bloque]['valor'] ?? 'Sin información declarada' }}</p>
                         @endif

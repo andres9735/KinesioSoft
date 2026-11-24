@@ -38,6 +38,11 @@ final readonly class FuenteDeclaracionParaRevision
             $bloques[$bloque] = ['items' => $declaracion->items->where('tipo', $tipo)->sortBy('id')->map(fn ($item) => [
                 'item_origen_id' => (int) $item->id, 'descripcion' => $item->getRawOriginal('descripcion'),
             ])->values()->all()];
+            $respuesta = $declaracion->getRawOriginal($bloque.'_respuesta');
+            // No agregar una propiedad null: preserva la representación y huella históricas.
+            if ($respuesta !== null) {
+                $bloques[$bloque]['respuesta'] = $respuesta;
+            }
         }
         foreach ($declaracion->items as $item) {
             if (! in_array($item->tipo, self::LISTAS, true) || (int) $item->declaracion_salud_id !== (int) $declaracion->id) {

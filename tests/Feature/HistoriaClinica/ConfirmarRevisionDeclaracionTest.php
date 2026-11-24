@@ -145,6 +145,72 @@ class ConfirmarRevisionDeclaracionTest extends TestCase
         return [['sin historia'], ['cabecera'], ['version']];
     }
 
+    #[DataProvider('recorridos')]
+    public function test_confirma_negativas_con_dictamen_procedencia_y_relevamiento_independiente_e_idempotencia(string $caso): void
+    {
+        DB::table('items_declaracion_salud')->where('declaracion_salud_id', $this->declaracion->id)->delete();
+        DB::table('declaraciones_salud_paciente')->where('id', $this->declaracion->id)->update([
+            'antecedentes_respuesta' => 'no', 'cirugias_respuesta' => 'no',
+            'alergias_respuesta' => 'no', 'medicacion_respuesta' => 'no',
+        ]);
+        $base = $caso === 'version' ? $this->base() : null;
+        $historia = $caso === 'cabecera' ? $this->historia() : $base?->historiaClinica;
+        $cabeceraAntes = $historia?->getRawOriginal();
+        $baseAntes = $base?->getRawOriginal();
+        $original = $this->declaracion->fresh()->getRawOriginal();
+        $turno = $this->turno->fresh()->getRawOriginal();
+        $entrada = $this->entrada();
+        if ($base) {
+            unset($entrada['complemento_profesional']['familia']);
+        } else {
+            $entrada['complemento_profesional']['bloques'] = array_fill_keys(array_keys(Minimo::TIPOS), ['resultado' => 'DESCONOCIDO', 'items' => []]);
+        }
+        $previa = $this->previa($entrada);
+        $comprobante = $previa->viewData('comprobante');
+        $this->post($this->url(), $this->postData($comprobante))->assertOk();
+        $version = VersionDatosClinicosBase::orderByDesc('numero_version')->firstOrFail();
+        $confirmacion = ConfirmacionRevisionDeclaracion::sole();
+        $this->assertSame($base ? 2 : 1, $version->numero_version);
+        $this->assertSame($previa->viewData('resultado')->huellaDeclaracion, $confirmacion->huella_declaracion);
+        $this->assertSame($this->profesional->id, $confirmacion->kinesiologa_id);
+        $this->assertSame($this->profesional->user_id, $confirmacion->autor_user_id);
+        foreach (['antecedentes', 'cirugias', 'alergias', 'medicacion'] as $bloque) {
+            $dictamen = RevisionDeclaracionSalud::where('bloque', $bloque)->sole();
+            $this->assertSame(['items' => [], 'respuesta' => 'no'], $dictamen->datos_originales);
+            $this->assertSame('VALIDAR', $dictamen->getRawOriginal('dictamen'));
+            $this->assertSame([], $dictamen->datos_admitidos);
+            $this->assertNull($dictamen->correccion_profesional);
+            $this->assertSame('DECLARACION_PACIENTE', $dictamen->procedencias['origen']);
+            $this->assertSame($this->declaracion->id, $dictamen->procedencias['declaracion_salud_id']);
+            $this->assertSame($base?->id, $dictamen->procedencias['version_base_id']);
+            $this->assertSame($this->profesional->id, $dictamen->kinesiologa_id);
+        }
+        if ($base) {
+            $this->assertSame($baseAntes, $base->fresh()->getRawOriginal());
+            $this->assertSame('Antecedente previo', $version->items->sole()->descripcion);
+        } else {
+            foreach (array_keys(Minimo::TIPOS) as $tipo) {
+                $this->assertSame('DESCONOCIDO', $version->relevamientos[$tipo]);
+            }
+            $this->assertCount(0, $version->items);
+        }
+        if ($historia) {
+            $this->assertSame($cabeceraAntes, $historia->fresh()->getRawOriginal());
+        }
+        $this->assertSame([...$original, 'estado' => 'REVISADA'], $this->declaracion->fresh()->getRawOriginal());
+        $this->assertSame($turno, $this->turno->fresh()->getRawOriginal());
+        $this->assertDatabaseCount('items_declaracion_salud', 0);
+        $this->assertDatabaseCount('incorporaciones_declaracion_salud', 1);
+        $confirmado = $this->snapshot();
+        $this->post($this->url(), $this->postData($comprobante))->assertOk()->assertSee('Esta confirmación ya fue procesada');
+        $this->assertSame($confirmado, $this->snapshot());
+        // Una alteración externa del original tampoco rehabilita el comprobante ya procesado.
+        DB::table('declaraciones_salud_paciente')->where('id', $this->declaracion->id)->update(['cirugias_respuesta' => null]);
+        $alterado = $this->snapshot();
+        $this->post($this->url(), $this->postData($comprobante))->assertStatus(409);
+        $this->assertSame($alterado, $this->snapshot());
+    }
+
     public function test_reintento_identico_es_sin_escrituras_y_otro_comprobante_se_rechaza(): void
     {
         $primero = $this->previa()->viewData('comprobante');
@@ -228,6 +294,7 @@ class ConfirmarRevisionDeclaracionTest extends TestCase
         $comprobante = $this->previa($entrada)->viewData('comprobante');
         match ($caso) {
             'declaracion' => DB::table('declaraciones_salud_paciente')->where('id', $this->declaracion->id)->update(['altura_cm' => 190]),
+            'respuesta_original' => DB::table('declaraciones_salud_paciente')->where('id', $this->declaracion->id)->update(['cirugias_respuesta' => 'si']),
             'item_original' => DB::table('items_declaracion_salud')->where('declaracion_salud_id', $this->declaracion->id)->update(['descripcion' => 'Modificación externa']),
             'tipo_original' => DB::table('items_declaracion_salud')->where('declaracion_salud_id', $this->declaracion->id)->update(['tipo' => 'OTRO']),
             'revisada' => DB::table('declaraciones_salud_paciente')->where('id', $this->declaracion->id)->update(['estado' => 'REVISADA']),
@@ -248,7 +315,7 @@ class ConfirmarRevisionDeclaracionTest extends TestCase
 
     public static function cambios(): array
     {
-        return array_map(fn ($c) => [$c], ['declaracion', 'item_original', 'tipo_original', 'revisada', 'cabecera', 'inactiva', 'version', 'item_base', 'contacto', 'autor', 'especialidad', 'turno']);
+        return array_map(fn ($c) => [$c], ['declaracion', 'respuesta_original', 'item_original', 'tipo_original', 'revisada', 'cabecera', 'inactiva', 'version', 'item_base', 'contacto', 'autor', 'especialidad', 'turno']);
     }
 
     #[DataProvider('permisos')]

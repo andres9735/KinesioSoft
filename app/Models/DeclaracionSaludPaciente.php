@@ -29,6 +29,10 @@ class DeclaracionSaludPaciente extends Model
         'ocupacion',
         'nivel_actividad_fisica',
         'detalle_actividad_fisica',
+        'antecedentes_respuesta',
+        'cirugias_respuesta',
+        'alergias_respuesta',
+        'medicacion_respuesta',
         'estado',
     ];
 

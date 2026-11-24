@@ -107,6 +107,81 @@ class RevisionDeclaracionVistaPreviaTest extends TestCase
     }
 
     #[DataProvider('expedientes')]
+    public function test_negativas_originales_se_muestran_sin_inferir_resultados_y_sin_escrituras(string $situacion): void
+    {
+        DB::table('items_declaracion_salud')->where('declaracion_salud_id', $this->declaracion->id)->delete();
+        DB::table('declaraciones_salud_paciente')->where('id', $this->declaracion->id)->update([
+            'antecedentes_respuesta' => 'no', 'cirugias_respuesta' => 'no',
+            'alergias_respuesta' => 'no', 'medicacion_respuesta' => 'no',
+        ]);
+        $base = $situacion === 'version' ? $this->base() : null;
+        if ($situacion === 'cabecera') {
+            $this->historia();
+        }
+        $entrada = $this->entrada();
+        unset($entrada['dictamenes']['antecedentes']['clasificacion']);
+        $entrada['complemento_profesional']['bloques'] = $base ? [] : array_fill_keys(
+            array_keys(Minimo::TIPOS), ['resultado' => 'DESCONOCIDO', 'items' => []]
+        );
+        if ($base) {
+            unset($entrada['complemento_profesional']['familia']);
+        }
+        $antes = $this->snapshot();
+        $form = $this->get($this->url())->assertOk()->assertSee('El paciente declaró No')
+            ->assertDontSee('Sin respuesta original disponible')->assertDontSee('Sin información declarada. No acredita');
+        $this->head($this->url())->assertOk();
+        $previa = $this->post($this->previewUrl(), $this->postData($form->viewData('contexto'), $entrada))->assertOk()
+            ->assertSee('El paciente declaró No')->assertSee('La negativa se admite como declaración del paciente.')
+            ->assertSee('El relevamiento profesional complementario es independiente.');
+        $documento = new \DOMDocument;
+        @$documento->loadHTML('<?xml encoding="UTF-8">'.$previa->getContent(), LIBXML_NOERROR | LIBXML_NOWARNING);
+        $xpath = new \DOMXPath($documento);
+        foreach (['antecedentes', 'cirugias', 'alergias', 'medicacion'] as $bloque) {
+            $detalle = $xpath->query('//*[@data-dictamen-detalle="'.$bloque.'"]')->item(0);
+            $this->assertNotNull($detalle);
+            $this->assertStringContainsString('El paciente declaró No', $detalle->textContent);
+        }
+        $comparacion = $xpath->query('//*[@data-comparacion="Cirugías"]//*[@data-fuente="declaracion"]')->item(0);
+        $this->assertNotNull($comparacion);
+        $this->assertStringContainsString('El paciente declaró No', $comparacion->textContent);
+        $clinica = $previa->viewData('resultado')->datosClinicos;
+        if ($base) {
+            $this->assertSame('Alergia oficial previa', $clinica['bloques']['alergias']['items'][0]['descripcion']);
+        } else {
+            foreach ($clinica['bloques'] as $bloque) {
+                $this->assertSame('DESCONOCIDO', $bloque['resultado']);
+                $this->assertSame([], $bloque['items']);
+            }
+            $previa->assertSee('Sin información clínica previa.')->assertDontSee('Dato clínico previo conservado');
+        }
+        $this->assertSame($antes, $this->snapshot());
+    }
+
+    public function test_formulario_y_retorno_distinguen_si_no_y_evidencia_historica_sin_perder_items(): void
+    {
+        DB::table('declaraciones_salud_paciente')->where('id', $this->declaracion->id)->update([
+            'cirugias_respuesta' => 'no', 'alergias_respuesta' => 'si',
+        ]);
+        $antes = $this->snapshot();
+        $form = $this->get($this->url())->assertOk()->assertSee('El paciente declaró Sí')->assertSee('El paciente declaró No')
+            ->assertSee('Sin respuesta original disponible')->assertSee('Antecedente declarado sensible')
+            ->assertSee('<script>alert("dato")</script>')->assertDontSee('<script>alert("dato")</script>', false);
+        $this->post($this->previewUrl(), $this->postData($form->viewData('contexto')))->assertOk()
+            ->assertSee('El paciente declaró Sí')->assertSee('El paciente declaró No')
+            ->assertSee('Sin respuesta original disponible')->assertSee('Volver a editar esta propuesta');
+        $this->assertSame($antes, $this->snapshot());
+    }
+
+    public function test_una_respuesta_original_cambiada_invalida_el_contexto_sin_escribir(): void
+    {
+        $contexto = $this->contexto();
+        DB::table('declaraciones_salud_paciente')->where('id', $this->declaracion->id)->update(['cirugias_respuesta' => 'no']);
+        $antes = $this->snapshot();
+        $this->post($this->previewUrl(), $this->postData($contexto))->assertStatus(409);
+        $this->assertSame($antes, $this->snapshot());
+    }
+
+    #[DataProvider('expedientes')]
     public function test_dux06_prioriza_el_resultado_y_conserva_confirmacion_retorno_y_fuentes_reales(string $situacion): void
     {
         $base = $situacion === 'version' ? $this->base() : null;
