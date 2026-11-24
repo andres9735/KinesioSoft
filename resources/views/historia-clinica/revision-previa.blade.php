@@ -21,11 +21,12 @@
         $haySalud = collect($camposSalud)->contains(fn ($campo) => $proyecciones[$etiquetas[$campo]]['despues'] !== []);
     @endphp
     <style>#revision-previa [x-cloak] { display: none !important; }</style>
-    <section id="revision-previa" class="mx-auto max-w-screen-2xl space-y-4 px-4 py-6 sm:px-6 lg:px-8" x-data="{ propuestaEditada: false }">
-        <a class="inline-flex min-h-11 items-center gap-2 font-semibold text-indigo-700 underline" href="{{ route('historia-clinica.desde-turno', $turno->id) }}"><span aria-hidden="true">←</span> Volver al expediente sin incorporar</a>
+    <section id="revision-previa" class="mx-auto max-w-screen-2xl space-y-4 px-4 py-6 sm:px-6 lg:px-8" x-data="{ propuestaEditada: false, incorporacionConfirmada: false }" @revision-incorporada="incorporacionConfirmada = true">
+        <a x-show="!incorporacionConfirmada" class="inline-flex min-h-11 items-center gap-2 font-semibold text-indigo-700 underline" href="{{ route('historia-clinica.desde-turno', $turno->id) }}"><span aria-hidden="true">←</span> Volver al expediente sin incorporar</a>
+        <p x-cloak x-show="incorporacionConfirmada" role="status" class="rounded-xl border border-green-300 bg-green-50 p-4">Incorporación registrada. Consultá el expediente para ver su información vigente.</p>
         <div class="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
         <div class="min-w-0 space-y-4">
-            <div role="status" class="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950">
+            <div x-show="!incorporacionConfirmada" role="status" class="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950">
                 <svg aria-hidden="true" class="mt-1 h-6 w-6 shrink-0 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 3 10 18H2L12 3Z" stroke-linejoin="round"/><path d="M12 9v5m0 3v1"/></svg>
                 <div><h2 class="text-lg font-semibold">Propuesta sin confirmar — los datos clínicos todavía no fueron incorporados</h2><p class="mt-1">La declaración sigue Pendiente. Consultar esta vista previa no registra una nueva versión clínica.</p></div>
             </div>
@@ -195,23 +196,34 @@
         </section>
                 </div>
             </details>
-        <section id="previa-confirmacion" aria-labelledby="previa-confirmacion-titulo" class="space-y-4 rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm sm:p-5">
+        <section id="previa-confirmacion" aria-labelledby="previa-confirmacion-titulo" class="space-y-4 rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm sm:p-5"
+            x-data="confirmacionRevision(@js(['turno' => $turno->id, 'declaracion' => $declaracion->id,
+                'confirmarUrl' => route('historia-clinica.revision.confirmar', ['turno' => $turno->id, 'declaracion' => $declaracion->id]),
+                'revisionUrl' => route('historia-clinica.revision.create', ['turno' => $turno->id, 'declaracion' => $declaracion->id]),
+                'expedienteUrl' => route('historia-clinica.desde-turno', $turno->id),
+                'turnoUrl' => route('turnos.agenda-atencion.show', $turno->id)]))">
         <h2 id="previa-confirmacion-titulo" class="rounded-xl bg-indigo-50 px-3 py-2 text-lg font-semibold text-slate-900">Confirmación profesional</h2>
-        <form method="POST" action="{{ route('historia-clinica.revision.confirmar', ['turno' => $turno->id, 'declaracion' => $declaracion->id]) }}" class="space-y-4">
+        <form method="POST" action="{{ route('historia-clinica.revision.confirmar', ['turno' => $turno->id, 'declaracion' => $declaracion->id]) }}" class="space-y-4" @submit.prevent="enviar($event, propuestaEditada)" :aria-busy="procesando">
             @csrf
             <input type="hidden" name="confirmacion" value="{{ $comprobante }}">
             <p x-cloak x-show="propuestaEditada" role="alert" class="font-semibold text-amber-900">Editaste la propuesta. Generá una nueva vista previa antes de confirmar.</p>
-            <fieldset :disabled="propuestaEditada" class="space-y-4">
-            <label class="flex items-start gap-3"><input type="checkbox" name="confirmar" value="1" required class="mt-1"> Confirmo con mi autoría profesional la revisión de esta declaración y la incorporación de los datos de esta vista previa al expediente de este paciente.</label>
+            <fieldset :disabled="propuestaEditada || procesando || bloqueada" class="space-y-4">
+            <label class="flex items-start gap-3"><input type="checkbox" name="confirmar" value="1" required x-model="conforme" class="mt-1"> Confirmo con mi autoría profesional la revisión de esta declaración y la incorporación de los datos de esta vista previa al expediente de este paciente.</label>
             <p class="text-sm">Si querés cambiar un dato o dictamen, editá la propuesta y generá una nueva vista previa antes de confirmar.</p>
-            <button type="submit" class="min-h-11 w-full rounded-xl bg-indigo-700 px-5 py-3 font-semibold text-white focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto">Confirmar revisión e incorporar datos</button>
+            <button type="submit" disabled :disabled="!conforme || propuestaEditada || procesando || bloqueada" class="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-700 px-5 py-3 font-semibold text-white focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto">
+                <span x-cloak x-show="procesando" aria-hidden="true" class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                <span x-text="procesando ? 'Procesando confirmación…' : 'Confirmar revisión e incorporar datos'">Confirmar revisión e incorporar datos</span>
+            </button>
             </fieldset>
+            <p x-cloak x-show="procesando" role="status" aria-live="polite" class="rounded-xl bg-indigo-50 p-3 text-indigo-950">Se está registrando la incorporación de los datos. Por favor, no cierres esta pantalla.</p>
+            <p x-cloak x-show="aviso" x-text="aviso" role="alert" class="rounded-xl border border-indigo-100 p-3"></p>
+            <noscript><p>Activá JavaScript para confirmar y consultar el resultado. No se envió la incorporación.</p></noscript>
         </form>
-        <details class="min-w-0 rounded-xl border border-indigo-200 p-3" @input="propuestaEditada = true" @change="propuestaEditada = true" data-retorno-edicion>
+        <details :inert="procesando || consumada" class="min-w-0 rounded-xl border border-indigo-200 p-3" @input="propuestaEditada = true; conforme = false" @change="propuestaEditada = true; conforme = false" data-retorno-edicion>
             <summary class="min-h-11 cursor-pointer font-semibold text-indigo-700">Volver a editar esta propuesta</summary>
             @include('historia-clinica.revision-formulario')
         </details>
-        <a href="{{ route('historia-clinica.desde-turno', $turno->id) }}" class="inline-flex min-h-11 items-center font-semibold text-indigo-700 underline">Salir sin incorporar y volver al expediente</a>
+        <a data-recuperar-revision href="{{ route('historia-clinica.desde-turno', $turno->id) }}" class="inline-flex min-h-11 items-center font-semibold text-indigo-700 underline" x-text="bloqueada ? 'Consultar expediente' : 'Salir sin incorporar y volver al expediente'">Salir sin incorporar y volver al expediente</a>
         </section>
         </div>
         <aside aria-labelledby="previa-resumen-titulo" class="min-w-0 space-y-5 rounded-2xl border border-indigo-100 bg-white p-5 shadow-sm xl:sticky xl:top-6">

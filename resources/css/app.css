@@ -2,6 +2,48 @@
 @tailwind components;
 @tailwind utilities;
 
+/* DUX-07: SweetAlert2 global, contenido identificatorio y controles accesibles. */
+.swal2-popup.uc14-confirmacion-modal {
+    max-width: calc(100vw - 2rem);
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+    border: 1px solid #e0e7ff;
+    border-radius: 1rem;
+    font-family: inherit;
+    color-scheme: light;
+    overflow-wrap: anywhere;
+}
+.uc14-confirmacion-contenido { text-align: left; font-size: 0.9375rem; }
+.uc14-confirmacion-contenido dl {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+    gap: 0.75rem;
+    margin-block: 1rem;
+    padding: 1rem;
+    border-radius: 0.75rem;
+    background: #eef2ff;
+}
+.uc14-confirmacion-contenido dt { font-size: 0.8125rem; color: #475569; }
+.uc14-confirmacion-contenido dd { margin: 0; font-weight: 600; }
+.uc14-confirmacion-nota { padding: 0.75rem; background: #eef2ff; border-radius: 0.75rem; }
+.uc14-confirmacion-modal .swal2-actions { gap: 0.75rem; padding-inline: 1rem; flex-wrap: wrap; }
+.uc14-confirmacion-principal, .uc14-confirmacion-secundaria {
+    min-height: 2.75rem;
+    max-width: 100%;
+    padding: 0.625rem 1rem;
+    border: 1px solid #4338ca;
+    border-radius: 0.75rem;
+    font: inherit;
+    white-space: normal;
+}
+.uc14-confirmacion-principal { background: #4338ca; color: #fff; }
+.uc14-confirmacion-secundaria { background: #fff; color: #4338ca; }
+.uc14-confirmacion-modal button:focus-visible { outline: 3px solid #7c3aed; outline-offset: 3px; }
+@media (max-width: 479px) {
+    .uc14-confirmacion-modal .swal2-actions { width: 100%; }
+    .uc14-confirmacion-principal, .uc14-confirmacion-secundaria { width: 100%; }
+}
+
 /* Mis turnos funciona también en el entorno aislado, sin fuentes remotas. */
 .uc06-mis-turnos {
     font-family: ui-sans-serif, system-ui, sans-serif;

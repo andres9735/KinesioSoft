@@ -355,10 +355,10 @@ class RevisionDeclaracionVistaPreviaTest extends TestCase
         $this->assertSame($respuesta->viewData('comprobante'), $xpath->query('.//input[@name="confirmacion"]', $formulario->item(0))->item(0)->getAttribute('value'));
         $this->assertSame(1, $xpath->query('.//input[@name="confirmar" and @value="1" and @required and not(@checked)]', $formulario->item(0))->length);
         $this->assertSame(1, $xpath->query('.//button[@type="submit"]', $formulario->item(0))->length);
-        $this->assertSame('propuestaEditada', $xpath->query('.//fieldset', $formulario->item(0))->item(0)->getAttribute(':disabled'));
+        $this->assertSame('propuestaEditada || procesando || bloqueada', $xpath->query('.//fieldset', $formulario->item(0))->item(0)->getAttribute(':disabled'));
         $retorno = $xpath->query('//details[@data-retorno-edicion]')->item(0);
         // libxml no conserva el prefijo @ de Alpine en atributos HTML.
-        $this->assertStringContainsString('@input="propuestaEditada = true" @change="propuestaEditada = true"', $html);
+        $this->assertStringContainsString('@input="propuestaEditada = true; conforme = false" @change="propuestaEditada = true; conforme = false"', $html);
         $this->assertSame(1, $xpath->query('.//form[@action="'.$this->previewUrl().'"]', $retorno)->length);
         $this->assertSame($contexto, $xpath->query('.//input[@name="contexto"]', $retorno)->item(0)->getAttribute('value'));
         $this->assertSame('JSON.stringify(contrato())', $xpath->query('.//input[@name="propuesta"]', $retorno)->item(0)->getAttribute(':value'));

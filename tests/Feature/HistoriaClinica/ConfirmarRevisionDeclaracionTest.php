@@ -87,6 +87,15 @@ class ConfirmarRevisionDeclaracionTest extends TestCase
         $comprobante = $previa->viewData('comprobante');
         $this->assertStringNotContainsString('Antecedente personal original', $comprobante);
         $respuesta = $this->post($this->url(), $this->postData($comprobante))->assertOk()->assertSee('Revisión confirmada e incorporada');
+        $presentacion = $this->resultadoPresentado($respuesta->getContent());
+        $this->assertSame('incorporada', $presentacion['estado']);
+        $this->assertFalse($presentacion['yaProcesada']);
+        $this->assertSame('Revisada', $presentacion['estadoDeclaracion']);
+        $this->assertSame($this->declaracion->id, $presentacion['declaracion']);
+        $this->assertSame($this->turno->id, $presentacion['turno']);
+        $this->assertSame(route('historia-clinica.desde-turno', $this->turno->id), $presentacion['expedienteUrl']);
+        $this->assertSame(route('turnos.agenda-atencion.show', $this->turno->id), $presentacion['turnoUrl']);
+        $respuesta->assertDontSee($comprobante)->assertDontSee('Revisión de declaración incorporada');
         $version = VersionDatosClinicosBase::orderByDesc('numero_version')->firstOrFail();
         $confirmacion = ConfirmacionRevisionDeclaracion::sole();
         $this->assertSame($base ? 2 : 1, $version->numero_version);
@@ -99,6 +108,12 @@ class ConfirmarRevisionDeclaracionTest extends TestCase
         $this->assertSame($this->turno->id, $confirmacion->turno_origen_id);
         $this->assertSame(ConfirmacionRevisionDeclaracion::ACCION, $confirmacion->accion);
         $this->assertSame($confirmacion->huella_resultado, $version->huella_solicitud);
+        $this->assertSame($version->numero_version, $presentacion['version']);
+        $this->assertSame($version->historiaClinica->nro_historia_clinica, $presentacion['historia']);
+        $this->assertSame($confirmacion->autor_nombre_snapshot, $presentacion['autor']);
+        $this->assertSame($confirmacion->especialidad_nombre_snapshot, $presentacion['especialidad']);
+        // Evidencia ficticia para contrastar el lector HTML de DUX-07 en JavaScript.
+        file_put_contents(storage_path('dux07-resultado-'.str_replace(' ', '-', $caso).'.json'), json_encode($presentacion, JSON_THROW_ON_ERROR));
         $this->assertSame($previa->viewData('resultado')->huellaResultado, $confirmacion->huella_resultado);
         $this->assertSame($base?->id, $confirmacion->version_base_id);
         $this->assertTrue($version->historiaClinica->activa);
@@ -143,6 +158,34 @@ class ConfirmarRevisionDeclaracionTest extends TestCase
     public static function recorridos(): array
     {
         return [['sin historia'], ['cabecera'], ['version']];
+    }
+
+    public function test_dux07_conserva_conformidad_obligatoria_sin_premarcar_y_retorno_sin_escrituras(): void
+    {
+        $antes = $this->snapshot();
+        $previa = $this->previa()->assertOk();
+        $doc = new \DOMDocument;
+        @$doc->loadHTML('<?xml encoding="UTF-8">'.$previa->getContent(), LIBXML_NOERROR | LIBXML_NOWARNING);
+        $xpath = new \DOMXPath($doc);
+        $formulario = $xpath->query('//*[@id="previa-confirmacion"]/form')->item(0);
+        $this->assertNotNull($formulario);
+        $this->assertSame(1, $xpath->query('.//input[@name="confirmar" and @required and not(@checked)]', $formulario)->length);
+        $this->assertSame(1, $xpath->query('.//button[@type="submit" and @disabled]', $formulario)->length);
+        $this->assertStringContainsString('@submit.prevent="enviar($event, propuestaEditada)"', $previa->getContent());
+        $this->assertStringContainsString('x-model="conforme"', $previa->getContent());
+        $this->assertStringContainsString('role="status" aria-live="polite"', $previa->getContent());
+        $this->assertSame(1, $xpath->query('//details[@data-retorno-edicion]/summary')->length);
+        $this->assertSame($antes, $this->snapshot());
+    }
+
+    private function resultadoPresentado(string $html): array
+    {
+        $doc = new \DOMDocument;
+        @$doc->loadHTML('<?xml encoding="UTF-8">'.$html, LIBXML_NOERROR | LIBXML_NOWARNING);
+        $nodos = (new \DOMXPath($doc))->query('//*[@data-resultado-revision]');
+        $this->assertSame(1, $nodos->length);
+
+        return json_decode($nodos->item(0)->getAttribute('data-resultado-revision'), true, 32, JSON_THROW_ON_ERROR);
     }
 
     #[DataProvider('recorridos')]
@@ -510,8 +553,11 @@ class ConfirmarRevisionDeclaracionTest extends TestCase
             $posterior->items()->create($item->only(['tipo', 'descripcion', 'procedencia', 'estado_codificacion']));
         }
         $antes = $this->snapshot();
-        $this->post($this->url(), $this->postData($comprobante))->assertOk()->assertSee('Esta confirmación ya fue procesada')
+        $replay = $this->post($this->url(), $this->postData($comprobante))->assertOk()->assertSee('Esta confirmación ya fue procesada')
             ->assertSee('El expediente puede contener versiones posteriores')->assertViewHas('version', fn ($v) => $v->id === $primera->id);
+        $presentacion = $this->resultadoPresentado($replay->getContent());
+        $this->assertTrue($presentacion['yaProcesada']);
+        $this->assertSame(1, $presentacion['version']);
         $this->assertSame($antes, $this->snapshot());
         $this->get(route('historia-clinica.desde-turno', $this->turno->id))->assertOk()
             ->assertViewHas('versionBase', fn ($v) => $v->id === $posterior->id);

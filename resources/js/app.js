@@ -12,6 +12,7 @@ import solicitarTurno from './turnos/solicitar-turno';
 import misTurnos from './turnos/mis-turnos';
 import agendaAtencion from './agenda/agenda-atencion';
 import revisionDeclaracion from './historia-clinica/revision-declaracion';
+import confirmacionRevision from './historia-clinica/confirmacion-revision';
 
 window.Alpine = Alpine;
 window.Swal = Swal;
@@ -27,5 +28,6 @@ Alpine.data('solicitarTurno', solicitarTurno);
 Alpine.data('misTurnos', misTurnos);
 Alpine.data('agendaAtencion', agendaAtencion);
 Alpine.data('revisionDeclaracion', revisionDeclaracion);
+Alpine.data('confirmacionRevision', confirmacionRevision);
 
 Alpine.start();
