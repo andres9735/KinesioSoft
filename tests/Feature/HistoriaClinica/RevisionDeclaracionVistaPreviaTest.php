@@ -107,6 +107,127 @@ class RevisionDeclaracionVistaPreviaTest extends TestCase
     }
 
     #[DataProvider('expedientes')]
+    public function test_certificacion_m04_contrasta_conservacion_sustitucion_y_retorno_sin_confirmar(string $situacion): void
+    {
+        $base = $situacion === 'version' ? $this->base() : null;
+        if ($situacion === 'cabecera') {
+            $this->historia();
+        }
+        $entrada = $this->entrada();
+        $entrada['dictamenes']['altura_cm'] = ['dictamen' => 'CORREGIR', 'correccion' => ['valor' => '171.75']];
+        $entrada['complemento_profesional']['bloques']['personales'] = ['resultado' => 'INFORMADO', 'items' => [[
+            'descripcion' => 'Aporte complementario ficticio', 'procedencia' => 'RELEVAMIENTO_PROFESIONAL',
+            'estado_codificacion' => 'PENDIENTE_CODIFICACION',
+        ]]];
+        if ($base) {
+            unset($entrada['complemento_profesional']['familia']);
+        }
+        $antes = $this->snapshot();
+        $form = $this->get($this->url())->assertOk();
+        $casos = $base ? ['conservar', 'sustituir'] : ['sin-version'];
+        foreach ($casos as $caso) {
+            $entrada['sustituciones_base'] = $base ? ['altura_cm', ...($caso === 'sustituir' ? ['alergias'] : [])] : [];
+            $previa = $this->post($this->previewUrl(), $this->postData($form->viewData('contexto'), $entrada))->assertOk();
+            $clinica = $previa->viewData('resultado')->datosClinicos;
+            $this->assertSame('171.75', $clinica['altura_cm']);
+            $this->assertSame(['Antecedente declarado sensible', 'Aporte complementario ficticio'],
+                array_column($clinica['bloques']['personales']['items'], 'descripcion'));
+            $this->assertSame($base && $caso === 'conservar' ? ['Alergia oficial previa', '<script>alert("dato")</script>'] : ['<script>alert("dato")</script>'],
+                array_column($clinica['bloques']['alergias']['items'], 'descripcion'));
+            $this->assertSame($entrada, $previa->viewData('entrada'));
+            $this->assertSame($antes, $this->snapshot());
+            $expresiones = [];
+            // Páginas sintéticas: la entrada profesional sólo vive en el fixture y la respuesta.
+            $inicial = $form->original->with('entrada', $entrada)->render();
+            foreach (['inicial' => $inicial, 'retorno' => $previa->getContent()] as $recorrido => $html) {
+                $doc = new \DOMDocument;
+                @$doc->loadHTML('<?xml encoding="UTF-8">'.$html, LIBXML_NOERROR | LIBXML_NOWARNING);
+                $xpath = new \DOMXPath($doc);
+                $this->assertSame(5, $xpath->query('//*[@data-resumen-fuentes]')->length);
+                $expresiones[$recorrido] = $xpath->query('//form[contains(@x-data, "revisionDeclaracion(")]')->item(0)->getAttribute('x-data');
+                file_put_contents(storage_path('cert-'.$situacion.'-'.$caso.'-'.$recorrido.'.html'), $html);
+            }
+            file_put_contents(storage_path('cert-'.$situacion.'-'.$caso.'.json'), json_encode([
+                'expresiones' => $expresiones, 'entrada' => $entrada, 'clinica' => $clinica,
+            ], JSON_THROW_ON_ERROR));
+        }
+        $this->assertSame($antes, $this->snapshot());
+        Mail::assertNothingSent();
+        Queue::assertNothingPushed();
+    }
+
+    public function test_certificacion_m04_observar_excluye_el_antecedente_sin_cambiar_original_o_relevamiento(): void
+    {
+        $form = $this->get($this->url())->assertOk();
+        $entrada = $this->entrada();
+        $entrada['complemento_profesional']['bloques']['personales'] = ['resultado' => 'INFORMADO', 'items' => [[
+            'descripcion' => 'Aporte profesional independiente', 'procedencia' => 'RELEVAMIENTO_PROFESIONAL',
+            'estado_codificacion' => 'PENDIENTE_CODIFICACION',
+        ]]];
+        $antes = $this->snapshot();
+        $validada = $this->post($this->previewUrl(), $this->postData($form->viewData('contexto'), $entrada))->assertOk();
+        $this->assertSame('Antecedente declarado sensible', $validada->viewData('resultado')->datosClinicos['bloques']['personales']['items'][0]['descripcion']);
+        $entrada['dictamenes']['antecedentes'] = ['dictamen' => 'OBSERVAR', 'justificacion' => 'Antecedente ficticio por aclarar'];
+        $observada = $this->post($this->previewUrl(), $this->postData($form->viewData('contexto'), $entrada))->assertOk()
+            ->assertSee('Antecedente ficticio por aclarar')->assertSee('Antecedente declarado sensible');
+        $this->assertSame('INFORMADO', $observada->viewData('resultado')->datosClinicos['bloques']['personales']['resultado']);
+        $this->assertSame(['Aporte profesional independiente'], array_column($observada->viewData('resultado')->datosClinicos['bloques']['personales']['items'], 'descripcion'));
+        $this->assertSame($entrada['complemento_profesional'], $observada->viewData('entrada')['complemento_profesional']);
+        $this->assertSame($antes, $this->snapshot());
+    }
+
+    #[DataProvider('expedientes')]
+    public function test_ux_m04_integra_fuentes_solo_lectura_y_conserva_el_retorno_y_la_propuesta_del_servidor(string $situacion): void
+    {
+        $base = $situacion === 'version' ? $this->base() : null;
+        if ($situacion === 'cabecera') {
+            $this->historia();
+        }
+        DB::table('declaraciones_salud_paciente')->where('id', $this->declaracion->id)->update([
+            'cirugias_respuesta' => 'no', 'alergias_respuesta' => 'si',
+        ]);
+        $entrada = $this->entrada();
+        $entrada['dictamenes']['alergias'] = ['dictamen' => 'CORREGIR', 'correccion' => ['items' => [[
+            'item_origen_id' => $this->declaracion->items()->where('tipo', 'ALERGIA')->value('id'),
+            'tipo_destino' => 'alergias', 'descripcion' => 'Alergia corregida para resumen', 'procedencia' => 'RELEVAMIENTO_PROFESIONAL',
+        ]]]];
+        $entrada['complemento_profesional']['bloques']['medicacion'] = ['resultado' => 'INFORMADO', 'items' => [[
+            'descripcion' => 'Medicación complementaria', 'procedencia' => 'REFERIDO_PACIENTE', 'estado_codificacion' => 'PENDIENTE_CODIFICACION',
+        ]]];
+        if ($base) {
+            unset($entrada['complemento_profesional']['familia']);
+            $entrada['sustituciones_base'] = ['alergias'];
+        }
+        $antes = $this->snapshot();
+        $form = $this->get($this->url())->assertOk();
+        $previa = $this->post($this->previewUrl(), $this->postData($form->viewData('contexto'), $entrada))->assertOk();
+        $expresiones = [];
+        foreach (['inicial' => $form, 'retorno' => $previa] as $recorrido => $respuesta) {
+            $doc = new \DOMDocument;
+            @$doc->loadHTML('<?xml encoding="UTF-8">'.$respuesta->getContent(), LIBXML_NOERROR | LIBXML_NOWARNING);
+            $xpath = new \DOMXPath($doc);
+            $resumenes = $xpath->query('//*[@data-resumen-fuentes]');
+            $this->assertSame(5, $resumenes->length);
+            foreach ($resumenes as $resumen) {
+                $this->assertSame(0, $xpath->query('.//input | .//select | .//textarea | .//*[@name or @x-model or @x-html]', $resumen)->length);
+                foreach (['declaracion', 'previa', 'complemento'] as $fuente) {
+                    $this->assertSame(1, $xpath->query('.//*[@data-fuente-resumen="'.$fuente.'"]', $resumen)->length);
+                }
+            }
+            $expresiones[$recorrido] = $xpath->query('//form[contains(@x-data, "revisionDeclaracion(")]')->item(0)->getAttribute('x-data');
+            $this->assertSame(1, $xpath->query('//*[@data-guia-revision]')->length);
+        }
+        $resultado = $previa->viewData('resultado');
+        $this->assertSame('Alergia corregida para resumen', $resultado->datosClinicos['bloques']['alergias']['items'][0]['descripcion']);
+        $this->assertSame('DESCONOCIDO', $resultado->datosClinicos['bloques']['cirugias']['resultado']);
+        $this->assertSame($antes, $this->snapshot());
+        // Artefacto con datos ficticios para contrastar la proyección JS con el servidor.
+        file_put_contents(storage_path('fuentes-'.$situacion.'.json'), json_encode([
+            'expresiones' => $expresiones, 'entrada' => $entrada, 'clinica' => $resultado->datosClinicos,
+        ], JSON_THROW_ON_ERROR));
+    }
+
+    #[DataProvider('expedientes')]
     public function test_negativas_originales_se_muestran_sin_inferir_resultados_y_sin_escrituras(string $situacion): void
     {
         DB::table('items_declaracion_salud')->where('declaracion_salud_id', $this->declaracion->id)->delete();

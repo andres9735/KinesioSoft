@@ -1,5 +1,13 @@
+@php($baseUX = $versionBase ? [
+        'campos' => $versionBase->only(\App\Data\HistoriaClinica\FuenteDeclaracionParaRevision::CAMPOS),
+        'bloques' => collect(\App\Services\HistoriaClinica\ValidarDatosAperturaHistoriaClinica::TIPOS)->mapWithKeys(fn ($titulo, $tipo) => [$tipo => [
+            'resultado' => $versionBase->relevamientos[$tipo] ?? 'NO_RELEVADO',
+            'items' => $versionBase->items->where('tipo', $tipo)->map(fn ($item) => $item->only(['descripcion', 'procedencia', 'estado_codificacion']))->values()->all(),
+        ]])->all(),
+        'familia' => ['resultado' => $versionBase->resultado_nucleo_familiar],
+    ] : null)
 @if (!($redisenioRevision ?? false))
-        <form method="POST" action="{{ route('historia-clinica.revision.preview', ['turno' => $turno->id, 'declaracion' => $declaracion->id]) }}" class="space-y-6" x-data="revisionDeclaracion(@js($fuente->bloques), @js($entrada))">
+        <form method="POST" action="{{ route('historia-clinica.revision.preview', ['turno' => $turno->id, 'declaracion' => $declaracion->id]) }}" class="space-y-6" x-data="revisionDeclaracion(@js($fuente->bloques), @js($entrada), @js(['base' => $baseUX]))">
             @csrf
             <input type="hidden" name="contexto" value="{{ $contexto }}">
             <input type="hidden" name="propuesta" :value="JSON.stringify(contrato())">
@@ -82,14 +90,6 @@
         </form>
 
 @else
-@php($baseUX = $versionBase ? [
-        'campos' => $versionBase->only(\App\Data\HistoriaClinica\FuenteDeclaracionParaRevision::CAMPOS),
-        'bloques' => collect(\App\Services\HistoriaClinica\ValidarDatosAperturaHistoriaClinica::TIPOS)->mapWithKeys(fn ($titulo, $tipo) => [$tipo => [
-            'resultado' => $versionBase->relevamientos[$tipo] ?? 'NO_RELEVADO',
-            'items' => $versionBase->items->where('tipo', $tipo)->map(fn ($item) => $item->only(['descripcion', 'procedencia', 'estado_codificacion']))->values()->all(),
-        ]])->all(),
-        'familia' => ['resultado' => $versionBase->resultado_nucleo_familiar],
-    ] : null)
 @php($contextoUX = ['redisenio' => true, 'base' => $baseUX, 'especialidades' => $especialidades->pluck('id')->all(), 'errores' => $erroresRevision->messages()])
 <form id="revision-formulario" method="POST" action="{{ route('historia-clinica.revision.preview', ['turno' => $turno->id, 'declaracion' => $declaracion->id]) }}"
     x-data="revisionDeclaracion(@js($fuente->bloques), @js($entrada), @js($contextoUX))"

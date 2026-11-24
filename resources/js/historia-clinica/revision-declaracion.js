@@ -200,7 +200,16 @@ function presentacionRevision(originales, contexto) {
         mensajes(campo) {
             return this.progreso().problemas.filter(p => p.campo === campo && p.error).flatMap(p => p.mensajes);
         },
-        progreso() {
+        resumenFuentes(tipo) {
+            return this.progreso(true).fuentes[tipo];
+        },
+        respuestaAntecedentesGenerales() {
+            const respuesta = originales.antecedentes?.respuesta;
+            return respuesta === 'no' ? 'Antecedentes generales: el paciente declaró No.'
+                : respuesta === 'si' ? 'Antecedentes generales: el paciente declaró Sí.'
+                    : 'Antecedentes generales: sin respuesta original Sí/No disponible.';
+        },
+        progreso(incluirFuentes = false) {
             const problemas = new Map();
             const dependientes = new Set();
             const agregar = (seccion, campo, mensaje, inconsistencia = false) => {
@@ -227,6 +236,16 @@ function presentacionRevision(originales, contexto) {
             };
             const entrada = this.contrato();
             const base = contexto.base ?? null;
+            // Proyección visual opcional del mismo recorrido; no cambia el contrato ni el diagnóstico.
+            const fuentes = incluirFuentes ? Object.fromEntries(tipos.map(tipo => [tipo, {
+                declaracion: { items: [], respuesta: listas.includes(tipo) ? originales[tipo]?.respuesta ?? null : null,
+                    general: ['personales', 'familiares'].includes(tipo),
+                    dictamen: entrada.dictamenes[['personales', 'familiares'].includes(tipo) ? 'antecedentes' : tipo].dictamen },
+                previa: { existe: !!base, sustituida: this.sustituciones.includes(tipo),
+                    resultado: base?.bloques?.[tipo]?.resultado ?? null,
+                    items: (base?.bloques?.[tipo]?.items ?? []).map(item => ({ ...item })) },
+                complemento: { resultado: entrada.complemento_profesional.bloques[tipo]?.resultado ?? '', cantidad: 0 },
+            }])) : null;
             requerido('salud', 'especialidad_id', this.especialidad_id, 'Seleccioná la especialidad.');
             if (texto(this.especialidad_id) && contexto.especialidades && !contexto.especialidades.map(String).includes(String(this.especialidad_id))) agregar('salud', 'especialidad_id', 'Seleccioná una especialidad vigente.', true);
             requerido('salud', 'procedencia_relevamiento', this.procedencia_relevamiento, 'Seleccioná la procedencia general.');
@@ -281,7 +300,12 @@ function presentacionRevision(originales, contexto) {
                         if (item.item_origen_id !== null && item.item_origen_id !== '' && !(originales[bloque]?.items ?? []).some(i => String(i.item_origen_id) === String(item.item_origen_id))) agregar(seccion, `${ruta}.item_origen_id`, 'El ítem debe pertenecer a la declaración original.', true);
                     });
                 }
-                for (const item of items) if (admitidos[item.tipo_destino]) admitidos[item.tipo_destino].push({ descripcion: texto(item.descripcion), procedencia: item.procedencia ?? 'REFERIDO_PACIENTE', estado_codificacion: 'PENDIENTE_CODIFICACION' });
+                for (const item of items) if (admitidos[item.tipo_destino]) {
+                    const clinico = { descripcion: texto(item.descripcion), procedencia: item.procedencia ?? 'REFERIDO_PACIENTE', estado_codificacion: 'PENDIENTE_CODIFICACION' };
+                    admitidos[item.tipo_destino].push(clinico);
+                    if (fuentes) fuentes[item.tipo_destino].declaracion.items.push({ ...clinico,
+                        dictamen: decision.dictamen, item_origen_id: item.item_origen_id ?? null });
+                }
             }
             for (const tipo of tipos) {
                 const previo = this.sustituciones.includes(tipo) ? null : base?.bloques?.[tipo];
@@ -298,6 +322,7 @@ function presentacionRevision(originales, contexto) {
                     if (aporte.resultado === 'INFORMADO') {
                         // El mínimo existente descarta filas sin descripción al normalizar.
                         const items = aporte.items.filter(i => texto(i.descripcion));
+                        if (fuentes) fuentes[tipo].complemento.cantidad = items.length;
                         if (!items.length) agregar('complementos', `bloques.${tipo}.items`, 'Agregá al menos un antecedente con descripción.');
                         items.forEach(item => {
                             const indice = aporte.items.indexOf(item);
@@ -347,8 +372,13 @@ function presentacionRevision(originales, contexto) {
                 : pendientes.some(p => p.seccion === s.id) || dependientes.has(s.id) ? 'Pendiente' : 'Completa' }));
             const contadores = Object.fromEntries(dictamenesPermitidos.map(d => [d, Object.values(this.dictamenes).filter(v => v.dictamen === d).length]));
             const completas = secciones.filter(s => s.estado === 'Completa').length;
+            if (fuentes) for (const tipo of tipos) {
+                const bloque = ['personales', 'familiares'].includes(tipo) ? 'antecedentes' : tipo;
+                fuentes[tipo].requiereRevision = pendientes.some(p => p.campo.startsWith(`dictamenes.${bloque}.`)
+                    || p.campo.startsWith(`bloques.${tipo}.`) || p.campo === `sustituciones_base.${tipo}`);
+            }
             return { secciones, problemas: pendientes, contadores, completas, porcentaje: completas * 25,
-                ambiguos: pendientes.filter(p => !p.seccion) };
+                ambiguos: pendientes.filter(p => !p.seccion), ...(fuentes ? { fuentes } : {}) };
         },
     };
 }

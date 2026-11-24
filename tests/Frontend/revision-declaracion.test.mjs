@@ -9,6 +9,143 @@ const originales = {
     altura_cm: { valor: '170.25' },
 };
 
+test('certificación M04 Observar retira el antecedente histórico sin alterar original ni relevamiento', () => {
+    const datos = structuredClone(originales);
+    const estado = revisionDeclaracion(datos);
+    const antes = structuredClone(datos);
+    estado.dictamenes.antecedentes.dictamen = 'VALIDAR';
+    estado.dictamenes.antecedentes.clasificacion[10] = 'personales';
+    estado.bloques.personales.resultado = 'DESCONOCIDO';
+    const complemento = structuredClone(estado.bloques);
+    assert.equal(estado.resumenFuentes('personales').declaracion.items[0].descripcion, 'Antecedente original');
+    estado.dictamenes.antecedentes.dictamen = 'OBSERVAR';
+    estado.dictamenes.antecedentes.justificacion = 'Requiere aclaración ficticia';
+    assert.deepEqual(estado.resumenFuentes('personales').declaracion.items, []);
+    assert.equal(estado.contrato().dictamenes.antecedentes.justificacion, 'Requiere aclaración ficticia');
+    assert.deepEqual(datos, antes);
+    assert.deepEqual(estado.bloques, complemento);
+});
+
+test('certificación M04 edita y retira aportes sin duplicar el original ni contaminar el contrato', () => {
+    const estado = revisionDeclaracion(structuredClone(originales));
+    estado.dictamenes.antecedentes.dictamen = 'VALIDAR';
+    estado.dictamenes.antecedentes.clasificacion[10] = 'personales';
+    estado.bloques.personales.resultado = 'INFORMADO';
+    estado.agregarAporte('personales');
+    Object.assign(estado.bloques.personales.items[0], { descripcion: 'Aporte diferente', procedencia: 'RELEVAMIENTO_PROFESIONAL' });
+    assert.deepEqual(estado.bloques.personales.items.map(i => i.descripcion), ['Aporte diferente']);
+    assert.equal(estado.resumenFuentes('personales').declaracion.items.length, 1);
+    assert.equal(estado.resumenFuentes('personales').complemento.cantidad, 1);
+    estado.bloques.personales.items[0].descripcion = 'Aporte editado';
+    assert.equal(estado.contrato().complemento_profesional.bloques.personales.items[0].descripcion, 'Aporte editado');
+    const antes = structuredClone(estado.contrato());
+    estado.resumenFuentes('personales');
+    assert.deepEqual(estado.contrato(), antes);
+    estado.bloques.personales.items.splice(0, 1);
+    assert.equal(estado.resumenFuentes('personales').complemento.cantidad, 0);
+    assert.equal(estado.resumenFuentes('personales').declaracion.items.length, 1);
+    assert.deepEqual(estado.contrato().complemento_profesional.bloques.personales.items, []);
+});
+
+test('UX-M04 proyecta originales y correcciones dinámicamente sin mutar contrato ni progreso', () => {
+    const estado = revisionDeclaracion({ ...originales, alergias: { respuesta: 'si', items: [{ item_origen_id: 15, descripcion: 'Original' }] } });
+    const comprobar = () => {
+        const contrato = structuredClone(estado.contrato());
+        const progreso = structuredClone(estado.progreso());
+        const fuente = estado.resumenFuentes('alergias');
+        assert.deepEqual(estado.contrato(), contrato);
+        assert.deepEqual(estado.progreso(), progreso);
+        assert.deepEqual(estado.bloques.alergias.items, []);
+        return fuente;
+    };
+    estado.dictamenes.alergias.dictamen = 'VALIDAR';
+    assert.equal(comprobar().declaracion.items[0].descripcion, 'Original');
+    assert.equal(comprobar().declaracion.items[0].dictamen, 'VALIDAR');
+    estado.dictamenes.alergias.dictamen = 'CORREGIR';
+    Object.assign(estado.dictamenes.alergias.correccion.items[0], { descripcion: 'Corregido', procedencia: 'RELEVAMIENTO_PROFESIONAL' });
+    assert.equal(comprobar().declaracion.items[0].descripcion, 'Corregido');
+    assert.equal(comprobar().declaracion.items[0].dictamen, 'CORREGIR');
+    assert.equal(comprobar().declaracion.items[0].item_origen_id, 15);
+    estado.dictamenes.alergias.correccion.items[0].descripcion = 'Corrección actualizada';
+    assert.equal(comprobar().declaracion.items[0].descripcion, 'Corrección actualizada');
+    for (const dictamen of ['OBSERVAR', 'DESCARTAR']) {
+        estado.dictamenes.alergias.dictamen = dictamen;
+        estado.dictamenes.alergias.justificacion = 'Exclusión justificada';
+        assert.deepEqual(comprobar().declaracion.items, []);
+    }
+    estado.dictamenes.alergias.dictamen = 'VALIDAR';
+    assert.equal(comprobar().declaracion.items[0].descripcion, 'Original');
+});
+
+test('UX-M04 conserva negativas e históricos sin inferir resultados ni clasificaciones', () => {
+    const estado = revisionDeclaracion({ ...originales, antecedentes: { respuesta: 'no', items: [] },
+        alergias: { respuesta: 'no', items: [] }, cirugias: { items: [] } });
+    estado.dictamenes.antecedentes.dictamen = 'VALIDAR';
+    estado.dictamenes.alergias.dictamen = 'VALIDAR';
+    assert.equal(estado.respuestaAntecedentesGenerales(), 'Antecedentes generales: el paciente declaró No.');
+    for (const tipo of ['personales', 'familiares']) {
+        const fuente = estado.resumenFuentes(tipo);
+        assert.deepEqual(fuente.declaracion.items, []);
+        assert.equal(fuente.declaracion.respuesta, null);
+        assert.equal(fuente.complemento.resultado, '');
+    }
+    assert.equal(estado.resumenFuentes('alergias').declaracion.respuesta, 'no');
+    assert.equal(estado.resumenFuentes('cirugias').declaracion.respuesta, null);
+    assert.deepEqual(estado.contrato().complemento_profesional.bloques, {});
+    const historica = revisionDeclaracion(originales);
+    historica.dictamenes.antecedentes.dictamen = 'VALIDAR';
+    assert.match(historica.respuestaAntecedentesGenerales(), /sin respuesta original/);
+    assert.deepEqual(historica.resumenFuentes('personales').declaracion.items, []);
+    historica.dictamenes.antecedentes.clasificacion[10] = 'personales';
+    assert.equal(historica.resumenFuentes('personales').declaracion.items[0].descripcion, 'Antecedente original');
+    historica.dictamenes.antecedentes.clasificacion[10] = 'familiares';
+    assert.deepEqual(historica.resumenFuentes('personales').declaracion.items, []);
+    assert.equal(historica.resumenFuentes('familiares').declaracion.items[0].item_origen_id, 10);
+    assert.equal(historica.resumenFuentes('familiares').declaracion.respuesta, null);
+});
+
+test('UX-M04 distingue versión real, sustituciones y aportes activos sin copiar registros', () => {
+    for (const contexto of [{}, { base: null }]) {
+        const estado = revisionDeclaracion(originales, {}, contexto);
+        assert.equal(estado.resumenFuentes('alergias').previa.existe, false);
+        assert.equal(estado.resumenFuentes('alergias').previa.resultado, null);
+    }
+    const base = basePrevia();
+    base.bloques.alergias = { resultado: 'INFORMADO', items: [{ descripcion: 'Alergia previa', procedencia: 'RELEVAMIENTO_PROFESIONAL', estado_codificacion: 'PENDIENTE_CODIFICACION' }] };
+    const originalBase = structuredClone(base);
+    const estado = completa(base);
+    assert.equal(estado.resumenFuentes('alergias').previa.sustituida, false);
+    assert.equal(estado.resumenFuentes('alergias').previa.items[0].descripcion, 'Alergia previa');
+    estado.sustituciones.push('alergias');
+    assert.equal(estado.resumenFuentes('alergias').previa.sustituida, true);
+    estado.bloques.alergias.resultado = 'INFORMADO';
+    estado.agregarAporte('alergias');
+    Object.assign(estado.bloques.alergias.items[0], { descripcion: 'Aporte nuevo', procedencia: 'REFERIDO_PACIENTE' });
+    const contrato = structuredClone(estado.contrato());
+    assert.equal(estado.resumenFuentes('alergias').complemento.cantidad, 1);
+    assert.deepEqual(estado.contrato(), contrato);
+    assert.equal(estado.bloques.alergias.items.length, 1);
+    estado.bloques.alergias.resultado = 'DESCONOCIDO';
+    assert.equal(estado.resumenFuentes('alergias').complemento.cantidad, 0);
+    assert.deepEqual(estado.contrato().complemento_profesional.bloques.alergias.items, []);
+    estado.sustituciones = [];
+    assert.equal(estado.resumenFuentes('alergias').requiereRevision, true);
+    assert.equal(estado.resumenFuentes('alergias').previa.sustituida, false);
+    assert.deepEqual(base, originalBase);
+});
+
+test('UX-M04 es solo lectura, se actualiza por efecto y presenta contenido con x-text', () => {
+    const plantilla = readFileSync(new URL('../../resources/views/historia-clinica/revision-resumen-fuentes.blade.php', import.meta.url), 'utf8');
+    assert.match(plantilla, /x-effect="fuentes = resumenFuentes/);
+    assert.match(plantilla, /<template x-if="fuentes">/);
+    assert.match(plantilla, /<summary[^>]+aria-label=/);
+    assert.match(plantilla, /data-fuente-resumen="declaracion"/);
+    assert.match(plantilla, /data-fuente-resumen="previa"/);
+    assert.match(plantilla, /data-fuente-resumen="complemento"/);
+    assert.doesNotMatch(plantilla, /<(input|select|textarea)\b|\bx-model\b|\bname=|\bx-html\b/);
+    assert.match(plantilla, /x-text="item.descripcion/);
+});
+
 test('no convierte listas vacías en ausencia ni clasifica automáticamente', () => {
     const estado = revisionDeclaracion(originales);
     estado.dictamenes.antecedentes.dictamen = 'VALIDAR';
